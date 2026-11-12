@@ -1,0 +1,26 @@
+# tools/kb/config.toml: settings for Collab Kit in The Lighthouse (a sample project; see README.md).
+
+[project]
+name = "The Lighthouse"
+short = "the lighthouse book"
+slug = "lighthouse"
+about = "a novel in eight chapters about a lighthouse keeper's daughter"
+spoken = ["the lighthouse book", "the novel"]
+author_paths = ["docs"]
+content_word = "manuscript"
+
+[people]
+human = "the author"
+pronouns = ["they", "them", "their"]
+
+[knowledge]
+out_dir = "knowledge"
+
+[concepts]
+kinds = ["character", "place", "object", "motif", "plot-thread", "theme"]
+
+[returns]
+captures_in_git = true
+
+[mirror]
+kind = "none"

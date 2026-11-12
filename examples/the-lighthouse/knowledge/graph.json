@@ -1,0 +1,378 @@
+{
+ "nodes": [
+  {
+   "id": "doc:OL",
+   "type": "document",
+   "title": "Outline",
+   "tier": "prime",
+   "source": "docs/outline.md",
+   "sections": 2,
+   "words": 191
+  },
+  {
+   "id": "doc:CA",
+   "type": "document",
+   "title": "Characters",
+   "tier": "foundation",
+   "source": "docs/characters.md",
+   "sections": 5,
+   "words": 120
+  },
+  {
+   "id": "doc:CH",
+   "type": "document",
+   "title": "Chapter four notes",
+   "tier": "deep-dive",
+   "source": "docs/chapter-04.md",
+   "sections": 4,
+   "words": 112
+  },
+  {
+   "id": "doc:C01",
+   "type": "document",
+   "title": "2026-11-10-tobias-and-the-logbook",
+   "tier": "source",
+   "source": "knowledge/captures/2026-11-10-tobias-and-the-logbook.txt",
+   "sections": 1,
+   "words": 150
+  },
+  {
+   "id": "concept:maren-hale",
+   "type": "concept",
+   "title": "Maren Hale",
+   "kind": "character",
+   "status": "active",
+   "aliases": [
+    "Maren",
+    "the keeper's daughter"
+   ],
+   "summary": "The keeper's daughter; the book is hers. Keeps the light alone after her father's death."
+  },
+  {
+   "id": "concept:the-failing-light",
+   "type": "concept",
+   "title": "The failing light",
+   "kind": "motif",
+   "status": "active",
+   "aliases": [
+    "the light",
+    "the jammed clockwork"
+   ],
+   "summary": "The lamp that stays lit while the lens stops turning: a light that is there but no longer warns anyone."
+  },
+  {
+   "id": "concept:the-logbook",
+   "type": "concept",
+   "title": "The logbook",
+   "kind": "object",
+   "status": "active",
+   "aliases": [
+    "Elias's logbook",
+    "the torn page"
+   ],
+   "summary": "Elias's keeper's log; missing on the morning after the storm, in Tobias's hands in chapter six, its last page torn out."
+  },
+  {
+   "id": "concept:tobias-hale",
+   "type": "concept",
+   "title": "Tobias Hale",
+   "kind": "character",
+   "status": "active",
+   "aliases": [
+    "Tobias",
+    "the brother"
+   ],
+   "summary": "Maren's brother, a mechanic who worked on the new clockwork before leaving with the herring fleet."
+  },
+  {
+   "id": "kb:KB-0001",
+   "type": "answer",
+   "title": "Where was Tobias on the night of the storm?"
+  },
+  {
+   "id": "agenda:W-001",
+   "type": "agenda",
+   "title": "Did Tobias know the clockwork would fail?",
+   "kind": "question",
+   "status": "open",
+   "importance": 3,
+   "effort": "session"
+  },
+  {
+   "id": "agenda:W-002",
+   "type": "agenda",
+   "title": "What happens in the winter between chapters six and seven?",
+   "kind": "hole",
+   "status": "open",
+   "importance": 2,
+   "effort": "deep"
+  },
+  {
+   "id": "agenda:W-003",
+   "type": "agenda",
+   "title": "Change chapter four, or explain the logbook another way?",
+   "kind": "decision",
+   "status": "open",
+   "importance": 2,
+   "effort": "session"
+  },
+  {
+   "id": "agenda:W-004",
+   "type": "agenda",
+   "title": "Why does Maren stay on the Point?",
+   "kind": "work-out",
+   "status": "open",
+   "importance": 2,
+   "effort": "session"
+  },
+  {
+   "id": "agenda:W-005",
+   "type": "agenda",
+   "title": "List every mention of the herring fleet in the draft",
+   "kind": "task",
+   "status": "open",
+   "importance": 1,
+   "effort": "quick"
+  }
+ ],
+ "edges": [
+  {
+   "from": "concept:maren-hale",
+   "to": "concept:tobias-hale",
+   "type": "related"
+  },
+  {
+   "from": "concept:maren-hale",
+   "to": "concept:the-failing-light",
+   "type": "related"
+  },
+  {
+   "from": "concept:maren-hale",
+   "to": "doc:CA",
+   "type": "discussed_in",
+   "lines": [
+    3,
+    7
+   ],
+   "files": [
+    "CA-02-maren-hale.md"
+   ]
+  },
+  {
+   "from": "concept:maren-hale",
+   "to": "doc:OL",
+   "type": "discussed_in",
+   "lines": [
+    6,
+    18
+   ],
+   "files": [
+    "OL-02-the-chapters.md"
+   ]
+  },
+  {
+   "from": "concept:the-failing-light",
+   "to": "concept:maren-hale",
+   "type": "related"
+  },
+  {
+   "from": "concept:the-failing-light",
+   "to": "doc:OL",
+   "type": "discussed_in",
+   "lines": [
+    6,
+    18
+   ],
+   "files": [
+    "OL-02-the-chapters.md"
+   ]
+  },
+  {
+   "from": "concept:the-failing-light",
+   "to": "doc:CH",
+   "type": "discussed_in",
+   "lines": [
+    13,
+    16
+   ],
+   "files": [
+    "CH-04-morning.md"
+   ]
+  },
+  {
+   "from": "concept:the-logbook",
+   "to": "concept:tobias-hale",
+   "type": "related"
+  },
+  {
+   "from": "concept:the-logbook",
+   "to": "doc:CH",
+   "type": "discussed_in",
+   "lines": [
+    13,
+    16
+   ],
+   "files": [
+    "CH-04-morning.md"
+   ]
+  },
+  {
+   "from": "concept:the-logbook",
+   "to": "doc:OL",
+   "type": "discussed_in",
+   "lines": [
+    6,
+    18
+   ],
+   "files": [
+    "OL-02-the-chapters.md"
+   ]
+  },
+  {
+   "from": "concept:the-logbook",
+   "to": "doc:C01",
+   "type": "discussed_in",
+   "lines": [
+    1,
+    12
+   ],
+   "files": [
+    "C01-01-topic-tobias-cannot-be-at-sea-in-chapter-four.md"
+   ]
+  },
+  {
+   "from": "concept:tobias-hale",
+   "to": "concept:maren-hale",
+   "type": "related"
+  },
+  {
+   "from": "concept:tobias-hale",
+   "to": "concept:the-logbook",
+   "type": "related"
+  },
+  {
+   "from": "concept:tobias-hale",
+   "to": "doc:CA",
+   "type": "discussed_in",
+   "lines": [
+    8,
+    12
+   ],
+   "files": [
+    "CA-03-tobias-hale.md"
+   ]
+  },
+  {
+   "from": "concept:tobias-hale",
+   "to": "doc:CH",
+   "type": "discussed_in",
+   "lines": [
+    8,
+    12
+   ],
+   "files": [
+    "CH-03-where-tobias-was.md"
+   ]
+  },
+  {
+   "from": "concept:tobias-hale",
+   "to": "doc:C01",
+   "type": "discussed_in",
+   "lines": [
+    1,
+    12
+   ],
+   "files": [
+    "C01-01-topic-tobias-cannot-be-at-sea-in-chapter-four.md"
+   ]
+  },
+  {
+   "from": "kb:KB-0001",
+   "to": "concept:tobias-hale",
+   "type": "about"
+  },
+  {
+   "from": "kb:KB-0001",
+   "to": "concept:the-logbook",
+   "type": "about"
+  },
+  {
+   "from": "kb:KB-0001",
+   "to": "doc:CH",
+   "type": "cites",
+   "lines": [
+    8,
+    12
+   ],
+   "files": [
+    "CH-03-where-tobias-was.md"
+   ]
+  },
+  {
+   "from": "kb:KB-0001",
+   "to": "doc:CH",
+   "type": "cites",
+   "lines": [
+    13,
+    16
+   ],
+   "files": [
+    "CH-04-morning.md"
+   ]
+  },
+  {
+   "from": "kb:KB-0001",
+   "to": "doc:C01",
+   "type": "cites",
+   "lines": [
+    1,
+    12
+   ],
+   "files": [
+    "C01-01-topic-tobias-cannot-be-at-sea-in-chapter-four.md"
+   ]
+  },
+  {
+   "from": "agenda:W-001",
+   "to": "agenda:W-003",
+   "type": "blocks"
+  },
+  {
+   "from": "agenda:W-001",
+   "to": "doc:CH",
+   "type": "refers_to",
+   "files": [
+    "CH-03-where-tobias-was.md"
+   ]
+  },
+  {
+   "from": "agenda:W-002",
+   "to": "doc:OL",
+   "type": "refers_to",
+   "files": [
+    "OL-02-the-chapters.md"
+   ]
+  },
+  {
+   "from": "agenda:W-003",
+   "to": "doc:CH",
+   "type": "refers_to",
+   "files": [
+    "CH-03-where-tobias-was.md"
+   ]
+  },
+  {
+   "from": "agenda:W-005",
+   "to": "agenda:W-003",
+   "type": "blocks"
+  },
+  {
+   "from": "agenda:W-005",
+   "to": "doc:OL",
+   "type": "refers_to",
+   "files": [
+    "OL-02-the-chapters.md"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+# The kit has no package dependencies (Python standard library and macOS shell tools), so the only
+# ecosystem to watch is the GitHub Actions the workflows use, pinned by commit hash.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,0 +1,31 @@
+# Knowledge base manifest: which documents belong to the official set of The Lighthouse.
+# Adding a document = adding an entry here, then `python3 tools/kb/kb.py build`.
+
+[[documents]]
+code = "OL"
+title = "Outline"
+source = "docs/outline.md"
+tier = "prime"
+about = "The whole book, one chapter per line."
+
+[[documents]]
+code = "CA"
+title = "Characters"
+source = "docs/characters.md"
+tier = "foundation"
+about = "Who is in the book and what each one wants."
+
+[[documents]]
+code = "CH"
+title = "Chapter four notes"
+source = "docs/chapter-04.md"
+tier = "deep-dive"
+about = "Draft notes for the night the light went out."
+
+# Returns from conversations: C01, C02, ... in date order.
+[[collections]]
+pattern = "knowledge/captures/[0-9]*.txt"
+prefix = "C"
+tier = "source"
+about = "A return from a conversation, exactly as it arrived through _returns/."
+chunking = "packed"

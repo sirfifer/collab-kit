@@ -1,0 +1,40 @@
+# Knowledge base manifest: which documents belong to the official set of {{name}}.
+#
+# Every document listed here is split into loadable sections under {{out}}/documents/,
+# gets a contents page, a full copy under {{out}}/full/, and an entry in {{out}}/01-INDEX.md.
+# Adding a document to the knowledge base = adding an entry here, then `python3 tools/kb/kb.py build`.
+# Project settings (names, tiers, mirror, schedule) are in tools/kb/config.toml, not here.
+#
+# Fields
+#   code        Short, stable document code. Section files are named CODE-NN-slug.md and
+#               references use CODE or CODE#heading-slug. Never reuse or rename a code.
+#   title       Human title.
+#   source      Repo-relative path of the authored document. The source is the truth; the
+#               {{out}}/ copies are generated from it.
+#   tier        One of the tiers in tools/kb/config.toml: {{tier_list}}
+#   about       One line: what this document is for. Shown in the index.
+#   chunking    "sections" (default): every ## heading starts a section file; long ones split at ###.
+#               "packed": headings are packed greedily into ~max_words files (transcripts, raw text).
+#   max_words   Optional per-document override of [knowledge].max_words in config.toml.
+#   optional    true = a missing source is a note, not an error (e.g. a file not yet committed).
+#
+# Collections ([[collections]]) register every file matching a glob, numbered in sorted order
+# (prefix "S" gives S01, S02, ...). Only for append-only folders, so codes never shift.
+# recent = true lists the collection's newest files in 02-RECENT.md.
+
+# ── Documents ──────────────────────────────────────────────────────────────────────────────
+# [[documents]]
+# code = "OV"
+# title = "Project Overview"
+# source = "docs/overview.md"
+# tier = "prime"
+# about = "The whole project in one document, complete enough to stand on its own."
+
+# ── Returns from conversations (required by the return channel) ───────────────────────────
+# Codes in date order: C01, C02, ... so concepts, answers, and agenda items can cite a return.
+[[collections]]
+pattern = "{{out}}/captures/[0-9]*.txt"
+prefix = "C"
+tier = "source"
+about = "A return from a conversation, exactly as it arrived through _returns/."
+chunking = "packed"

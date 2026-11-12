@@ -1,0 +1,30 @@
+# owner-profile.toml: an EXAMPLE owner profile. Copy it somewhere private (your dotfiles, a private
+# config repo), fill in your own values, and pass it to `install.py init --profile <path>` or set
+# KB_KIT_PROFILE. It only supplies defaults for `init`; everything ends up in each project's
+# tools/kb/config.toml, where it can be changed. Never commit your real profile to a public repo.
+
+[people]
+human = "Alex"                          # the person the agenda waits on
+pronouns = ["they", "them", "their"]    # or ["he", "him", "his"], ["she", "her", "her"]
+
+[project]
+# one line every project's agent files repeat about how to make changes
+worktree_note = "Work on a branch or worktree, not the main checkout."
+
+[mirror]
+# the one Drive folder holding every project's knowledge folder; the preference line in the
+# Claude app points here, so it never changes when a project is added
+parent = "Project Knowledge"
+# substrings a mirror account or path may never contain (an old work account, say)
+refuse = ["old-employer.example"]
+# Google Drive for desktop names an account's folder by one of its addresses; list the others
+account_aliases_for = { "alex@example.com" = ["a.lee@example.com"] }
+
+[curator]
+# where the nightly curator worktree goes; {repo} and {slug} are filled in per project
+# (default: <state_dir>/curator)
+# worktree = "~/src/kb-curators/{repo}"
+
+[schedule]
+label_prefix = "com.example"            # launchd labels: <prefix>.<slug>-kb-nightly / -returns
+# state_dir = "~/.local/state/{slug}-kb"
