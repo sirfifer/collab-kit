@@ -1,7 +1,6 @@
 # Collab Kit 0.5: design record
 
-Working record of the 0.5 design, 2026-11-14. Each decision is marked **Decided** (by the owner)
-or **Proposed** (from review and simulation, awaiting the owner). Folded into [DESIGN.md](DESIGN.md) when 0.5
+Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
 ## What 0.4 could not do
@@ -141,7 +140,7 @@ What exists:
 
 **Decided for 0.5:** the cloud folder is the base; the own app is recorded as a future upgrade.
 
-### 7. One source of truth per unit, one direction per folder (Proposed)
+### 7. One source of truth per unit, one direction per folder (Decided)
 
 Found by all four simulations. Every unit (the top level, or a project) has a home: a repository or
 the cloud folder.
@@ -153,7 +152,7 @@ the cloud folder.
 - The back end **never deletes** in the cloud. Anything unexpected moves to `_returns/strays/` and
   becomes an agenda item. A git checkout never lives inside a synced folder.
 
-### 8. The back end is scripts, and only scripts (Decided), with a real grammar (Proposed)
+### 8. The back end is scripts, and only scripts (Decided), with a real grammar (Decided)
 
 The conversation does the thinking; the back end files. Returns carry a versioned `Changes v1:` block.
 Simulation showed the first sketch was far too small for real returns, so v1 covers:
@@ -170,29 +169,29 @@ with the effects); only the block right after the header is parsed; curly quotes
 are normalised; dates are absolute (the conversation reads them back); a change naming an item
 repeats part of its title as a check; every return has a unique id and ends with `End.`.
 
-**The 0.4 AI curator (Proposed):** leaves the base product. Scripts take the mechanical part
+**The 0.4 AI curator (Decided):** leaves the base product. Scripts take the mechanical part
 (exactly which concepts and answers went stale when a document changed; registering new documents)
 and raise one "review these" agenda item per project. The judgment part becomes an optional reviewer
 whose only output is a return through the same parser.
 
-### 9. Runners (Decided: one engine; Proposed: the list)
+### 9. Runners (Decided)
 
 | Runner | 0.5 |
 |---|---|
 | A machine (laptop or always-on), macOS launchd; Linux systemd | build |
 | GitHub Actions, hourly (fits the free tier on a private repository) | build |
-| Claude Code scheduled cloud sessions | **proposed: drop.** All four reviews: it puts an AI between incoming text and the credentials |
+| Claude Code scheduled cloud sessions | **dropped.** It would put an AI between incoming text and the credentials (all four reviews) |
 | A container | later |
 
 - **One runner at a time:** a lease file in the cloud folder; any other runner exits. Only the back
   end mints item numbers, never reused. A backup runner is advanced configuration.
 - **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
   only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
-  runner. Cloud runners read the API (rclone or the standard library: open).
+  runner. Cloud runners reach the API through rclone (decided, subject to the dependency intake review).
 - **Health is visible:** the top-level start file says, in plain words, when the back end last ran,
   when it runs next, and what failed.
 
-### 10. The person hears what matters first (Proposed)
+### 10. The person hears what matters first (Decided)
 
 The top-level start file carries the back end's health, anything due within a week, and anything
 that failed to file. The conversation raises these first, unprompted. The agenda read aloud is
@@ -210,7 +209,7 @@ capped (top items, then "N more"); inactive projects collapse to one line.
    case-insensitive uniqueness), creates everything from a resumable journal, and reports on the
    agenda: ready, or why not.
 
-### 12. Sharing and privacy (Proposed)
+### 12. Sharing and privacy (Decided)
 
 A project's inbox can change only that project. When a project is shared, returns from anyone but
 the owner become proposals. A per-project confidential setting keeps raw captures out of anything
@@ -233,7 +232,7 @@ instruction files in each folder, which any assistant reads.
   Which Drive tools voice exposes is undocumented: the owner's spoken test settles it.
 - **ChatGPT, Gemini:** research in progress.
 
-### 15. Moving from 0.4 (Proposed)
+### 15. Moving from 0.4 (Decided)
 
 A script: unload the old jobs; refuse while curator work is unmerged; move folders and rewrite
 paths; leave a pointer file in `Project Knowledge`; sweep its old `_returns` and the interim
@@ -244,9 +243,15 @@ paths; leave a pointer file in `Project Knowledge`; sweep its old `_returns` and
 Several machines, teams and roles, the container runner, routing a stray return to the right
 project, notifications outside a conversation.
 
-## Open, for the owner
+## Delivery (Decided 2026-11-14)
 
-2. The Proposed sections (7 to 12, 15), as a set or with changes.
-3. Dropping the Claude Code cloud runner.
-4. rclone or the standard library for the Drive API.
-5. The Monday cut.
+| When | What |
+|---|---|
+| **Tonight** | The architecture is final for 0.5 (this record), so the article can be written against it and dogfooding starts on a stable base. |
+| **Sunday night** | Working: the layout; the top-level inbox, agenda, and knowledge; versioning by name; starting a project by voice; the owner's projects moved over; the Studio as the back end; GitHub Actions if it holds; a healthy public repository with an install script. |
+| **Next (named in the article)** | OneDrive; the own app for an on-device folder (Android first); ChatGPT and Gemini, as the research allows. |
+
+## Open
+
+- The ChatGPT and Gemini path (research in progress).
+- rclone's intake review (license, maintenance, known vulnerabilities, its own security posture).
