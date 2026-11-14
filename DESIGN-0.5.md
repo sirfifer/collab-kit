@@ -3,6 +3,10 @@
 Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
+**Status: the 0.5 architecture is defined (2026-11-14).** Every decision below is made. What remains
+open does not change the architecture: which assistants beyond Claude can use it (an interface
+question, research in progress) and rclone's dependency intake review.
+
 ## What 0.4 could not do
 
 Every channel belonged to a project that already existed. Nothing could start new work, nothing
