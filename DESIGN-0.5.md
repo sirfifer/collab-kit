@@ -3,7 +3,7 @@
 Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
-**Status: the 0.5 architecture is defined (2026-11-14).** Every decision below is made. What remains
+**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation.** Every decision below is made. What remains
 open does not change the architecture: which assistants beyond Claude can use it (an interface
 question, research in progress) and rclone's dependency intake review.
 
@@ -241,6 +241,51 @@ instruction files in each folder, which any assistant reads.
 A script: unload the old jobs; refuse while curator work is unmerged; move folders and rewrite
 paths; leave a pointer file in `Project Knowledge`; sweep its old `_returns` and the interim
 `_inbox` (accepting its `Inbox: home` line) for 30 days.
+
+### 16. Rules from the second simulation round (Decided)
+
+All four second-round simulations: lockable, with these rules.
+
+**Editing (all levels):**
+- Create first, retire second: write the new content under the original name, then move the older
+  file to `_versions/`. If a name has more than one live file, the newest by Drive's `createdTime`
+  is current, and whoever sees the others moves them to `_versions/`. A dropped call leaves a
+  duplicate that heals, never a missing file.
+- Before writing, check that the file read is still the current one (same id and modified time);
+  if not, re-read and re-apply.
+- After every create, check the file's type; a native format is moved aside and recreated as plain
+  text.
+- Find files by listing their folder, never by searching all of Drive; the preference line names
+  the `Collab Kit` folder.
+- Version names use Drive's UTC time with seconds; versions are ordered by creation time.
+
+**Level 1 (no back end):**
+- Each agenda item is its own file; the agenda list is the folder listing.
+- A new item takes the highest listed number plus one; after creating, re-list, and the later of
+  two duplicates renumbers itself.
+- The conversation writes its changes as a return first, applies them, then marks the return
+  applied: a ledger, a way to finish an interrupted change, and a clean path to level 2.
+- A short "due soon" section in the top-level start file, updated when a due date is set.
+
+**Repository-homed units:** the start file says "do not edit here; file a return". The mirror keeps
+a hash of what it wrote; a cloud file that no longer matches is saved as a return before it is
+overwritten. Mirroring uses copy, never sync, and skips `_versions/`.
+
+**Native formats:** Collab Kit never manages, writes, or stores native formats. A person may still
+ask a conversation to read one of their own Docs; that is ordinary Drive use, outside Collab Kit.
+
+**Before the Studio back end goes live:** the lease and item counter live in git where a unit has a
+repository; the back end works in its own clone (outside `~/dev` and outside Drive) with a standing
+authorization to push `collab-kit/` only; Claude Code files returns instead of minting numbers; an
+explicit path map for migration; a generated list of every repository for the new-project checks;
+each project's visibility checked, with a deny-list guard against private material in public
+repositories; runs verify the Google account.
+
+**Public-release work is dogfooded.** Everything the reviews raised about other people's use
+(setup without a terminal, sharing, migration logistics, the runner repository at level 2, bot
+credentials, keeping more versions of documents, moving items between projects) becomes agenda items
+in the collab-kit project, worked through with Collab Kit itself. Sharing is not claimed in 0.5
+until it is worked out.
 
 ## Out of scope for 0.5
 
