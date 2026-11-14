@@ -123,9 +123,23 @@ third-party connectors and no connector of our own.
 in-place update plus the same `_versions/` copy, and nothing else changes. Where a connector already
 updates in place (OneDrive), the same rule applies: copy to `_versions/`, then update.
 
-**Open (research in progress): the folder on the phone itself.** Android first, then iOS: whether
-the assistant can work over a folder on the device, by voice, or what a small app of our own would
-need to provide (an upgrade, not the base). The cloud folder stays the base until that is settled.
+**The folder on the phone itself (research, 2026-11-14).** Not possible with the stock apps today:
+the Claude app on Android and iOS has no access to the phone's files or a chosen folder, connectors
+run in Anthropic's cloud and cannot reach the phone, and Gemini and ChatGPT only take one-off
+attachments. Android's on-device equivalent of connectors (AppFunctions) is an experimental preview.
+What exists:
+
+- **A copy of the folder kept on the phone** (Android: a sync app such as Syncthing-Fork or a
+  FolderSync-type app; iOS: iCloud "Keep Downloaded" cannot reach Drive), while the assistant still
+  works through the cloud connector. Gives an offline copy, not on-device work.
+- **iOS Siri + Shortcuts:** dictate, read a file, "Ask Claude", append the reply to a file, speak it.
+  Hands-free single turns over files on the phone; not a conversation. Worth a hand test.
+- **Our own app (an upgrade, Android first):** folder access granted once by the user, the Claude API
+  with file tools, speech in and out (Anthropic has no speech API, so a speech service too). The only
+  route to the whole structure on the device, by voice. Later it can offer its tools to other
+  assistants (Android AppFunctions, iOS App Intents).
+
+**Decided for 0.5:** the cloud folder is the base; the own app is recorded as a future upgrade.
 
 ### 7. One source of truth per unit, one direction per folder (Proposed)
 
@@ -232,7 +246,6 @@ project, notifications outside a conversation.
 
 ## Open, for the owner
 
-1. The folder on the phone (6): research in progress.
 2. The Proposed sections (7 to 12, 15), as a set or with changes.
 3. Dropping the Claude Code cloud runner.
 4. rclone or the standard library for the Drive API.
