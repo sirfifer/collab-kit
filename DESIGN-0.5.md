@@ -1,6 +1,7 @@
 # Collab Kit 0.5: design record
 
-Working record of the 0.5 design, decided 2026-11-14. Folded into [DESIGN.md](DESIGN.md) when 0.5
+Working record of the 0.5 design, 2026-11-14. Each decision is marked **Decided** (by the owner)
+or **Proposed** (from review and simulation, awaiting the owner). Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
 ## What 0.4 could not do
@@ -68,110 +69,163 @@ is mixed inside the top repository either way. Moving a project to its own repos
 construction; the kit's own repository is `collab-kit`. Projects keep the naming rule: a project's
 folder is named exactly like its repository.
 
-### 4. The back end is scripts, and only scripts
+### 4. Open formats only: a cloud drive is just a drive (Decided)
 
-The conversation does the thinking and writes returns that state every change explicitly. The back
-end files them exactly, rebuilds the generated files, and reports. It never interprets.
+Everything Collab Kit stores is an open, portable file: `.md`, `.txt`, `.html`, `.csv`, `.json`,
+images and the like. Never Google Docs, Sheets, or Slides, or any other service's native format.
 
-A return gains a `Changes:` section of plain instructions, for example:
+Verified 2026-11-14 with the Claude Google Drive connector: creating a text file **converts it to a
+Google Doc by default** (the test file came out as an empty Google Doc); with
+`disableConversionToGoogleType` set, it is a real `.md` file and reads back correctly. So every
+instruction file tells the assistant to create files with conversion disabled, and anything in a
+native format is refused, never processed.
 
-```
-Changes:
-  capture
-  log W-002: shade is a schedule, not a property of a bed
-  status W-004 done
-  new-item work-out "How should the plan describe shade?" importance 3 due 2026-12-01
-  new-project "garden planner" name garden-planner spoken "the garden"
-```
+### 5. The ladder: start with a folder, upgrade one step at a time (Decided)
 
-The scripts check the format and apply each instruction; anything that does not parse is refused
-and becomes an agenda item. Consequences:
+| Level | What it is | Who does the filing |
+|---|---|---|
+| 1 | **A folder in a cloud drive.** The base product. | the conversation, with the person present |
+| 2 | + a back end (a machine, or a scheduled cloud run) | scripts |
+| 3 | + the top level in a repository | scripts |
+| 4 | + each project in its own repository | scripts |
 
-- deterministic and fully testable;
-- text from outside has no AI to persuade: most of 0.4's curator fence is no longer needed;
-- changes no AI decided go straight to the main branch: no merge waiting at the machine;
-- rewriting summaries when documents change is judgment, so it becomes an agenda item
-  ("these documents changed; review them") instead of an overnight pass.
+Each step up is one migration (a script or skill), never a rebuild. Files only on the phone are not a
+level: the Claude app has no persistent access to the phone's files or iCloud Drive (research,
+2026-11-14), so a cloud folder is the floor.
 
-The 0.4 AI curator leaves the base product. (Open: keep it as an advanced option?)
+**One set of operations, two ways to apply them.** The operations (create an item, set a field,
+log, settle, add knowledge, start a project, ...) are defined once. At level 1 the conversation
+applies them itself, following the instruction files. At level 2 and up the conversation writes
+them into a return and scripts apply them. Same names, same rules, same results.
 
-### 5. One engine, several runners
+### 6. What a conversation can do to files (verified, and the editing question)
 
-The same scripts run everywhere; only a thin runner differs, through one environment interface
-(where storage is, how to reach it, where the repositories are, credentials).
+Verified 2026-11-14 with the Claude Google Drive connector (typed; voice still to be tested by the
+owner): search and list by folder, read, create a plain file, create a folder, rename, move, and
+trash. **It cannot change an existing file's content.** The connector is built and run by Google;
+its `update_file` changes only metadata (name, folder, star, lock). Google's own Drive MCP reference
+(developer preview) lists no content-update tool either. This is a gap in Google's connector today,
+not a Drive limit: the Drive API can replace a file's content in place.
 
-| Runner | Status for 0.5 |
+Ways to edit, under the open-formats rule (**Proposed; owner to choose**):
+
+| Option | Edits in place | Cost | Risk |
+|---|---|---|---|
+| **A. Versions by name** with Google's connector: write `agenda.v4.md`, move `v3` to `_versions/`, keep three | no (new file each time) | none | file ids change; readers take the highest version |
+| **B. OneDrive** through Anthropic's Microsoft 365 connector: "create and update files", personal accounts on Free to Ultra | **yes** (documented) | none | rename/move and voice not yet verified |
+| **C. Collab Kit's own small connector** (a remote MCP server, e.g. a Cloudflare Worker) over the Drive or OneDrive API: read, write, replace content, list, move | **yes** | hosting and an OAuth app per person | one user reported custom connectors failing in voice (July 2026); must be tested. The same server would give ChatGPT a way in |
+| D. Wait for Google to add content updates | yes, someday | none | not in our control |
+
+The kit can support A everywhere on day one and use B or C where present; the operations do not
+change, only how a "replace this file" is carried out.
+
+### 7. One source of truth per unit, one direction per folder (Proposed)
+
+Found by all four simulations. Every unit (the top level, or a project) has a home: a repository or
+the cloud folder.
+
+- **Home is a repository:** `knowledge/` and `agenda/` flow repository to cloud; `_returns/` flows
+  cloud to repository. Returns are applied in the repository, committed, and mirrored out.
+- **Home is the cloud folder:** the cloud folder is the truth for everything; git, if any, keeps a
+  one-way history of it.
+- The back end **never deletes** in the cloud. Anything unexpected moves to `_returns/strays/` and
+  becomes an agenda item. A git checkout never lives inside a synced folder.
+
+### 8. The back end is scripts, and only scripts (Decided), with a real grammar (Proposed)
+
+The conversation does the thinking; the back end files. Returns carry a versioned `Changes v1:` block.
+Simulation showed the first sketch was far too small for real returns, so v1 covers:
+
+- **items:** new (with a temporary handle, `new-item @headcount ...`), set any field, log, settle
+  with an outcome, snooze, withdraw, reopen;
+- **knowledge:** new or updated concept and answer, proposal against a document, register a document;
+- **the project:** spoken names, about, active or inactive; start a project;
+- **undo** of a whole earlier return;
+- multi-line text in fenced bodies.
+
+Rules: a return is applied whole or not at all, and at most once (a ledger of applied returns, kept
+with the effects); only the block right after the header is parsed; curly quotes, bullets and bold
+are normalised; dates are absolute (the conversation reads them back); a change naming an item
+repeats part of its title as a check; every return has a unique id and ends with `End.`.
+
+**The 0.4 AI curator (Proposed):** leaves the base product. Scripts take the mechanical part
+(exactly which concepts and answers went stale when a document changed; registering new documents)
+and raise one "review these" agenda item per project. The judgment part becomes an optional reviewer
+whose only output is a return through the same parser.
+
+### 9. Runners (Decided: one engine; Proposed: the list)
+
+| Runner | 0.5 |
 |---|---|
 | A machine (laptop or always-on), macOS launchd; Linux systemd | build |
-| GitHub Actions, scheduled | build: no machine at all |
-| Claude Code scheduled cloud sessions | build: no machine at all |
-| A container (Fly.io, Cloudflare Containers, a VPS) | later |
+| GitHub Actions, hourly (fits the free tier on a private repository) | build |
+| Claude Code scheduled cloud sessions | **proposed: drop.** All four reviews: it puts an AI between incoming text and the credentials |
+| A container | later |
 
-The two cloud runners have no Google Drive for desktop, so storage goes behind an interface: a
-local folder (Drive for desktop, or any synced folder) or the storage service's API. The API
-adapter is new work; it is the same work that lets storage other than Google Drive in later.
-(Open: Python standard library against the Drive API, or rclone as the kit's first dependency.)
+- **One runner at a time:** a lease file in the cloud folder; any other runner exits. Only the back
+  end mints item numbers, never reused. A backup runner is advanced configuration.
+- **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
+  only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
+  runner. Cloud runners read the API (rclone or the standard library: open).
+- **Health is visible:** the top-level start file says, in plain words, when the back end last ran,
+  when it runs next, and what failed.
 
-### 6. Working without the back end
+### 10. The person hears what matters first (Proposed)
 
-The folder is the record. Conversations treat returns not yet filed as real, recent state. The back
-end writes a "last run" note at the top; a conversation can say "the back end has not run since
-Tuesday; four returns and a project request are waiting". Catching up is idempotent and in order.
+The top-level start file carries the back end's health, anything due within a week, and anything
+that failed to file. The conversation raises these first, unprompted. The agenda read aloud is
+capped (top items, then "N more"); inactive projects collapse to one line.
 
-### 7. Starting a project, by voice
+### 11. Starting a project, by voice (Decided)
 
-1. An idea lives as a top-level agenda item (kind `project`), named or not, growing over
-   conversations.
-2. "I'm ready to make it real." The conversation, guided by a skill, reads the top-level knowledge
-   and checks: does this overlap a project that exists, or one already done; is the name unique.
-   It spells the name back.
-3. It files a return with a `new-project` change.
-4. The back end re-checks the name against storage and repositories, creates the project (folder,
-   `collab-kit/` with its seed, and in "projects separate" mode a private repository if
-   configured), carries the idea's agenda item over as the project's first document and first
-   items, and puts the result on the top-level agenda: ready, or why not.
+1. An idea lives as a top-level agenda item (kind `project`), named or not.
+2. "I'm ready to make it real." The conversation checks the top-level knowledge: does this overlap a
+   project that exists or one already done (answers: new, part of that one, or **related but kept
+   separate**), and is the name unique. It spells the name back.
+3. Level 1: the conversation creates the folders itself. Level 2+: it files a `new-project` change,
+   accepted only from the top-level inbox and only from an existing project item, at most a few per
+   day; the back end validates the name (ASCII, lowercase, a strict pattern, reserved words,
+   case-insensitive uniqueness), creates everything from a resumable journal, and reports on the
+   agenda: ready, or why not.
 
-No step needs a computer.
+### 12. Sharing and privacy (Proposed)
 
-### 8. Skills where there is judgment, scripts underneath
+A project's inbox can change only that project. When a project is shared, returns from anyone but
+the owner become proposals. A per-project confidential setting keeps raw captures out of anything
+shared. Public repositories never get captures in git. The top-level repository must be private,
+checked every run. A project's files contain nothing from outside the project.
 
-Procedures that need judgment are skills: filing a return, starting a project, moving a project to
-its own repository, reviewing the agenda, reviewing changed documents. Every mechanical step inside
-them is a script. Skills are a Claude feature; the portable truth stays in the instruction files
-inside each `collab-kit/` folder, which any assistant reads.
+### 13. Skills where there is judgment, scripts underneath (Decided)
 
-### 9. Assistants other than Claude
+Skills: file a return, start a project, move a project up a level (folder to repository), review the
+agenda, review changed documents. Every mechanical step inside is a script. The portable truth is the
+instruction files in each folder, which any assistant reads.
 
-Goal: Claude and ChatGPT from day one. The requirement is that an assistant can read and **write**
-files in the folder during a conversation, in voice. Research in progress; this section records
-the verified answer and the day-one path.
+### 14. Storage services and assistants (research, 2026-11-14)
+
+- **Google Drive:** level 1 works (no in-place edit, see 6).
+- **OneDrive:** Anthropic's Microsoft 365 connector reads and **creates and updates files**,
+  personal accounts included (connect on the web first). The second storage service.
+- **iCloud Drive:** no connector. **Dropbox, Box:** connectors exist; write behaviour unverified.
+- **Claude voice mode** uses connected tools (official since 2026-07-23; paid plans get all of them).
+  Which Drive tools voice exposes is undocumented: the owner's spoken test settles it.
+- **ChatGPT, Gemini:** research in progress.
+
+### 15. Moving from 0.4 (Proposed)
+
+A script: unload the old jobs; refuse while curator work is unmerged; move folders and rewrite
+paths; leave a pointer file in `Project Knowledge`; sweep its old `_returns` and the interim
+`_inbox` (accepting its `Inbox: home` line) for 30 days.
 
 ## Out of scope for 0.5
 
-Several machines (advanced configuration), teams and permissions, the container runner, routing a
-stray return to the right project, renaming or archiving projects by voice.
+Several machines, teams and roles, the container runner, routing a stray return to the right
+project, notifications outside a conversation.
 
-## Tasks
+## Open, for the owner
 
-1. VISION.md (drafted), this record, then DESIGN.md and README.md rewritten for 0.5.
-2. Layout and naming: `Collab Kit/`, `collab-kit/` folders, `projects/`, both source-control modes.
-3. The top level as a unit: its knowledge, inbox, and agenda; the generated cross-project agenda;
-   `due` dates on agenda items everywhere.
-4. Returns with `Changes:`; the scripted filer; refusing what does not parse; removing the AI curator.
-5. The runner interface; macOS and Linux machine runners; the "last run" note.
-6. Storage interface: local folder adapter, Google Drive API adapter.
-7. GitHub Actions runner.
-8. Claude Code scheduled cloud session runner.
-9. Starting a project: the skill, the `new-project` change, the creator script.
-10. Skills: file a return, start a project, move a project to its own repository, review the agenda.
-11. ChatGPT path (from the research).
-12. Migration from 0.4 (`Project Knowledge` to `Collab Kit`, `knowledge/` to `collab-kit/`), and
-    moving this ecosystem: knowledge-distillation-framework, the interim `_inbox`.
-13. Release health: install script, tests in CI, SECURITY.md updated for the scripted back end,
-    CONTRIBUTING, CHANGELOG, SBOMs and attestations, the repository settings.
-
-## Open
-
-- The AI curator as an advanced option, or gone.
-- Drive API in the standard library, or rclone.
-- The ChatGPT path.
+1. Editing (6): versions by name, OneDrive, our own connector, or a mix.
+2. The Proposed sections (7 to 12, 15), as a set or with changes.
+3. Dropping the Claude Code cloud runner.
+4. rclone or the standard library for the Drive API.
+5. The Monday cut.
