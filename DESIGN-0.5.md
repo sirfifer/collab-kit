@@ -89,9 +89,8 @@ native format is refused, never processed.
 | 3 | + the top level in a repository | scripts |
 | 4 | + each project in its own repository | scripts |
 
-Each step up is one migration (a script or skill), never a rebuild. Files only on the phone are not a
-level: the Claude app has no persistent access to the phone's files or iCloud Drive (research,
-2026-11-14), so a cloud folder is the floor.
+Each step up is one migration (a script or skill), never a rebuild. Whether the folder can live on the phone itself (Android first) is being researched; until then a
+cloud folder is the floor.
 
 **One set of operations, two ways to apply them.** The operations (create an item, set a field,
 log, settle, add knowledge, start a project, ...) are defined once. At level 1 the conversation
@@ -107,17 +106,26 @@ its `update_file` changes only metadata (name, folder, star, lock). Google's own
 (developer preview) lists no content-update tool either. This is a gap in Google's connector today,
 not a Drive limit: the Drive API can replace a file's content in place.
 
-Ways to edit, under the open-formats rule (**Proposed; owner to choose**):
+**Decided: editing is versioning by name.** Without in-place editing, "edit" and "keep a version"
+become the same act, which is also the version history that units without source control need:
 
-| Option | Edits in place | Cost | Risk |
-|---|---|---|---|
-| **A. Versions by name** with Google's connector: write `agenda.v4.md`, move `v3` to `_versions/`, keep three | no (new file each time) | none | file ids change; readers take the highest version |
-| **B. OneDrive** through Anthropic's Microsoft 365 connector: "create and update files", personal accounts on Free to Ultra | **yes** (documented) | none | rename/move and voice not yet verified |
-| **C. Collab Kit's own small connector** (a remote MCP server, e.g. a Cloudflare Worker) over the Drive or OneDrive API: read, write, replace content, list, move | **yes** | hosting and an OAuth app per person | one user reported custom connectors failing in voice (July 2026); must be tested. The same server would give ChatGPT a way in |
-| D. Wait for Google to add content updates | yes, someday | none | not in our control |
+1. Rename the current file to its version name and move it to the folder's `_versions/`
+   (`agenda.md` becomes `_versions/agenda.2026-11-14T1530.md`).
+2. Create the new content under the original name, with conversion disabled.
+3. Keep the last three versions per file in `_versions/`; trash older ones.
 
-The kit can support A everywhere on day one and use B or C where present; the operations do not
-change, only how a "replace this file" is carried out.
+Consequences, stated as rules: a file's **name** is its identity, never its Drive id (ids change on
+every edit); readers ignore `_versions/`; if step 2 fails, step 1 is undone by renaming back. Two
+conversations editing one file: the later one wins and the earlier is in `_versions/`. No
+third-party connectors and no connector of our own.
+
+**Watched:** Google adding content updates to its Drive connector. When it does, editing becomes an
+in-place update plus the same `_versions/` copy, and nothing else changes. Where a connector already
+updates in place (OneDrive), the same rule applies: copy to `_versions/`, then update.
+
+**Open (research in progress): the folder on the phone itself.** Android first, then iOS: whether
+the assistant can work over a folder on the device, by voice, or what a small app of our own would
+need to provide (an upgrade, not the base). The cloud folder stays the base until that is settled.
 
 ### 7. One source of truth per unit, one direction per folder (Proposed)
 
@@ -224,7 +232,7 @@ project, notifications outside a conversation.
 
 ## Open, for the owner
 
-1. Editing (6): versions by name, OneDrive, our own connector, or a mix.
+1. The folder on the phone (6): research in progress.
 2. The Proposed sections (7 to 12, 15), as a set or with changes.
 3. Dropping the Claude Code cloud runner.
 4. rclone or the standard library for the Drive API.
