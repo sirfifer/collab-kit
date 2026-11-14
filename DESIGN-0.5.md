@@ -13,28 +13,39 @@ or months without touching the back end) failed on all three.
 
 ### 1. The name is Collab Kit, everywhere
 
-The top folder in storage is `Collab Kit` (was `Project Knowledge`). The folder that holds a unit's
-three channels is `collab-kit/` (was `knowledge/` in the repository and the bare project folder in
-Drive). "Knowledge" now means only the knowledge channel.
+The product, the repository, and the top folder in storage are all Collab Kit (the folder was
+`Project Knowledge`). Inside a project, the folder holding the project's channels is `collab-kit/`,
+in storage and in the repository alike (it was `knowledge/` in the repository and the bare project
+folder in Drive). "Knowledge" now means only the knowledge channel.
 
-### 2. The layout
+### 2. The layout (settled 2026-11-14)
 
 ```
-Collab Kit/
-  00-START-HERE.md          the one file an assistant is pointed at
-  collab-kit/               the top level's three channels
-    CLAUDE.md, 01-INDEX.md, agenda/, _returns/, concepts/, documents/, ...
+Collab Kit/                    the system's folder, wherever the person keeps it
+  00-START-HERE.md             the one file an assistant is pointed at
+  _returns/                    the top-level inbox
+  agenda/                      the top-level agenda
+  knowledge/                   the top-level knowledge (one file, or many)
   projects/
     <project>/
-      collab-kit/           the project's three channels
-      ...                   everything else about the project, if it lives in storage
+      collab-kit/              the project's channels, shaped like the top level
+        00-START-HERE.md
+        _returns/
+        agenda/
+        knowledge/
+      ...                      the project itself, if it lives here (documents, music, data, anything)
 ```
 
-Every level is the same shape: a folder holding a `collab-kit/` folder plus its own contents. For
-the top level, its contents are `projects/`. A person browsing sees three things at the top.
-
-The top level needs no name. A conversation that names no project is at the top level: "what's on
-my agenda", "I have an idea for something new".
+- **The top level is the system.** Its channels sit at the top, beside `projects/`.
+- **A project folder is the project.** `collab-kit/` is how it is collaborated on; everything beside
+  it is the project itself. A project with its own repository usually has only `collab-kit/` here,
+  a copy of the repository's `collab-kit/` folder. A project without one keeps all of itself here.
+- **The back end only ever writes inside the channel folders** (and the start files). It never
+  touches a project's own files, so there are no reserved names in a project.
+- **Moving a project into a repository later:** the project's own files move to the repository;
+  `collab-kit/` stays and becomes the copy of the repository's `collab-kit/`.
+- **The top level needs no name.** A conversation that names no project is at the top level: "what's
+  on my agenda", "I have an idea for something new".
 
 **The top level's channels:**
 
