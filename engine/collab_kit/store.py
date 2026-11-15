@@ -201,16 +201,22 @@ class FolderStore(Store):
 
 
 class RcloneStore(Store):
-    """A cloud folder through rclone (e.g. remote 'gdrive:Collab Kit'). Untested against a live
-    remote until the rclone intake review is done and rclone is installed (see docs)."""
+    """A cloud folder through rclone (e.g. remote 'gdrive:Collab Kit'), under the conditions of
+    docs/rclone-intake.md: the pinned version only (rclone.lock), six commands only, argument lists
+    (no shell), inherited RCLONE_* settings stripped, a dedicated config, fail closed on duplicate
+    names, writes that keep the Drive file id (rcat, or copyto from a local file over 90 KiB)."""
 
     label = "rclone"
+    SPOOL_OVER = 90 * 1024
 
-    def __init__(self, remote: str, rclone: str = "rclone", extra: list[str] | None = None):
+    def __init__(self, remote: str, rclone: str = "rclone", config: str | None = None, check_version: bool = True):
         self.remote = remote.rstrip("/")
         self.rclone = rclone
-        # Never convert uploads to a native format; ignore any rclone config that would.
-        self.extra = ["--drive-import-formats", "", *(extra or [])]
+        self.config = config or os.environ.get("COLLAB_KIT_RCLONE_CONFIG", "")
+        self.flags = ["--ask-password=false", "--drive-import-formats", "", "--drive-use-trash=true"]
+        if self.config:
+            self.flags = ["--config", self.config, *self.flags]
+        self._checked = not check_version
 
     def __repr__(self):
         return f"RcloneStore({self.remote})"
@@ -219,15 +225,35 @@ class RcloneStore(Store):
         check_rel(rel)
         return f"{self.remote}/{rel}" if rel else self.remote
 
+    def _env(self) -> dict:
+        return {k: v for k, v in os.environ.items() if not k.startswith("RCLONE_")}
+
+    def _check_version(self) -> None:
+        if self._checked:
+            return
+        import tomllib
+        want = tomllib.loads((Path(__file__).with_name("rclone.lock")).read_text(encoding="utf-8"))["version"]
+        try:
+            res = subprocess.run([self.rclone, "version"], capture_output=True, text=True, timeout=60, env=self._env())
+        except FileNotFoundError:
+            raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
+        first = (res.stdout.splitlines() or [""])[0].strip()
+        if first != f"rclone {want}":
+            raise StoreError(f"rclone must be {want} (rclone.lock); this is '{first[:60]}'")
+        self._checked = True
+
     def _run(self, args: list[str], data: str | None = None) -> str:
-        cmd = [self.rclone, *args, *self.extra]
+        if args[0] not in ("lsjson", "cat", "rcat", "copyto", "moveto", "mkdir"):
+            raise StoreError(f"rclone {args[0]} is not one of the commands Collab Kit uses")
+        self._check_version()
+        cmd = [self.rclone, *args, *self.flags]
         try:
             res = subprocess.run(cmd, input=data, capture_output=True, text=True, encoding="utf-8",
-                                 timeout=300)
+                                 timeout=300, env=self._env())
         except FileNotFoundError:
             raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
         except subprocess.TimeoutExpired:
-            raise StoreError(f"rclone timed out: {' '.join(args[:2])}") from None
+            raise StoreError(f"rclone timed out: {args[0]}") from None
         if res.returncode != 0:
             raise StoreError(f"rclone {args[0]} failed: {res.stderr.strip()[:400]}")
         return res.stdout
@@ -242,24 +268,42 @@ class RcloneStore(Store):
         items = json.loads(out or "[]")
         res: dict[str, Entry] = {}
         for it in items:
-            mt = it.get("MimeType", "")
-            e = Entry(it["Name"], it["Name"], bool(it.get("IsDir")), 0.0, int(it.get("Size") or 0),
-                      native=mt.startswith(NATIVE_MIME) and mt != NATIVE_MIME + "folder")
-            if e.name in res and not e.is_dir:
-                raise StoreError(f"two files are named {_join(rel, e.name)}; heal the duplicate first")
+            size = int(it.get("Size") if it.get("Size") is not None else 0)
+            # Google Docs, Sheets, Slides appear under an export name with size -1 (rclone docs).
+            e = Entry(it["Name"], it["Name"], bool(it.get("IsDir")), 0.0, max(size, 0),
+                      native=(not it.get("IsDir")) and size < 0)
+            mod = it.get("ModTime")
+            if mod:
+                try:
+                    import datetime as _dt
+                    e.mtime = _dt.datetime.fromisoformat(mod.replace("Z", "+00:00")).timestamp()
+                except ValueError:
+                    pass
+            if e.name in res:
+                raise StoreError(f"two items are named {_join(rel, e.name)}; heal the duplicate first")
             res[e.name] = e
         return sorted(res.values(), key=lambda e: e.name)
 
     def read(self, rel: str) -> str | None:
-        try:
-            return self._run(["cat", self._r(rel)])
-        except StoreError as e:
-            if "not found" in str(e).lower():
-                return None
-            raise
+        e = self.entry(rel)
+        if e is None or e.is_dir:
+            return None
+        if e.native:
+            raise StoreError(f"{rel} is a Google-native file; Collab Kit never reads those")
+        return self._run(["cat", self._r(rel)])
 
     def write(self, rel: str, text: str) -> None:
-        self._run(["rcat", self._r(rel)], data=text)
+        if len(text.encode("utf-8")) <= self.SPOOL_OVER:
+            self._run(["rcat", self._r(rel)], data=text)
+            return
+        import tempfile
+        fd, tmp = tempfile.mkstemp(prefix="collab-kit-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(text)
+            self._run(["copyto", tmp, self._r(rel)])
+        finally:
+            os.unlink(tmp)
 
     def copy(self, src: str, dst: str) -> None:
         if self.exists(dst):
