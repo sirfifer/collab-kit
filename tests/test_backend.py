@@ -100,6 +100,13 @@ class BackEnd(unittest.TestCase):
         self.run_pass()
         self.assertEqual(len(self.s.files("_versions")), versions)
 
+    def test_wrong_account_refuses(self):
+        self.cfg["backend"]["account"] = "someone@example.com"
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"x\"\nEnd.\n")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 2)
+        self.assertTrue(self.s.exists("_returns/t1.md"), "nothing applied under the wrong account")
+
     def test_lease(self):
         from collab_kit.text import utcnow
         import datetime as dt

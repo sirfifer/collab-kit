@@ -24,6 +24,7 @@ Config (TOML, `ck backend run --config FILE`; default <config dir>/backend.toml)
     human = "Sam"
     local_roots = ["~/dev", "~/projects"]  # folder names there count as taken project names
     deny = ["secret-codename"]            # never push a diff that mentions these (regexes)
+    account = "sam@example.com"           # the Google account the folder must belong to (checked every run)
 
     [[project]]                           # only projects whose home is a repository
     name = "garden-planner"
@@ -112,6 +113,8 @@ class Pass:
         self.local_roots = [Path(C.expand(p)) for p in b.get("local_roots", [])]
         self.deny = [re.compile(x, re.I) for x in b.get("deny", [])]
         self.repos = {p["name"]: p for p in cfg.get("project", [])}
+        self.account = b.get("account", "")
+        self.cloud_spec = C.expand(b["cloud"])
         self.me = f"{socket.gethostname()}:{os.getpid()}"
         self.dry = dry_run
         self.problems: list[str] = []
@@ -410,8 +413,30 @@ class Pass:
         if not self.dry:
             self.write_if_changed(self.top, f"{KNOWLEDGE}/repositories.md", body)
 
+    def check_account(self) -> str | None:
+        """Why this folder may not be the configured account's, or None. A Drive for desktop path
+        names its account; an rclone remote is asked."""
+        if not self.account:
+            return None
+        if self.cloud_spec.startswith("rclone:"):
+            remote = self.cloud_spec[len("rclone:"):].split(":", 1)[0] + ":"
+            try:
+                res = subprocess.run(["rclone", "config", "userinfo", remote], capture_output=True, text=True, timeout=60)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return f"cannot ask rclone which account {remote} is: {e}"
+            if self.account.lower() not in res.stdout.lower():
+                return f"the rclone remote {remote} is not {self.account}"
+            return None
+        if self.account.lower() not in self.cloud_spec.lower():
+            return f"the folder {self.cloud_spec} does not name the account {self.account}"
+        return None
+
     # ---- the pass
     def run(self) -> int:
+        wrong = self.check_account()
+        if wrong:
+            print(f"PROBLEM: refusing to run: {wrong}")
+            return 2
         if not self.dry and not take_lease(self.cloud, self.me, max(self.interval - 5, 10)):
             print("collab-kit back end: another runner holds the lease; exiting")
             return 0

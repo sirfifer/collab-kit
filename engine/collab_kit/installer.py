@@ -338,6 +338,7 @@ interval_minutes = 60
 human = {human}
 local_roots = []         # e.g. ["~/dev", "~/projects"]: folder names there count as taken
 deny = []                # regexes a pushed change may never contain
+account = ""             # the Google account the folder must belong to, e.g. "you@example.com" (checked every run)
 
 # One table per project whose home is a repository:
 # [[project]]
