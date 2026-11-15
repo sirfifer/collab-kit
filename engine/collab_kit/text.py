@@ -202,3 +202,19 @@ def one_line(text: str, limit: int = 120) -> str:
     text = " ".join(text.split())
     text = text.replace("<", "‹").replace(">", "›").replace("`", "'")
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+_FENCE_TAG = re.compile(r"<\s*/?\s*collab-kit-data", re.I)
+
+
+def fence_text(text: str) -> str:
+    """Multi-line text from outside, made safe to put inside a fence: control and bidi characters
+    removed, and anything that looks like the fence's own tag neutralised so it cannot close it."""
+    text = _CTRL.sub("", straighten(str(text)).replace("\r\n", "\n").replace("\r", "\n"))
+    return _FENCE_TAG.sub(lambda m: m.group(0).replace("<", "\u2039"), text)
+
+
+def fenced(source: str, body: str) -> str:
+    """Wrap text from outside for an agent's context: one fence, a note saying it is data."""
+    return (f"<collab-kit-data source=\"{one_line(source, 80)}\">\n{FENCE_NOTE}\n"
+            f"{fence_text(body).rstrip()}\n</collab-kit-data>")

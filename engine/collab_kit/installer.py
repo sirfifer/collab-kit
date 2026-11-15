@@ -30,7 +30,7 @@ KIT = ENGINE_DIR.parent.parent                           # the kit checkout
 PROJECT_TEMPLATES = KIT / "templates" / "project"
 MANAGED_LINE = "<!-- managed by Collab Kit {v}: replaced on upgrade; delete this line to make the file your own -->"
 MANAGED_RE = re.compile(r"^<!-- managed by Collab Kit [^>]*-->\n?", re.M)
-HOOK_MARK = "tools/collab-kit/ck.py\" hook"
+HOOK_MARK = "tools/collab-kit/ck"
 USER_HOOK_MARK = "collab-kit-machine"
 BLOCK_NAME = "agents"
 
@@ -74,8 +74,12 @@ def _managed(text: str) -> str:
     return line + "\n" + text
 
 
+EXECUTABLE = {"tools/collab-kit/ck"}
+
+
 def _engine_files() -> dict[str, bytes]:
-    files = {"tools/collab-kit/ck.py": (ENGINE_DIR.parent / "ck.py").read_bytes()}
+    files = {"tools/collab-kit/ck.py": (ENGINE_DIR.parent / "ck.py").read_bytes(),
+             "tools/collab-kit/ck": (ENGINE_DIR.parent / "ck").read_bytes()}
     for p in sorted(ENGINE_DIR.rglob("*")):
         if p.is_dir() or "__pycache__" in p.parts or p.suffix in (".pyc",):
             continue
@@ -125,7 +129,7 @@ def _block_into(path: Path, block: str, title: str, plan: Plan, rel: str) -> Non
 
 
 def install_project(root: Path, *, name: str | None = None, unit: str | None = None, home: str | None = None,
-                    human: str | None = None, python: str = "python3", dry: bool = False) -> Plan:
+                    human: str | None = None, python: str = "", dry: bool = False) -> Plan:
     root = root.resolve()
     plan = Plan(root, dry)
     pfile = root / C.PROJECT_FILE
@@ -154,6 +158,8 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
             if not dry:
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_bytes(data)
+        if rel in EXECUTABLE and not dry and os.name != "nt":
+            p.chmod(0o755)
     eng = root / "tools" / "collab-kit" / "collab_kit"
     if eng.is_dir():
         for p in sorted(eng.rglob("*")):
@@ -173,7 +179,7 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
     sp = root / ".claude" / "settings.json"
     settings = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
     before = json.dumps(settings, sort_keys=True)
-    cmd = python + ' "$CLAUDE_PROJECT_DIR/tools/collab-kit/ck.py" hook {}'
+    cmd = 'sh "$CLAUDE_PROJECT_DIR/tools/collab-kit/ck" hook {}'
     merge_hooks(settings, {"SessionStart": cmd.format("session-start"), "Stop": cmd.format("stop")}, HOOK_MARK,
                 matcher={"SessionStart": "startup|resume|clear|compact"})
     if json.dumps(settings, sort_keys=True) != before or not sp.is_file():
@@ -241,10 +247,12 @@ def install_machine(*, cloud_root: str | None, human: str | None, kit_source: st
         sp = claude_settings or Path.home() / ".claude" / "settings.json"
         settings = json.loads(sp.read_text(encoding="utf-8")) if sp.is_file() else {}
         before = json.dumps(settings, sort_keys=True)
-        ck = f'{python} "{(eng / "ck.py").as_posix()}"'
+        ck = f'sh "{(eng / "ck").as_posix()}"'
         merge_hooks(settings, {"PostToolUse": f"{ck} hook touch  # {USER_HOOK_MARK}",
-                               "Stop": f"{ck} hook stop  # {USER_HOOK_MARK}"}, USER_HOOK_MARK,
-                    matcher={"PostToolUse": "Read|Edit|Write|MultiEdit|NotebookEdit"})
+                               "Stop": f"{ck} hook stop  # {USER_HOOK_MARK}",
+                               "SessionStart": f"{ck} hook session-start  # {USER_HOOK_MARK}"}, USER_HOOK_MARK,
+                    matcher={"PostToolUse": "Read|Edit|Write|MultiEdit|NotebookEdit",
+                             "SessionStart": "compact|clear"})
         if json.dumps(settings, sort_keys=True) != before:
             plan.note(f"update {sp}", "user-level hooks: brief a session the first time it touches a Collab Kit project")
             if not dry:

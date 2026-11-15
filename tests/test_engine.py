@@ -246,6 +246,28 @@ class Applying(unittest.TestCase):
         self.assertIn("\"the beds\"", self.top.store.read("knowledge/projects.md"))
         self.assertIn("(inactive)", self.top.store.read("knowledge/projects.md"))
 
+    def test_undo_cannot_write_outside_the_unit(self):
+        """The critical review's attack: a forged ledger, then an undo that climbs out of the folder."""
+        led = json.dumps({"id": "x", "state": "done", "effects": [{
+            "path": "../../../../outside.txt", "unit": "self", "before": "pwned", "after": None,
+            "before_sha": None, "after_sha": None}]})
+        drop(self.garden, "r1.md", f"Project: garden\nChanges v1:\nknowledge evil.ledger.json\n```\n{led}\n```\nEnd.\n")
+        apply_all(self.garden)
+        drop(self.garden, "r2.md", "Project: garden\nChanges v1:\nundo ../../knowledge/evil\nEnd.\n")
+        self.assertEqual(apply_all(self.garden)[0].status, "failed")
+        self.garden.store.write("_returns/applied/forged.ledger.json", led.replace('"x"', '"forged"'))
+        drop(self.garden, "r3.md", "Project: garden\nChanges v1:\nundo forged\nEnd.\n")
+        out = apply_all(self.garden)
+        self.assertEqual(out[0].status, "failed", out[0].message)
+        self.assertRegex(out[0].message, "unsafe path|never writes")
+        self.assertFalse(any(p.name == "outside.txt" for p in self.root.parent.rglob("outside.txt")))
+
+    def test_store_refuses_climbing_paths(self):
+        from collab_kit.store import StoreError
+        for bad in ("../x.md", "a/../../x.md", "/etc/x", "C:/x", "a\\b.md"):
+            with self.subTest(bad=bad), self.assertRaises(StoreError):
+                self.garden.store.write(bad, "x")
+
     def test_drive_alias_names(self):
         drop(self.garden, "r1.md", "Project: garden\nChanges v1:\nnew-item title=\"Alias\"\nEnd.\n")
         apply_all(self.garden)

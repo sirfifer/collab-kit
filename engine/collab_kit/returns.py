@@ -314,6 +314,8 @@ def _parse_change(line: str, lineno: int) -> Change:
         if not words:
             raise ReturnError("'undo' needs the id of the return to undo", lineno)
         ch.ref = words.pop(0)
+        if not ID_RE.match(ch.ref):
+            raise ReturnError(f"'{ch.ref[:60]}' is not a return id", lineno)
     if words:
         raise ReturnError(f"unexpected '{words[0]}'", lineno)
     if quoted:

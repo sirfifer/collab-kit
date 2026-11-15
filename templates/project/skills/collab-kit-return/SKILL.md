@@ -6,29 +6,29 @@ description: File a change to {{name}}'s Collab Kit agenda or knowledge as a ret
 # File a return
 
 Every change to the project's agenda or knowledge is a **return**: a small text file with a
-`Changes v1:` block, checked and filed by `python3 tools/collab-kit/ck.py`. Voice conversations,
+`Changes v1:` block, checked and filed by `tools/collab-kit/ck`. Voice conversations,
 chat, Claude Code sessions, and the back end all use this one format, so nothing collides and
 everything has a ledger (and can be undone).
 
 ## The quick ones
 
 ```bash
-python3 tools/collab-kit/ck.py ask "Which database for the sync service?" --kind decision --importance 2 \
+tools/collab-kit/ck ask "Which database for the sync service?" --kind decision --importance 2 \
     --why "Postgres or SQLite; the choice decides the hosting cost."
-python3 tools/collab-kit/ck.py status "Sync service: first end-to-end run works; retries still missing."
+tools/collab-kit/ck status "Sync service: first end-to-end run works; retries still missing."
 ```
 
 ## Anything else
 
 ```bash
-python3 tools/collab-kit/ck.py return --type note --topic "Sync service retries" \
+tools/collab-kit/ck return --type note --topic "Sync service retries" \
   --change 'log W-012 "sync" "Retries added: three tries, backoff 2s/4s/8s."' \
   --change 'set W-012 "sync" status=in-progress' \
   --change 'new-item kind=task importance=3 title="Load-test the sync service"'
 ```
 
 Longer text goes in a fenced body under its change: put the change lines in a file and pass
-`--changes-file`, or write the whole return to a file and run `ck.py file <path>`.
+`--changes-file`, or write the whole return to a file and run `ck file <path>`.
 
 | Change | Example |
 |---|---|
@@ -45,7 +45,7 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 | undo | `undo <return id>` |
 
 - **Every change to an existing item repeats part of its title in quotes.** That check is what stops
-  a wrong number from changing the wrong item: look the item up first (`ck.py items`, `ck.py show W-012`).
+  a wrong number from changing the wrong item: look the item up first (`ck items`, `ck show W-012`).
 - An `@handle` names an item created earlier in the same return (`log @h "..."`).
 - Dates are full dates (`2026-12-01`). Never write an item number you made up; new items get theirs
   when the return is applied.
@@ -53,7 +53,7 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 ## What happens next
 
-`ck.py` prints where the return went: applied at once (no back end runs, so it applies it
+`ck` prints where the return went: applied at once (no back end runs, so it applies it
 itself; in a repository-homed project, commit `collab-kit/` with your work), or filed for the back
 end, which applies it within the hour. A refused return says exactly why (a failed title check,
 an unknown item, a bad date): fix it and file again. Never edit the agenda's files by hand instead.

@@ -1751,7 +1751,7 @@ def cmd_agenda(_):
 
 def cmd_new_item(args):
     if not cfg()["knowledge"].get("agenda", True):
-        print("new-item: this project's agenda is kept by Collab Kit 0.5: python3 tools/collab-kit/ck.py ask \"...\"")
+        print("new-item: this project's agenda is kept by Collab Kit 0.5: tools/collab-kit/ck ask \"...\"")
         return 1
     if args.kind not in agenda_kinds():
         print(f"new-item: kind must be one of {', '.join(agenda_kinds())}")

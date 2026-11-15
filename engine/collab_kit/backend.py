@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 from . import config as C
-from .apply import Outcome, apply_file
+from .apply import Outcome, apply_file, heal_duplicates
 from .store import FolderStore, Store, StoreError, SubStore, open_store
 from .templates import get_block, replace_block, set_human
 from .text import one_line, sha, stamp, utcnow
@@ -128,6 +128,9 @@ class Pass:
     # ---- inboxes
     def apply_inbox(self, unit: Unit, top: Unit | None) -> list[Outcome]:
         outs = []
+        if not self.dry:
+            for old, new in heal_duplicates(unit):
+                self.note(f"{unit.name}: two items had {old}; the later one is now {new}")
         for e in unit.pending_returns():
             if self.dry:
                 self.note(f"would apply {unit.name}/{e.name}")

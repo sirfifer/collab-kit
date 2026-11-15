@@ -43,6 +43,15 @@ class StoreError(RuntimeError):
     pass
 
 
+def check_rel(rel: str) -> str:
+    """A store path is relative, uses forward slashes, and never climbs out (.., ., a drive, a root)."""
+    if "\\" in rel or rel.startswith("/") or re.match(r"^[A-Za-z]:", rel) or "\x00" in rel:
+        raise StoreError(f"unsafe path {rel!r}")
+    if any(p in ("..", ".") for p in rel.split("/")):
+        raise StoreError(f"unsafe path {rel!r}")
+    return rel
+
+
 def _join(*parts: str) -> str:
     return "/".join(p.strip("/") for p in parts if p and p.strip("/"))
 
@@ -107,6 +116,7 @@ class FolderStore(Store):
         return f"FolderStore({self.root})"
 
     def _p(self, rel: str) -> Path:
+        check_rel(rel)
         return self.root.joinpath(*[p for p in rel.split("/") if p]) if rel else self.root
 
     def _resolve(self, rel: str) -> Path:
@@ -206,6 +216,7 @@ class RcloneStore(Store):
         return f"RcloneStore({self.remote})"
 
     def _r(self, rel: str) -> str:
+        check_rel(rel)
         return f"{self.remote}/{rel}" if rel else self.remote
 
     def _run(self, args: list[str], data: str | None = None) -> str:
@@ -276,6 +287,7 @@ class SubStore(Store):
         return f"{self.base!r}/{self.prefix}"
 
     def _j(self, rel: str) -> str:
+        check_rel(rel)
         return _join(self.prefix, rel)
 
     def list(self, rel=""):

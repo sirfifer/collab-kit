@@ -139,8 +139,8 @@ class Planner:
         text = self.ov.read(item.path)
         item = _item_from_text(item.path, text)
         if ch.check is not None and fold(ch.check) not in fold(item.title):
-            raise Reject(f"line {ch.line}: title check failed: {ref} is \"{item.title}\", "
-                         f"and \"{ch.check}\" is not part of that title")
+            raise Reject(f"line {ch.line}: title check failed: {ref} is \"{one_line(item.title, 100)}\", "
+                         f"and \"{one_line(ch.check, 60)}\" is not part of that title")
         return item
 
     def tag(self) -> str:
@@ -285,6 +285,9 @@ class Planner:
             raise Reject(f"line {ch.line}: '{target}' was already undone by {led['undone_by']}")
         for eff in reversed(led.get("effects", [])):
             where = eff.get("unit", "self")
+            check_effect_path(str(eff.get("path", "")), where)
+            if not isinstance(eff.get("before"), (str, type(None))):
+                raise Reject(f"line {ch.line}: the ledger of '{target}' is malformed")
             cur = self.ov.read(eff["path"], where)
             if sha_or_none(cur) != eff.get("after_sha"):
                 raise Reject(f"line {ch.line}: cannot undo '{target}': {eff['path']} has changed since")
@@ -315,6 +318,28 @@ class Planner:
 
 def sha_or_none(text):
     return None if text is None else sha(text)
+
+
+_PROJECT_PATH = re.compile(r"^projects/[a-z][a-z0-9-]{0,39}/collab-kit/(?:00-START-HERE\.md|(?:agenda|knowledge|_returns|WIP)/.+)$")
+
+
+def check_effect_path(path: str, where: str) -> None:
+    """Every file a ledger names must be one a return could have written: inside the unit's agenda/
+    or knowledge/, its start file, or (top level only) a new project's folder. A ledger is a file in
+    the shared folder, so it is checked like any other text from outside before it is trusted."""
+    if where not in ("self", "top"):
+        raise Reject(f"a ledger names an unknown unit {where!r}")
+    from .store import StoreError, check_rel
+    try:
+        check_rel(path)
+    except StoreError as e:
+        raise Reject(str(e)) from None
+    parts = path.split("/")
+    if any(p.startswith(".") or p == VERSIONS for p in parts):
+        raise Reject(f"a ledger names a path a return never writes: {path!r}")
+    if path == START or path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")) or _PROJECT_PATH.match(path):
+        return
+    raise Reject(f"a ledger names a path a return never writes: {path!r}")
 
 
 # --------------------------------------------------------------- tables and status --
@@ -448,6 +473,7 @@ def _unit_for(where: str, unit: Unit, top: Unit | None) -> Unit:
 
 def _run_effects(led: dict, unit: Unit, top: Unit | None) -> None:
     for eff in led["effects"]:
+        check_effect_path(eff["path"], eff.get("unit", "self"))
         u = _unit_for(eff.get("unit", "self"), unit, top)
         cur = u.store.read(eff["path"])
         if sha_or_none(cur) == eff["after_sha"]:
@@ -577,3 +603,34 @@ def fenced(label: str, lines: list[str]) -> str:
         return ""
     body = "\n".join(lines)
     return f"<collab-kit-data source=\"{label}\">\n{FENCE_NOTE}\n{body}\n</collab-kit-data>"
+
+
+def heal_duplicates(unit: Unit) -> list[tuple[str, str]]:
+    """Two files with one item number (two conversations took the same number at the same time):
+    the older file keeps it; each later one takes the next free number, with a log line saying so,
+    and its old file goes to _versions/ (DESIGN-0.5 section 16, level 1)."""
+    from .unit import ITEM_FILE_RE
+    files = [e for e in unit.store.files(AGENDA) if ITEM_FILE_RE.match(e.name)]
+    by_num: dict[int, list] = {}
+    for e in files:
+        by_num.setdefault(int(ITEM_FILE_RE.match(e.name).group(1)), []).append(e)
+    healed = []
+    for num, group in sorted(by_num.items()):
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda e: (e.mtime, e.name))
+        for e in group[1:]:
+            used = unit.used_numbers()
+            new = max(used) + 1
+            old_id, new_id = f"W-{num:03d}", f"W-{new:03d}"
+            path = f"{AGENDA}/{e.name}"
+            text = unit.store.read(path) or ""
+            fields, raw, body = split_front_matter(text)
+            item = Item(old_id, num, path, fields, raw, body, text)
+            fixed = edit_item_text(item, {"id": new_id},
+                                   f"renumbered from {old_id}: another item took that number at the same time")
+            new_path = f"{AGENDA}/{new_id}{e.name[len(old_id):]}"
+            unit.store.write(new_path, fixed)
+            retire(unit, path)
+            healed.append((old_id, new_id))
+    return healed
