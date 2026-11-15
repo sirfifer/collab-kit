@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+**New: the kit itself, as an example.** `examples/the-kit-itself/` is a sanitized snapshot of Collab
+Kit's own project (its agenda, applied returns with ledgers, and knowledge), laid out as
+`install.py project --home repo` lays out a repository. `tests/public_example.py refresh` takes a new
+snapshot (generic rules for accounts, paths, and Drive ids; the owner's private never-publish words
+from a file outside the repository); `check` fails, in the tests and before every release, when the
+example is not what this kit generates or reads.
+
+**Returns: a kind word starts a new item.** `task "Order the drip line" importance=2 "What's needed"`
+means `new-item kind=task`; so do `question`, `decision`, `work-out`, and `hole`. A second quoted text on
+a new item is its What's needed. Voice conversations write these unprompted.
+
 ## 0.5.0 (2026-11-15)
 
 The release that makes Collab Kit work from a phone for weeks without touching the back end

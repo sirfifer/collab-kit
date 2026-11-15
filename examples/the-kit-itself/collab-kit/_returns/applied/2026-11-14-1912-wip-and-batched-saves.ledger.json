@@ -1,0 +1,14 @@
+{
+ "id": "2026-11-14-1912-wip-and-batched-saves",
+ "unit": "collab-kit",
+ "grammar": "v1",
+ "state": "done",
+ "applied_at": "2026-11-15T22:44:17+00:00",
+ "from": "Richard",
+ "topic": "WIP folder and batched saves (checkpoint notes instead of versioning every small edit)",
+ "type": "decision",
+ "minted": [],
+ "push_requests": [],
+ "undo_of": null,
+ "effects": []
+}

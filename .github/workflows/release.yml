@@ -20,6 +20,8 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: test "v$(cat VERSION)" = "$TAG"
+      - name: The public example matches this kit (examples/the-kit-itself)
+        run: python3 tests/public_example.py check
       - name: Source archive
         env:
           TAG: ${{ github.ref_name }}

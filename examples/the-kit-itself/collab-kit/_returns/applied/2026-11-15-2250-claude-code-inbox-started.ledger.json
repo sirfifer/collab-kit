@@ -1,0 +1,24 @@
+{
+ "id": "2026-11-15-2250-claude-code-inbox-started",
+ "unit": "collab-kit",
+ "grammar": "v1",
+ "state": "done",
+ "applied_at": "2026-11-15T22:44:57+00:00",
+ "from": "Claude Code on the MacBook (worktree wt/returns-w014-exampl…",
+ "topic": "The collab-kit inbox is processed; work on the public example has started",
+ "type": "status",
+ "minted": [],
+ "push_requests": [],
+ "undo_of": null,
+ "effects": [
+  {
+   "path": "agenda/W-018-public-example-snapshot.md",
+   "unit": "self",
+   "before": "+++\nid = \"W-018\"\ntitle = \"Public example snapshot\"\nkind = \"task\"\nimportance = 3\nstatus = \"open\"\ndue = \"\"\nproject = \"\"\n+++\n\n## What's needed\nBuild what W-014 settled. Proposed approach (Claude's suggestion, Richard said yes to writing it up): a script takes a fresh snapshot of the live Drive folder, sanitizes it (private decisions, account details, anything the private-to-public guard flags), and writes it into the repository's example location; a check fails any release where the example's structure does not match what the kit currently generates. Decide where the example lives in the repository and how sanitizing rules are kept.\n\n## Log\n- 2026-11-15: created (return 2026-11-15-voice-w014-public-example, from Claude voice session with Richard)\n",
+   "after": "+++\nid = \"W-018\"\ntitle = \"Public example snapshot\"\nkind = \"task\"\nimportance = 3\nstatus = \"in-progress\"\ndue = \"\"\nproject = \"\"\n+++\n\n## What's needed\nBuild what W-014 settled. Proposed approach (Claude's suggestion, Richard said yes to writing it up): a script takes a fresh snapshot of the live Drive folder, sanitizes it (private decisions, account details, anything the private-to-public guard flags), and writes it into the repository's example location; a check fails any release where the example's structure does not match what the kit currently generates. Decide where the example lives in the repository and how sanitizing rules are kept.\n\n## Log\n- 2026-11-15: created (return 2026-11-15-voice-w014-public-example, from Claude voice session with Richard)\n- 2026-11-15: Started by Claude Code on the MacBook. The voice return that created this item used 'task \"...\"' in its Changes block, which the grammar refused; the engine now accepts a kind word (task, question, decision, work-out, hole) as a new item, and a second quoted text as What's needed (commit on branch wt/returns-w014-example, test added, 85 tests pass). The voice return itself was applied unchanged. (return 2026-11-15-2250-claude-code-inbox-started, from Claude Code on the MacBook (worktree wt/returns-w014-exampl…)\n- 2026-11-15: set status to in-progress (return 2026-11-15-2250-claude-code-inbox-started, from Claude Code on the MacBook (worktree wt/returns-w014-exampl…)\n",
+   "before_sha": "3e744924ced98797",
+   "after_sha": "16b372177a1f6469",
+   "version": "agenda/_versions/W-018-public-example-snapshot.20261115T224457Z.md"
+  }
+ ]
+}

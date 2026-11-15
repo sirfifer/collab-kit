@@ -1,0 +1,34 @@
+{
+ "id": "2026-11-15-voice-w014-public-example",
+ "unit": "collab-kit",
+ "grammar": "v1",
+ "state": "done",
+ "applied_at": "2026-11-15T22:44:17+00:00",
+ "from": "Claude voice session with Richard",
+ "topic": "W-014, the kit's own Collab Kit folder and the public repository",
+ "type": "decision",
+ "minted": [
+  "W-018"
+ ],
+ "push_requests": [],
+ "undo_of": null,
+ "effects": [
+  {
+   "path": "agenda/W-014-own-collab-kit-folder.md",
+   "unit": "self",
+   "before": "+++\nid = \"W-014\"\ntitle = \"Where Collab Kit's own collab-kit folder lives\"\nkind = \"decision\"\nimportance = 4\nstatus = \"open\"\ndue = \"\"\nproject = \"collab-kit\"\n+++\n\n## What's needed\nCollab Kit's repository is public. When the back end brings this project's `collab-kit/` folder into\nthe repository (its agenda, returns, knowledge, WIP), does that folder go into the public repository,\nor stay private (for example, only in Drive, or in a private repository)?\n\n## What we know so far\n- The other question that got attached here, whether the top level has its own subfolder, is settled\n  (no subfolder; that was already the design).\n- This project's agenda and returns hold Richard's working thoughts, verbatim quotes, and plans.\n\n## Done when\nRichard decides where this project's own `collab-kit/` lives.\n\n## Log\n- 2026-11-14: item created when Collab Kit 0.5 was set up.\n- 2026-11-14: settled by Richard on the top-level subfolder question; see `_returns/2026-11-14-1912-wip-and-batched-saves.md`.\n- 2026-11-15: reopened by the design session: the subfolder question was a different one; the original question (public repository or private) is still open.\n- 2026-11-15: Overnight default (Richard's go-ahead): this project's own channels stay out of the public repository; home is this Drive folder. The kit's install into its own repository is on branch wt/v05-dogfood, separate, because it adds a Collab Kit section to the public CLAUDE.md. (return 2026-11-15-0844-overnight-build-agenda-updates-1406, from Claude Code in collab-kit (wt/v05-dogfood))\n",
+   "after": "+++\nid = \"W-014\"\ntitle = \"Where Collab Kit's own collab-kit folder lives\"\nkind = \"decision\"\nimportance = 4\nstatus = \"settled\"\ndue = \"\"\nproject = \"collab-kit\"\noutcome = \"Richard decided 2026-11-15: the kit's own live channels (agenda, returns, status, WIP) stay out of the public repository; their home is the Drive folder. Instead, the repository carries a static working example laid out exactly as it would sit in someone else's repository. It must be a sanitized snapshot of our real work, not a made-up example. It has to be maintained: any change to the kit that affects folder structure or how things work must be reflected in the example, so it is never stale or contradictory to how the kit actually works.\"\n+++\n\n## What's needed\nCollab Kit's repository is public. When the back end brings this project's `collab-kit/` folder into\nthe repository (its agenda, returns, knowledge, WIP), does that folder go into the public repository,\nor stay private (for example, only in Drive, or in a private repository)?\n\n## What we know so far\n- The other question that got attached here, whether the top level has its own subfolder, is settled\n  (no subfolder; that was already the design).\n- This project's agenda and returns hold Richard's working thoughts, verbatim quotes, and plans.\n\n## Done when\nRichard decides where this project's own `collab-kit/` lives.\n\n## Log\n- 2026-11-14: item created when Collab Kit 0.5 was set up.\n- 2026-11-14: settled by Richard on the top-level subfolder question; see `_returns/2026-11-14-1912-wip-and-batched-saves.md`.\n- 2026-11-15: reopened by the design session: the subfolder question was a different one; the original question (public repository or private) is still open.\n- 2026-11-15: Overnight default (Richard's go-ahead): this project's own channels stay out of the public repository; home is this Drive folder. The kit's install into its own repository is on branch wt/v05-dogfood, separate, because it adds a Collab Kit section to the public CLAUDE.md. (return 2026-11-15-0844-overnight-build-agenda-updates-1406, from Claude Code in collab-kit (wt/v05-dogfood))\n- 2026-11-15: settled: Richard decided 2026-11-15: the kit's own live channels (agenda, returns, status, WIP) stay out of the public repository; their home is the Drive folder. Instead, the repository carries a static working example laid out exactly as it would sit in someone else's repository. It must be a sanitized snapshot of our real work, not a made-up example. It has to be maintained: any change to the kit that affects folder structure or how things work must be reflected in the example, so it is never stale or contradictory to how the kit actually works. (return 2026-11-15-voice-w014-public-example, from Claude voice session with Richard)\n",
+   "before_sha": "2a3083b0396ac9aa",
+   "after_sha": "c5c893b915e2b63b",
+   "version": "agenda/_versions/W-014-own-collab-kit-folder.20261115T224417Z.md"
+  },
+  {
+   "path": "agenda/W-018-public-example-snapshot.md",
+   "unit": "self",
+   "before": null,
+   "after": "+++\nid = \"W-018\"\ntitle = \"Public example snapshot\"\nkind = \"task\"\nimportance = 3\nstatus = \"open\"\ndue = \"\"\nproject = \"\"\n+++\n\n## What's needed\nBuild what W-014 settled. Proposed approach (Claude's suggestion, Richard said yes to writing it up): a script takes a fresh snapshot of the live Drive folder, sanitizes it (private decisions, account details, anything the private-to-public guard flags), and writes it into the repository's example location; a check fails any release where the example's structure does not match what the kit currently generates. Decide where the example lives in the repository and how sanitizing rules are kept.\n\n## Log\n- 2026-11-15: created (return 2026-11-15-voice-w014-public-example, from Claude voice session with Richard)\n",
+   "before_sha": null,
+   "after_sha": "3e744924ced98797"
+  }
+ ]
+}

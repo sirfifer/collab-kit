@@ -12,6 +12,8 @@ current, and put their open questions on the agenda without being asked.
 - Security and reporting a vulnerability: [SECURITY.md](SECURITY.md)
 - The 0.4 knowledge build (documents split into sections, concepts, an index), still included:
   [DESIGN.md](DESIGN.md), and a sample: [examples/the-lighthouse](examples/the-lighthouse/README.md)
+- A real project, as it sits in a repository: Collab Kit's own, sanitized,
+  [examples/the-kit-itself](examples/the-kit-itself/README.md)
 - License: [LICENSE](LICENSE) (MIT)
 
 ## The shape
@@ -130,6 +132,7 @@ systemd, or Task Scheduler.
 ```bash
 python3 -m unittest discover -s tests       # the 0.5 engine, the project side, the back end
 bash tests/dry-run-install.sh                # the 0.4 knowledge build and its guards
+python3 tests/public_example.py check        # the example is what this kit generates and reads (also in the unit tests)
 bash tests/live-native-layer.sh              # opt-in, a few cents: the real Claude Code gets the brief and records its work
 bash tests/live-curator-permissions.sh       # opt-in: the 0.4 curator's fence against the real Claude Code
 ```
