@@ -5,7 +5,34 @@ on:
   pull_request:
 permissions: {}
 jobs:
-  ci:
+  engine:
+    # The 0.5 engine, the project side (hooks, ck, the installer), and the back end, on every
+    # platform Collab Kit supports, with the oldest and newest Python it supports.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit and end-to-end tests
+        run: |
+          git config --global user.name ci && git config --global user.email ci@example.invalid
+          git config --global init.defaultBranch main
+          python -m unittest discover -s tests -v
+  knowledge-build:
+    # The 0.4 knowledge build and its guards (macOS: the launchd runner is part of it).
     runs-on: macos-latest
     permissions:
       contents: read
