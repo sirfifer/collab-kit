@@ -252,10 +252,19 @@ class Pass:
             if f"/{VERSIONS}/" in f"/{rel}" or any(part.startswith(".") for part in rel.split("/")):
                 continue
             want[rel] = p.read_text(encoding="utf-8", errors="replace")
+        first = not written
+        if first:
+            # The first mirror makes the cloud copy exactly the repository's: anything else under
+            # knowledge/ and agenda/ there (an older layout, a hand copy) moves to _versions/, kept.
+            for rel in walk(cloud_unit.store, KNOWLEDGE) + walk(cloud_unit.store, AGENDA):
+                if rel not in want:
+                    dst = f"{VERSIONS}/before-first-mirror/{rel}"
+                    if not cloud_unit.store.exists(dst):
+                        cloud_unit.store.move(rel, dst)
         new_state = {}
         for rel, text in want.items():
             cur = cloud_unit.store.read(rel)
-            if cur is not None and cur != text and sha(cur) != written.get(rel):
+            if not first and cur is not None and cur != text and sha(cur) != written.get(rel):
                 self.save_cloud_edit(name, rel, cur, cloud_unit)
             if cur != text:
                 cloud_unit.store.write(rel, text)
@@ -434,6 +443,17 @@ class Pass:
         for p in self.problems:
             print(f"PROBLEM: {p}")
         return 1 if self.problems else 0
+
+
+def walk(store: Store, prefix: str) -> list[str]:
+    """Every file under prefix (relative paths), skipping _versions/ and hidden names."""
+    out = []
+    for e in store.list(prefix):
+        if e.name.startswith(".") or e.name == VERSIONS:
+            continue
+        rel = f"{prefix}/{e.name}"
+        out += walk(store, rel) if e.is_dir else [rel]
+    return out
 
 
 def load_config(path: str | None) -> dict:

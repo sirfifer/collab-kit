@@ -135,6 +135,16 @@ class BackEnd(unittest.TestCase):
         self.assertTrue(saved, "the cloud edit is kept as a return")
         self.assertTrue(any("edited in the folder" in x for x in p.problems))
 
+    def test_first_mirror_sets_old_layout_aside(self):
+        self.s.write("projects/site/collab-kit/knowledge/agenda/W-001-old.md", "old 0.4 copy\n")
+        self.s.write("projects/site/collab-kit/knowledge/README.md", "an older copy\n")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertFalse(self.s.exists("projects/site/collab-kit/knowledge/agenda/W-001-old.md"))
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_versions/before-first-mirror/knowledge/agenda/W-001-old.md"))
+        self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"), "# site knowledge\n")
+        self.assertFalse([e for e in self.s.files("projects/site/collab-kit/_returns") if "edited" in e.name])
+
     def test_deny_list_blocks_push(self):
         self.drop("projects/site/collab-kit/_returns/r1.md",
                   "Project: site\nChanges v1:\nstatus \"about codename-x\"\nEnd.\n")
