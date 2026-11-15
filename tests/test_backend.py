@@ -283,6 +283,81 @@ class BackEnd(unittest.TestCase):
             sh("git", "-C", str(d), "remote", "add", "origin", url)
             self.assertEqual(p.is_public(d), public, url)
 
+    # ------------------------------------------------------------- from the verification review
+    def push_seed(self, files: dict, symlinks: dict | None = None):
+        seed = self.t / "seed"
+        for rel, text in files.items():
+            (seed / rel).parent.mkdir(parents=True, exist_ok=True)
+            (seed / rel).write_text(text)
+        for rel, target in (symlinks or {}).items():
+            (seed / rel).parent.mkdir(parents=True, exist_ok=True)
+            os.symlink(target, seed / rel)
+        sh("git", "add", "-A", cwd=seed)
+        sh("git", "commit", "-qm", "seed more", cwd=seed)
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=seed)
+
+    def test_symlinks_never_leave_the_repository(self):
+        secret = self.t / "secret.txt"
+        secret.write_text("private\n")
+        self.push_seed({}, {"collab-kit/knowledge/leak.md": str(secret)})
+        self.run_pass()
+        leaked = self.cloud / "projects/site/collab-kit/knowledge/leak.md"
+        self.assertFalse(leaked.exists() and "private" in leaked.read_text())
+
+    def test_non_ascii_names_commit_and_push(self):
+        self.drop("projects/site/collab-kit/_returns/r1.md",
+                  "Project: site\nChanges v1:\nknowledge \"notes/caf\u00e9 menu.md\"\n```\nbeans\n```\nEnd.\n")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertIn("beans", self.origin_text())
+
+    def test_drive_numbered_return_names(self):
+        for n in ("x.md", "x (1).md"):
+            self.drop(f"projects/site/collab-kit/_returns/{n}", f"Project: site\nChanges v1:\nstatus \"from {n}\"\nEnd.\n")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        text = self.origin_text()
+        self.assertIn("from x.md", text)
+        self.assertIn("from x (1).md", text)
+
+    def test_unknown_visibility_blames_no_return(self):
+        self.cfg["project"][0]["allow_public"] = False
+        orig = BE.Pass.is_public
+        BE.Pass.is_public = lambda self, d: True
+        try:
+            self.drop("projects/site/collab-kit/_returns/good.md", "Project: site\nChanges v1:\nstatus \"fine\"\nEnd.\n")
+            p, rc = self.run_pass()
+        finally:
+            BE.Pass.is_public = orig
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/good.md"), "nothing blamed, nothing moved")
+        self.assertTrue(any("not pushed" in x for x in p.problems))
+
+    def test_project_row_change_survives_a_failed_push(self):
+        self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nproject about=\"The new site\"\nEnd.\n")
+        self.reject_pushes(True)
+        self.run_pass()
+        self.reject_pushes(False)
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/applied/r1.md"))
+
+    def test_push_false_follows_the_remote(self):
+        self.cfg["project"][0]["push"] = False
+        self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nstatus \"local\"\nEnd.\n")
+        self.run_pass()
+        self.push_seed({"README.md": "someone else's work\n"})
+        self.drop("projects/site/collab-kit/_returns/r2.md", "Project: site\nChanges v1:\nstatus \"later\"\nEnd.\n")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/applied/r2.md"))
+
+    def test_glob_characters_in_names_stay_out_of_git(self):
+        self.drop("projects/site/collab-kit/_returns/Notes[draft].md", "Project: site\nChanges v1:\nstatus \"draft\"\nEnd.\n")
+        self.run_pass()
+        check = self.t / "check-glob"
+        sh("git", "clone", "-q", str(self.origin), str(check))
+        self.assertFalse([p for p in (check / "collab-kit/_returns").rglob("*") if p.suffix == ".md" and "draft" in p.name.lower()])
+
     def test_inactive_projects_collapse(self):
         self.s.write("projects/old/collab-kit/agenda/W-001-x.md",
                      '+++\nid = "W-001"\ntitle = "Old thing"\nkind = "task"\nimportance = 1\nstatus = "open"\n+++\n')

@@ -76,6 +76,28 @@ class Problem(Exception):
     pass
 
 
+class LeaseLost(Exception):
+    pass
+
+
+def git_paths(d: Path, *args) -> list[str]:
+    """File names from git, exactly (no C-quoting of non-ASCII, NUL-separated, spaces kept)."""
+    out = git(d, "-c", "core.quotePath=false", *args, "-z")
+    return [p for p in out.split("\0") if p]
+
+
+def local_name(name: str) -> str:
+    """A cloud file name, made safe and unambiguous as a local file name on any platform (the same
+    name every pass, so a return keeps its id): Drive's "(1)" suffix and characters Windows or a
+    path would misread become hyphens."""
+    stem, dot, ext = name.rpartition(".")
+    if not dot:
+        stem, ext = name, "md"
+    stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "-", stem)
+    stem = re.sub(r"\s+\((\d{1,3})\)$", r"-\1", stem).strip(" .") or "return"
+    return f"{stem}.{ext.lower()}"
+
+
 def git(cwd: Path, *args, check=True, timeout=300) -> str:
     res = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, encoding="utf-8",
                          errors="replace", timeout=timeout, env={**os.environ, **GIT_ENV})
@@ -177,8 +199,16 @@ class Pass:
         self.problems.append(one_line(msg, 300))
 
     def renew(self) -> None:
-        if not self.dry:
-            write_lease(self.cloud, self.me, max(self.interval - 5, 10))
+        """Extend the lease, unless another runner has taken it (then this pass stops)."""
+        if self.dry:
+            return
+        try:
+            holder = json.loads(self.cloud.read(LEASE) or "{}").get("holder")
+        except ValueError:
+            holder = None
+        if holder not in (None, self.me):
+            raise LeaseLost(f"another runner ({holder}) took the lease; this pass stops here")
+        write_lease(self.cloud, self.me, max(self.interval - 5, 10))
 
     # ---- inboxes
     def apply_inbox(self, unit: Unit, top: Unit | None) -> list[Outcome]:
@@ -212,10 +242,12 @@ class Pass:
         branch = spec.get("branch", "main")
         if not (d / ".git").is_dir():
             self.work.mkdir(parents=True, exist_ok=True)
-            res = subprocess.run(["git", "clone", "-q", "--branch", branch, C.expand(spec["repo"]), str(d)],
+            res = subprocess.run(["git", "clone", "-q", "-c", "core.symlinks=false", "--branch", branch,
+                                  C.expand(spec["repo"]), str(d)],
                                  capture_output=True, text=True, timeout=600, env={**os.environ, **GIT_ENV})
             if res.returncode != 0:
                 raise Problem(f"cannot clone {spec['name']}: {res.stderr.strip()[:200]}")
+        git(d, "config", "core.symlinks", "false")      # a link in the repository never reaches outside it
         git(d, "fetch", "-q", "origin")
         if git(d, "branch", "--show-current").strip() != branch:
             git(d, "checkout", "-q", branch)
@@ -223,11 +255,13 @@ class Pass:
             git(d, "reset", "-q", "--hard", f"origin/{branch}")
         else:
             git(d, "reset", "-q", "--hard", "HEAD")
-            res = subprocess.run(["git", "-C", str(d), "merge", "-q", "--ff-only", f"origin/{branch}"],
+            res = subprocess.run(["git", "-C", str(d), "-c", "user.name=Collab Kit back end",
+                                  "-c", "user.email=collab-kit@users.noreply.github.com", "rebase", "-q", f"origin/{branch}"],
                                  capture_output=True, text=True, env={**os.environ, **GIT_ENV})
             if res.returncode != 0:
-                raise Problem(f"{spec['name']}: the back end's clone (not pushed) and the remote have diverged; "
-                              f"merge them by hand in {d}")
+                git(d, "rebase", "--abort", check=False)
+                raise Problem(f"{spec['name']}: the back end's own commits (not pushed) no longer apply on top of the "
+                              f"remote; resolve it by hand in {d}")
         git(d, "clean", "-q", "-fd")
         return d
 
@@ -237,7 +271,7 @@ class Pass:
 
     def commit(self, d: Path, message: str) -> str | None:
         git(d, "add", "-A", "--", "collab-kit")
-        staged = git(d, "diff", "--cached", "--name-only").split()
+        staged = git_paths(d, "diff", "--cached", "--name-only")
         if not staged:
             return None
         outside = [p for p in staged if not p.startswith("collab-kit/")]
@@ -262,22 +296,34 @@ class Pass:
                 moves.append((e.name, STRAYS, self.commit(d, f"collab-kit: set aside {e.name}")))
                 self.problem(f"{name}: {e.name} was set aside (not a plain return)")
                 continue
-            text = cloud_unit.read(f"{RETURNS}/{e.name}")
+            try:
+                text = cloud_unit.read(f"{RETURNS}/{e.name}")
+            except (StoreError, OSError) as ex:
+                self.problem(f"{name}: {e.name} could not be read: {ex}")
+                continue
             if text is None:
                 continue
-            dest = d / "collab-kit" / RETURNS / e.name
+            lname = local_name(e.name)
+            dest = d / "collab-kit" / RETURNS / lname
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(text, encoding="utf-8")
             os.utime(dest, (e.mtime or 0, e.mtime or 0))
-            out = apply_file(repo_unit, repo_unit.store.entry(f"{RETURNS}/{e.name}"), top=self.top)
+            try:
+                out = apply_file(repo_unit, repo_unit.store.entry(f"{RETURNS}/{lname}"), top=self.top)
+            except Exception as ex:                  # noqa: BLE001 (one return never stalls the project)
+                git(d, "reset", "-q", "--hard", "HEAD")
+                git(d, "clean", "-q", "-fd", "--", "collab-kit")
+                self.move_cloud(cloud_unit, e.name, FAILED)
+                self.problem(f"{name}: {e.name} could not be applied ({type(ex).__name__}: {ex}); moved to _returns/failed/")
+                continue
             if out.status == "waiting":
                 dest.unlink(missing_ok=True)
                 if "End." in out.message:
                     self.problem(f"{name}: {e.name} is not finished yet (no End.)")
                 continue
             if not spec.get("returns_in_git", False):
-                for p in (d / "collab-kit" / RETURNS).rglob(e.name):
-                    if p.is_file():
+                for p in (d / "collab-kit" / RETURNS).rglob("*"):
+                    if p.is_file() and (p.name == lname or p.name.endswith("-" + lname)):
                         p.unlink()                  # its text stays in the cloud; the ledger goes to git
             where = {"failed": FAILED, "stray": STRAYS}.get(out.status, APPLIED)
             moves.append((e.name, where, self.commit(d, f"collab-kit: {out.status} return {out.rid}")))
@@ -294,6 +340,10 @@ class Pass:
             else:
                 self.commit(d, "collab-kit: rebuild the knowledge")
         unpushed = lambda: git(d, "rev-list", "--count", f"origin/{branch}..HEAD").strip() != "0"  # noqa: E731
+        if spec.get("push", False) and unpushed() and not spec.get("allow_public", False) and self.is_public(d):
+            self.problem(f"{name}: not pushed: the repository is public, or its visibility could not be checked "
+                         f"(gh), and allow_public is not set; the returns stay in the inbox")
+            return                                    # nothing is blamed and nothing moves; retried next pass
         if spec.get("push", False) and unpushed():
             bad = self.guard(name, spec, d, branch)
             if bad:
@@ -302,6 +352,9 @@ class Pass:
                 git(d, "reset", "-q", "--hard", f"{sha_}^")       # the bad commit and everything after it go
                 if culprit:
                     self.move_cloud(cloud_unit, culprit[0], FAILED)
+                    self.file_cloud_note(cloud_unit, name, f"A return was not filed: {culprit[0]}",
+                                         f"It was moved to `_returns/failed/`: {why}. Change it and file it again, or "
+                                         f"drop it.")
                 self.problem(f"{name}: not pushed: {why}" + (f"; the return {culprit[0]} was moved to _returns/failed/"
                                                              if culprit else ""))
                 # returns applied after the bad commit stay in the inbox and are applied again next pass
@@ -327,11 +380,8 @@ class Pass:
         """(the first unpushed commit that must not be pushed, why), or None. Checks every commit
         between the remote and HEAD: only collab-kit/ changes, nothing on the deny-list; and the
         repository is private unless the project allows public."""
-        if not spec.get("allow_public", False) and self.is_public(d):
-            first = git(d, "rev-list", "--reverse", f"origin/{branch}..HEAD").split()[0]
-            return first, "the repository is public (or its visibility is unknown) and allow_public is not set"
         for c in git(d, "rev-list", "--reverse", f"origin/{branch}..HEAD").split():
-            paths = git(d, "show", "--name-only", "--format=", c).split()
+            paths = git_paths(d, "show", "--name-only", "--format=", c)
             if any(not p.startswith("collab-kit/") for p in paths):
                 return c, f"a commit changes files outside collab-kit/ ({paths[:2]})"
             diff = git(d, "show", "--format=", c)
@@ -353,6 +403,15 @@ class Pass:
         except (OSError, subprocess.TimeoutExpired):
             return True
         return res.returncode != 0 or res.stdout.strip().upper() != "PRIVATE"
+
+    def file_cloud_note(self, cloud_unit: Unit, name: str, title: str, needed: str) -> None:
+        """Put something on a repository-homed unit's agenda from the outside: a return of the back
+        end's own into its cloud inbox, applied (and pushed) like any other on the next pass."""
+        from .returns import render_change, render_return
+        rid = f"{stamp()}-backend-{hashlib.sha256(title.encode()).hexdigest()[:8]}"
+        body = f"## What's needed\n{needed}\n\n## Done when\nSomeone has looked at it and settled this item.\n"
+        ch = render_change("new-item", None, None, None, body, kind="task", importance="2", title=one_line(title, 120))
+        cloud_unit.store.write(f"{RETURNS}/{rid}.md", render_return(name, rid, "the back end", "task", title, [ch]))
 
     def move_cloud(self, cloud_unit: Unit, fname: str, where: str) -> None:
         src = f"{RETURNS}/{fname}"
@@ -384,6 +443,8 @@ class Pass:
         want: dict[str, bytes] = {}
         for p in sorted(src.rglob("*")):
             rel = p.relative_to(src).as_posix()
+            if p.is_symlink() or any(q.is_symlink() for q in p.parents if src in q.parents or q == src):
+                continue                              # never follow a link out of the repository
             if not p.is_file() or not (rel == START or rel.startswith((f"{KNOWLEDGE}/", f"{AGENDA}/"))):
                 continue
             if f"/{VERSIONS}/" in f"/{rel}" or any(part.startswith(".") for part in rel.split("/")):
@@ -600,16 +661,12 @@ class Pass:
         if not self.account:
             return None
         if self.cloud_spec.startswith("rclone:"):
-            remote = self.cloud_spec[len("rclone:"):].split(":", 1)[0] + ":"
             try:
-                conf = os.environ.get("COLLAB_KIT_RCLONE_CONFIG", "")
-                res = subprocess.run(["rclone", *(["--config", conf] if conf else []), "config", "userinfo", remote],
-                                     capture_output=True, text=True, timeout=60,
-                                     env={k: v for k, v in os.environ.items() if not k.startswith("RCLONE_")})
-            except (OSError, subprocess.TimeoutExpired) as e:
-                return f"cannot ask rclone which account {remote} is: {e}"
-            if self.account.lower() not in res.stdout.lower():
-                return f"the rclone remote {remote} is not {self.account}"
+                who = self.cloud.account()
+            except (StoreError, OSError, subprocess.TimeoutExpired) as e:
+                return f"cannot ask rclone which account the remote is: {e}"
+            if who.lower() != self.account.lower():
+                return f"the rclone remote is {who or 'an unknown account'}, not {self.account}"
             return None
         if self.account.lower() not in self.cloud_spec.lower():
             return f"the folder {self.cloud_spec} does not name the account {self.account}"
@@ -619,8 +676,22 @@ class Pass:
     def step(self, label: str, fn, *args) -> None:
         try:
             fn(*args)
+        except LeaseLost:
+            raise
         except Exception as ex:                       # noqa: BLE001 (report it; carry on with the rest)
             self.problem(f"{label}: {type(ex).__name__}: {ex}")
+
+    def passes(self) -> None:
+        self.step("the list of taken names", self.repositories)
+        self.step("the top-level inbox", self.apply_inbox, self.top, None)
+        for name, unit in self.all_units()[1:]:
+            self.step("the lease", self.renew)
+            if name in self.repos:
+                if not self.dry:
+                    self.step(name, self.repo_project, name, self.repos[name])
+            else:
+                self.step(name, self.apply_inbox, unit, self.top)
+        self.step("the views", self.views)
 
     def run(self) -> int:
         wrong = self.check_account()
@@ -634,19 +705,14 @@ class Pass:
         except (StoreError, OSError) as ex:
             print(f"PROBLEM: the Collab Kit folder is not reachable: {ex}")
             return 2
+        lost = False
         try:
-            self.step("the list of taken names", self.repositories)
-            self.step("the top-level inbox", self.apply_inbox, self.top, None)
-            for name, unit in self.all_units()[1:]:
-                self.step("the lease", self.renew)
-                if name in self.repos:
-                    if not self.dry:
-                        self.step(name, self.repo_project, name, self.repos[name])
-                else:
-                    self.step(name, self.apply_inbox, unit, self.top)
-            self.step("the views", self.views)
+            self.passes()
+        except LeaseLost as ex:
+            lost = True                                # another runner owns the folder now: write nothing more
+            print(f"collab-kit back end: {ex}")
         finally:
-            if not self.dry:
+            if not self.dry and not lost:
                 try:
                     self.cloud.write(HEARTBEAT, json.dumps({
                         "last_run": utcnow().isoformat(), "interval_minutes": self.interval, "host": socket.gethostname(),

@@ -46,7 +46,7 @@ class StoreError(RuntimeError):
 
 def check_rel(rel: str) -> str:
     """A store path is relative, uses forward slashes, and never climbs out (.., ., a drive, a root)."""
-    if "\\" in rel or rel.startswith("/") or re.match(r"^[A-Za-z]:", rel) or "\x00" in rel:
+    if (os.name == "nt" and "\\" in rel) or rel.startswith("/") or re.match(r"^[A-Za-z]:", rel) or "\x00" in rel:
         raise StoreError(f"unsafe path {rel!r}")
     if any(p in ("..", ".") for p in rel.split("/")):
         raise StoreError(f"unsafe path {rel!r}")
@@ -322,6 +322,15 @@ class RcloneStore(Store):
 
     def md5s(self, rel: str = "") -> dict[str, str | None]:
         return {e.name: getattr(e, "md5", None) for e in self.files(rel)}
+
+    def account(self) -> str:
+        """The email of the Google account behind the remote (read-only; the pinned rclone)."""
+        remote = self.remote.split(":", 1)[0] + ":"
+        self._check_version()
+        res = subprocess.run([self.rclone, *(self.flags[:2] if self.config else []), "config", "userinfo", remote],
+                             capture_output=True, timeout=60, env=self._env())
+        m = re.search(r"^\s*EmailAddress:\s*(\S+)", res.stdout.decode("utf-8", "replace"), re.M)
+        return m.group(1) if m else ""
 
     def read(self, rel: str) -> str | None:
         self._guard(rel)

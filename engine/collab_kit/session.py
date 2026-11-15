@@ -379,7 +379,9 @@ def changed_since(root: Path, snap: dict) -> tuple[list[str], list[str]]:
     files = {p for p in now if p not in before or (before[p] and before[p] != _fingerprint(root, p))}
     head = (git(root, "rev-parse", "HEAD") or "").strip()
     if snap.get("head") and head and head != snap["head"]:
-        log = git(root, "log", "--first-parent", "--no-merges", "--format=", "--name-only", f"{snap['head']}..{head}") or ""
+        # commits made since the snapshot (a pull of older work from elsewhere is not this session's)
+        log = git(root, "log", "--first-parent", "--no-merges", f"--since={snap.get('at', '')}", "--format=",
+                  "--name-only", f"{snap['head']}..{head}") or ""
         files |= {x for x in log.splitlines() if x}
     project = sorted(f for f in files if not f.startswith(IGNORED_FOR_RECORD))
     kit = sorted(f for f in files if f.startswith("collab-kit/"))

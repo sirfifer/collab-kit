@@ -73,7 +73,7 @@ def brief_with_deadline(proj: Project, *, compact: bool = False, cwd: str | None
             except OSError:
                 pass
         return box["text"]
-    why = box.get("error") or f"the Collab Kit folder took longer than {DEADLINE_SECONDS} seconds to read"
+    why = one_line(box.get("error") or f"the Collab Kit folder took longer than {DEADLINE_SECONDS} seconds to read", 200)
     ck = proj.ck(cwd)
     try:
         when, text = cache.read_text(encoding="utf-8").split("\n", 1)
@@ -155,6 +155,7 @@ def stop(inp: dict) -> int:
         if recorded:
             _watch(state, root, p.name)             # judged afresh from here on
             state["repos"][root_s]["checks"] = snap.get("checks", 0)
+            state["repos"][root_s]["last_check"] = snap.get("last_check", "")
             continue
         if not changed:
             continue

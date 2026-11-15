@@ -250,6 +250,30 @@ class ProjectSide(unittest.TestCase):
         sfile.write_text(json.dumps(st))
         self.assertIn("block", self.hook("Stop", sid="r1").stdout)               # new changes, later: asks again
 
+    def test_a_record_does_not_reset_the_interval(self):
+        self.install()
+        self.hook("SessionStart", sid="i1")
+        (self.repo / "beds.md").write_text("one\n")
+        self.assertIn("block", self.hook("Stop", sid="i1").stdout)
+        self.ck("status", "Recorded.")
+        (self.repo / "beds.md").write_text("two\n")
+        self.assertEqual(self.hook("Stop", sid="i1").stdout.strip(), "")    # within 15 minutes of the last check
+
+    def test_pulled_commits_are_not_this_sessions(self):
+        self.install()
+        other = Path(self.tmp.name) / "other-clone"
+        sh("git", "clone", "-q", str(self.repo), str(other))
+        sh("git", "-C", str(other), "config", "user.email", "o@example.com")
+        sh("git", "-C", str(other), "config", "user.name", "O")
+        (other / "theirs.md").write_text("x\n")
+        sh("git", "-C", str(other), "add", "-A")
+        sh("git", "-C", str(other), "commit", "-qm", "theirs", "--date", "2026-01-01T00:00:00")
+        env = {**os.environ, "GIT_COMMITTER_DATE": "2026-01-01T00:00:00"}
+        subprocess.run(["git", "-C", str(other), "commit", "--amend", "--no-edit", "-q"], env=env, check=True)
+        self.hook("SessionStart", sid="pl1")
+        sh("git", "pull", "-q", str(other), "main", cwd=self.repo)
+        self.assertEqual(self.hook("Stop", sid="pl1").stdout.strip(), "")
+
     def test_ck_works_from_a_parent_folder(self):
         self.install()
         res = sh("sh", str(self.repo / "tools/collab-kit/ck"), "ask", "From the parent folder",

@@ -296,9 +296,12 @@ def _parse_change(line: str, lineno: int) -> Change:
         elif "text" in ch.args:
             ch.text = ch.args.pop("text")
     elif op == "knowledge":
-        if not words:
+        if words:
+            ch.ref = words.pop(0)
+        elif quoted:
+            ch.ref = quoted.pop(0)                      # a path with spaces, in quotes
+        else:
             raise ReturnError("'knowledge' needs the file's path inside knowledge/ (e.g. notes/venues.md)", lineno)
-        ch.ref = words.pop(0)
     elif op == "project":
         if words:
             ch.ref = words.pop(0)
@@ -372,7 +375,7 @@ def render_change(op: str, ref: str | None = None, check: str | None = None, tex
         return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") + '"'
     bits = [op]
     if ref:
-        bits.append(ref)
+        bits.append(q(ref) if re.search(r'[\s"]', ref) else ref)
     if check:
         bits.append(q(check))
     for k, v in args.items():

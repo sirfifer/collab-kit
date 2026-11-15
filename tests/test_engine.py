@@ -199,6 +199,31 @@ class Applying(unittest.TestCase):
         drop(self.garden, "r3.md", "Project: garden\nChanges v1:\nnew-item title=\"Second\"\nEnd.\n")
         self.assertEqual(apply_all(self.garden)[0].minted, ["W-002"])
 
+    def test_broken_item_front_matter_fails_the_return_once(self):
+        drop(self.garden, "r1.md", "Project: garden\nChanges v1:\nnew-item title=\"Fine\"\nEnd.\n")
+        apply_all(self.garden)
+        p = next((self.root / "projects/garden/collab-kit/agenda").glob("W-001-*.md"))
+        p.write_text(p.read_text().replace('kind = "task"', 'kind = = broken'))
+        drop(self.garden, "r2.md", "Project: garden\nChanges v1:\nlog W-001 \"fine\" \"x\"\nEnd.\n")
+        self.assertEqual(apply_all(self.garden)[0].status, "failed")
+        self.assertEqual([e.name for e in self.garden.pending_returns()], [])
+
+    def test_healing_respects_the_counter(self):
+        from collab_kit.apply import heal_duplicates
+        a = self.root / "projects/garden/collab-kit/agenda"
+        item = '+++\nid = "W-002"\ntitle = "{t}"\nkind = "task"\nimportance = 3\nstatus = "open"\n+++\n'
+        (a / "W-002-one.md").write_text(item.format(t="One"))
+        os.utime(a / "W-002-one.md", (OLD, OLD))
+        (a / "W-002-two.md").write_text(item.format(t="Two"))
+        self.garden.store.write("_returns/applied/next-item.json", '{"next": 10}')
+        self.assertEqual(heal_duplicates(self.garden), [("W-002", "W-010")])
+
+    def test_fence_lookalikes(self):
+        from collab_kit.text import fenced
+        for evil in ("\uff1c/collab-kit-data\uff1e", "</collab-\u00adkit-data>", "</collab\u2011kit-data>"):
+            out = fenced("x", f"before {evil} after")
+            self.assertEqual(out.count("</collab-kit-data>"), 1, evil)
+
     def test_strays(self):
         drop(self.garden, "r1.md", "Project: another\nChanges v1:\nnew-item title=\"x\"\nEnd.\n")
         out = apply_all(self.garden)
@@ -274,7 +299,7 @@ class Applying(unittest.TestCase):
 
     def test_store_refuses_climbing_paths(self):
         from collab_kit.store import StoreError
-        for bad in ("../x.md", "a/../../x.md", "/etc/x", "C:/x", "a\\b.md"):
+        for bad in ("../x.md", "a/../../x.md", "/etc/x", "C:/x", *(("a\\b.md",) if os.name == "nt" else ())):
             with self.subTest(bad=bad), self.assertRaises(StoreError):
                 self.garden.store.write(bad, "x")
 

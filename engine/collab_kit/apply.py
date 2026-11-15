@@ -226,16 +226,16 @@ class Planner:
             raise Reject(f"line {ch.line}: a project's inbox can only change its own entry")
         if not name:
             raise Reject(f"line {ch.line}: 'project' from the top-level inbox names the project")
-        changed = False
+        found = False
         for path in (f"{KNOWLEDGE}/projects.md", START):
             text = self.ov.read(path, "top")
-            if text is None:
+            if text is None or not has_project_row(text, name):
                 continue
+            found = True                               # already as asked counts too (a pass redone after a failed push)
             new = edit_project_row(text, name, ch.args)
             if new != text:
                 self.ov.write(path, new, "top")
-                changed = True
-        if not changed:
+        if not found:
             raise Reject(f"line {ch.line}: no row for '{name}' in the top level's project tables")
 
     def op_new_project(self, ch: R.Change):
@@ -381,6 +381,13 @@ def _col(cells: list[str], *names: str) -> int | None:
             if c.startswith(n):
                 return k
     return None
+
+
+def has_project_row(text: str, name: str) -> bool:
+    lines, hi, cells, rows = _table_rows(text)
+    fcol = _col(cells, "folder")
+    return hi is not None and fcol is not None and any(
+        fcol < len(_cells(lines[j])) and _cells(lines[j])[fcol].strip("`") == name for j in rows)
 
 
 def edit_project_row(text: str, name: str, args: dict) -> str:
@@ -549,7 +556,10 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
     if not led:
         planner = Planner(unit, ret, top, now)
         try:
-            effects = planner.plan()
+            try:
+                effects = planner.plan()
+            except (ValueError, StoreError) as e:      # e.g. an item file whose front matter is broken
+                raise Reject(f"{type(e).__name__}: {e}") from None
         except Reject as e:
             if filename:
                 return _set_aside(unit, Entry(filename, filename, False), FAILED, str(e), now, top)
@@ -651,7 +661,7 @@ def heal_duplicates(unit: Unit) -> list[tuple[str, str]]:
         group.sort(key=lambda e: (e.mtime, e.name))
         for e in group[1:]:
             used = unit.used_numbers()
-            new = max(used) + 1
+            new = max(max(used) + 1, read_counter(unit))
             old_id, new_id = f"W-{num:03d}", f"W-{new:03d}"
             path = f"{AGENDA}/{e.name}"
             text = unit.store.read(path) or ""
