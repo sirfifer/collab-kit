@@ -57,7 +57,7 @@ def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list
 
 def _status_lines(unit: Unit, n: int = 3) -> list[str]:
     text = unit.read("knowledge/status.md") or ""
-    heads = [m.group(1) for m in re.finditer(r"^##\s+(.+)$", text, re.M)][:n]
+    heads = [m.group(1) for m in re.finditer(r"^##\s+(\d{4}-\d{2}-\d{2}.*)$", text, re.M)][:n]   # dated entries only
     return [f"  {one_line(h, 140)}" for h in heads]
 
 
