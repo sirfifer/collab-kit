@@ -280,7 +280,52 @@ def install_top(folder: Path, *, human: str, dry: bool = False) -> Plan:
     for rel, text in seeds.items():
         if not (folder / rel).exists():
             plan.write(rel, text, "a new Collab Kit folder")
+    start = folder / "00-START-HERE.md"
+    if start.is_file():
+        cur = start.read_text(encoding="utf-8")
+        new = add_markers(cur)
+        if new != cur:
+            plan.note("update 00-START-HERE.md: add the health and due-soon blocks the back end keeps "
+                      "(the older version kept in _versions/)")
+            if not dry:
+                from .store import FolderStore
+                from .unit import Unit, write_versioned
+                write_versioned(Unit(FolderStore(folder), "top", home="cloud", top=True), "00-START-HERE.md", new)
     return plan
+
+
+def add_markers(text: str) -> str:
+    """Add <!-- collab-kit:begin health/due --> blocks to a hand-written top-level start file: health
+    right after the first heading's paragraph under "What is true right now" (or the title), due soon
+    replacing a "## Due soon" section's list (or before "## The layout")."""
+    from .templates import get_block
+    out = text
+    if get_block(out, "health") is None:
+        block = ("<!-- collab-kit:begin health -->\n**No back end runs for this folder yet.** You apply changes "
+                 "yourself, following this file.\n<!-- collab-kit:end health -->\n")
+        m = re.search(r"^## What is true right now.*\n(?:\n)?", out, re.M)
+        if m:
+            out = out[: m.end()] + block + "\n" + out[m.end():]
+        else:
+            m = re.search(r"^# .*\n", out, re.M)
+            at = m.end() if m else 0
+            out = out[:at] + "\n" + block + out[at:]
+    if get_block(out, "due") is None:
+        m = re.search(r"^## Due soon\s*\n", out, re.M)
+        if m:
+            nxt = re.search(r"^## ", out[m.end():], re.M)
+            end = m.end() + nxt.start() if nxt else len(out)
+            body = out[m.end():end].strip("\n")
+            items = "\n".join(l for l in body.splitlines() if l.startswith("- ")) or "Nothing due in the next week."
+            other = "\n".join(l for l in body.splitlines() if l.strip() and not l.startswith("- "))
+            out = (out[: m.end()] + "\n" + (other + "\n\n" if other else "") + "<!-- collab-kit:begin due -->\n"
+                   + items + "\n<!-- collab-kit:end due -->\n\n" + out[end:])
+        else:
+            m = re.search(r"^## The layout", out, re.M)
+            at = m.start() if m else len(out)
+            out = (out[:at] + "## Due soon\n\n<!-- collab-kit:begin due -->\nNothing due in the next week.\n"
+                   "<!-- collab-kit:end due -->\n\n" + out[at:])
+    return out
 
 
 # ---------------------------------------------------------------------------- back end --
