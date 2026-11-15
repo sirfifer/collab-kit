@@ -290,9 +290,11 @@ class MachineAndTop(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.t = Path(self.tmp.name)
         os.environ["COLLAB_KIT_CONFIG"] = str(self.t / "cfg" / "config.toml")
+        os.environ["COLLAB_KIT_DATA"] = str(self.t / "data")
 
     def tearDown(self):
         os.environ.pop("COLLAB_KIT_CONFIG", None)
+        os.environ.pop("COLLAB_KIT_DATA", None)
         self.tmp.cleanup()
 
     def test_user_hooks_merge_and_refresh(self):

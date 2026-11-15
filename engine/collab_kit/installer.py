@@ -214,6 +214,8 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
 # ---------------------------------------------------------------------------- machine --
 
 def data_dir() -> Path:
+    if os.environ.get("COLLAB_KIT_DATA"):
+        return Path(os.environ["COLLAB_KIT_DATA"])
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "collab-kit"
     if sys.platform == "darwin":
