@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""install.py: install or upgrade Collab Kit (the three-channel collaboration pattern) in a project.
+"""install.py: install or upgrade Collab Kit.
 
 Standard library only (Python 3.11+).
+
+Collab Kit 0.5:
+    python3 kit/install.py machine --cloud-root "<the Collab Kit folder>" --human "Sam" [--user-hooks]
+    python3 kit/install.py top "<the Collab Kit folder>" --human "Sam"      a new top level
+    python3 kit/install.py project <repo> [--home cloud|repo] [--dry-run]  a project's repository
+
+The knowledge build from 0.4 (documents split into sections, concepts, the index) is unchanged:
 
     python3 kit/install.py init  <project> --name "..." --slug x [--profile owner.toml] [options]
                                                                             write tools/kb/config.toml
@@ -178,7 +185,8 @@ def plan(root: Path, adopt: bool = False) -> list[tuple[str, Path, str | None, s
             steps.append(("update", path, content, kind))
 
     for src in sorted(ENGINE.rglob("*")):
-        if src.is_file() and "__pycache__" not in src.parts and src.name != ".DS_Store":
+        if src.is_file() and "__pycache__" not in src.parts and src.name != ".DS_Store" \
+                and "collab_kit" not in src.relative_to(ENGINE).parts and src.name != "ck.py":   # 0.5: install.py project
             want(root / "tools" / "kb" / src.relative_to(ENGINE), src.read_text(encoding="utf-8"), "engine")
     want(root / "tools" / "kb" / "KIT-VERSION", VERSION + "\n", "engine")
 
@@ -186,6 +194,8 @@ def plan(root: Path, adopt: bool = False) -> list[tuple[str, Path, str | None, s
         if not src.is_file() or src.name == ".DS_Store":
             continue
         rel = src.relative_to(TEMPLATES).as_posix()
+        if rel.startswith("project/"):
+            continue                                       # 0.5 project files: install.py project
         dest = root / target_path(rel, out)
         fresh = render(src.read_text(encoding="utf-8"), ctx, rel)
         if rel in SEED:
@@ -434,9 +444,69 @@ def cmd_init(a):
     return 0
 
 
+# ------------------------------------------------------------------------ Collab Kit 0.5 --
+
+def _v05():
+    sys.path.insert(0, str(ENGINE))
+    from collab_kit import installer
+    return installer
+
+
+def cmd_project(a):
+    inst = _v05()
+    plan = inst.install_project(Path(a.project), name=a.name, unit=a.unit, home=a.home, human=a.human,
+                                python=a.python, dry=a.dry_run)
+    print(f"project {Path(a.project).resolve()}{' (dry run)' if a.dry_run else ''}:")
+    plan.show()
+    if a.check:
+        return 1 if plan.steps and any(not w.startswith("keep ") for w, _ in plan.steps) else 0
+    return 0
+
+
+def cmd_machine(a):
+    inst = _v05()
+    plan = inst.install_machine(cloud_root=a.cloud_root, human=a.human, kit_source=a.kit_source,
+                                user_hooks=a.user_hooks, python=a.python, dry=a.dry_run)
+    print(f"machine{' (dry run)' if a.dry_run else ''}:")
+    plan.show()
+    return 0
+
+
+def cmd_top(a):
+    inst = _v05()
+    plan = inst.install_top(Path(a.folder).expanduser(), human=a.human, dry=a.dry_run)
+    print(f"top level {a.folder}{' (dry run)' if a.dry_run else ''}:")
+    plan.show()
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    pr = sub.add_parser("project", help="0.5: install or upgrade Collab Kit in a project's repository")
+    pr.add_argument("project")
+    pr.add_argument("--name", help="the project's folder name (default: the repository's folder name)")
+    pr.add_argument("--unit", help="the unit inside the Collab Kit folder (default projects/<name>/collab-kit)")
+    pr.add_argument("--home", choices=["cloud", "repo"], help="where the project's channels live (default cloud)")
+    pr.add_argument("--human", help="who the agenda waits on (default: the machine config's human)")
+    pr.add_argument("--python", default="python3", help="the interpreter the hooks call (e.g. 'py -3' on Windows)")
+    pr.add_argument("--dry-run", action="store_true")
+    pr.add_argument("--check", action="store_true", help="with --dry-run: exit 1 if anything would change")
+    pr.set_defaults(fn=cmd_project)
+    m = sub.add_parser("machine", help="0.5: this machine's settings (and optional user-level hooks)")
+    m.add_argument("--cloud-root", help="the Collab Kit folder as this machine sees it (a path, or rclone:remote:path)")
+    m.add_argument("--human", help="the person conversations work with")
+    m.add_argument("--kit-source", help="where the newest kit is checked out (default: this kit)")
+    m.add_argument("--user-hooks", action="store_true",
+                   help="add user-level hooks to ~/.claude/settings.json for sessions started in a parent folder")
+    m.add_argument("--python", default="python3")
+    m.add_argument("--dry-run", action="store_true")
+    m.set_defaults(fn=cmd_machine)
+    t = sub.add_parser("top", help="0.5: create the top level in a new Collab Kit folder (never overwrites)")
+    t.add_argument("folder")
+    t.add_argument("--human", required=True)
+    t.add_argument("--dry-run", action="store_true")
+    t.set_defaults(fn=cmd_top)
     i = sub.add_parser("init", help="write tools/kb/config.toml for a project")
     i.add_argument("project")
     i.add_argument("--name", required=True, help="the project's name in prose")
