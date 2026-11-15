@@ -16,7 +16,7 @@ Find where new material connects, update what it touches, and record honestly wh
 | Answers: questions that took digging | `{{out}}/kb/` | you |
 | Proposals: changes waiting for {{human}} | `{{out}}/proposals/` | you write, {{human}} decides |
 | Responses: the considered answer to each batch of returns | `{{out}}/responses/` | you |
-| Agenda: what needs working out together (questions, decisions, work-outs, holes, and the tasks that block them) | `{{out}}/agenda/W-*.md` (the list `00-AGENDA.md` is generated) | you keep it current |
+| Agenda: what needs working out together (questions, decisions, work-outs, holes, and the tasks that block them) | `{{agenda_dir}}/W-*.md` | you keep it current |
 | Registry: what is in the official set | `tools/kb/manifest.toml` | you (say so) |
 | Generated views | `{{out}}/documents/`, `full/`, `01-INDEX.md`, `02-RECENT.md`, `graph.json` | the build only |
 
@@ -47,7 +47,7 @@ Find where new material connects, update what it touches, and record honestly wh
    python3 tools/kb/kb.py stats      # watch open endpoints and oversize warnings
    ```
 
-7b. **Returns and the agenda.** Every return names its project on its first line (`Project: {{repo}}`); the nightly job refuses any that does not before it reaches `captures/`. A return you are handed any other way gets the same check first (`python3 tools/kb/kb.py return-check <file>`): never integrate one that names another project. For returns from a conversation (`{{out}}/captures/`, arriving through the mirror's `_returns/` folder), write a considered response in `{{out}}/responses/` (assessment, evidence, what to do next, questions for {{human}}), and update the agenda (`{{out}}/agenda/`, rules in `{{out}}/agenda/01-HOW-ITEMS-ARE-KEPT.md`): a new item for every question, hole, or to-do (`python3 tools/kb/kb.py new-item <kind> "<title>"`), `settles W-NNN` closes an item with its outcome, `progresses W-NNN` adds to its log. Do the same for any session's work: if it raises something that needs {{human}}, finds a hole, or settles an item, the agenda changes in the same commit.
+7b. **Returns and the agenda.** Every return names its project on its first line (`Project: {{repo}}`); the nightly job refuses any that does not before it reaches `captures/`. A return you are handed any other way gets the same check first (`python3 tools/kb/kb.py return-check <file>`): never integrate one that names another project. For returns from a conversation (`{{out}}/captures/`, arriving through the mirror's `_returns/` folder), write a considered response in `{{out}}/responses/` (assessment, evidence, what to do next, questions for {{human}}), and update the agenda (`{{agenda_dir}}/`): a new item for every question, hole, or to-do ({{agenda_new}}), `settles W-NNN` closes an item with its outcome, `progresses W-NNN` adds to its log. Do the same for any session's work: if it raises something that needs {{human}}, finds a hole, or settles an item, the agenda changes in the same commit.
 7c. **Lint for holes.** While integrating, notice negative space: a concept that depends on something no document explains, two mechanisms that must connect with nothing saying how, a decision a plan assumes but nobody made. Each becomes an agenda item of kind `hole` (or `question`), with `blocks` set when it holds something up. Every open proposal must have an open agenda item that refers to it; the build enforces this.
 8. **Report** briefly: what changed, what you updated and why, proposals waiting, open threads.
 {{project_rules}}

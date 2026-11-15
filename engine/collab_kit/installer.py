@@ -84,8 +84,8 @@ def _engine_files() -> dict[str, bytes]:
         if p.is_dir() or "__pycache__" in p.parts or p.suffix in (".pyc",):
             continue
         rel = p.relative_to(ENGINE_DIR).as_posix()
-        if rel in ("installer.py", "backend.py"):
-            continue                       # the back end and the installer stay in the kit
+        if rel in ("installer.py", "backend.py", "migrate.py", "schedule.py"):
+            continue                       # the back end, the installer, and migration stay in the kit
         files[f"tools/collab-kit/collab_kit/{rel}"] = p.read_bytes()
     files["tools/collab-kit/collab_kit/VERSION"] = (kit_version() + "\n").encode()
     return files

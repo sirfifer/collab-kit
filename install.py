@@ -103,6 +103,11 @@ def context(cfg: dict) -> dict[str, str]:
         "about": p["about"] or "a project worked on in conversation",
         "main_branch": p["main_branch"], "content_word": p["content_word"],
         "worktree_note": p["worktree_note"],
+        # Collab Kit 0.5 keeps the agenda when [knowledge].agenda is false (the knowledge build does not)
+        "agenda_dir": f"{kn['out_dir']}/agenda" if kn.get("agenda", True) else "collab-kit/agenda",
+        "agenda_new": ('`python3 tools/kb/kb.py new-item <kind> "<title>"`' if kn.get("agenda", True) else
+                       '`tools/collab-kit/ck ask "<title>" --kind <kind>` (Collab Kit 0.5 keeps the agenda; '
+                       'settle or log items with the collab-kit-return skill, never by editing them)'),
         "author_paths_md": paths_md, "author_paths_list": " ".join(paths),
         "human": pe["human"], "he": pe["he"], "him": pe["him"], "his": pe["his"],
         "assistant": pe["assistant"],
@@ -186,7 +191,8 @@ def plan(root: Path, adopt: bool = False) -> list[tuple[str, Path, str | None, s
 
     for src in sorted(ENGINE.rglob("*")):
         if src.is_file() and "__pycache__" not in src.parts and src.name != ".DS_Store" \
-                and "collab_kit" not in src.relative_to(ENGINE).parts and src.name != "ck.py":   # 0.5: install.py project
+                and "collab_kit" not in src.relative_to(ENGINE).parts \
+                and src.name not in ("ck.py", "ck", "backend.sh"):          # 0.5's: install.py project / backend
             want(root / "tools" / "kb" / src.relative_to(ENGINE), src.read_text(encoding="utf-8"), "engine")
     want(root / "tools" / "kb" / "KIT-VERSION", VERSION + "\n", "engine")
 

@@ -5,7 +5,7 @@ description: Add or update a single entry in the {{name}} knowledge base: a new 
 
 # Capture one piece of knowledge
 
-{{worktree_note}} All writes go to `{{out}}/concepts/`, `{{out}}/kb/`, `{{out}}/proposals/`, or `{{out}}/agenda/`. Formats are defined by the templates: `{{out}}/concepts/_TEMPLATE.md` and `{{out}}/kb/_TEMPLATE.md`.
+{{worktree_note}} All writes go to `{{out}}/concepts/`, `{{out}}/kb/`, `{{out}}/proposals/`, or the agenda (`{{agenda_dir}}/`). Formats are defined by the templates: `{{out}}/concepts/_TEMPLATE.md` and `{{out}}/kb/_TEMPLATE.md`.
 
 ## Decide what kind of thing it is
 
@@ -16,7 +16,7 @@ description: Add or update a single entry in the {{name}} knowledge base: a new 
 | A new name for an existing idea | add it to that concept's `aliases` |
 | A connection between two ideas | add a typed relation in one concept's `[relations]` (the build shows the reverse on the other) |
 | A change to what the documents *say* | a proposal in `{{out}}/proposals/`, plus an agenda item that refers to it (author documents are {{human}}'s; never edit {{author_paths_md}} to capture) |
-| Something that needs {{human}}: a question, a choice, a hole | an agenda item: `python3 tools/kb/kb.py new-item <kind> "<title>"` |
+| Something that needs {{human}}: a question, a choice, a hole | an agenda item: {{agenda_new}} |
 
 **Check first** with `python3 tools/kb/kb.py find <words>` so you update the existing entry instead of making a near-duplicate.
 
