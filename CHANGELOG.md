@@ -9,6 +9,12 @@ snapshot (generic rules for accounts, paths, and Drive ids; the owner's private 
 from a file outside the repository); `check` fails, in the tests and before every release, when the
 example is not what this kit generates or reads.
 
+**Fixed: files another device wrote could not be read in a Claude Code session.** In a synced
+folder, a file written elsewhere (by a phone conversation, say) is a cloud-only placeholder until read,
+and processes started under Claude Code inherit a macOS policy that forbids that download: every read
+failed at once with "Resource deadlock avoided". The folder store now allows the download for its
+process and reads again.
+
 **Returns: a kind word starts a new item.** `task "Order the drip line" importance=2 "What's needed"`
 means `new-item kind=task`; so do `question`, `decision`, `work-out`, and `hole`. A second quoted text on
 a new item is its What's needed. Voice conversations write these unprompted.

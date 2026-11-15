@@ -112,6 +112,28 @@ class Grammar(unittest.TestCase):
         self.assertEqual(r.changes[0].text, 'He said "no" twice')
 
 
+class Placeholders(unittest.TestCase):
+    def test_a_read_refused_for_a_placeholder_is_retried_once_downloads_are_allowed(self):
+        import errno
+        from unittest import mock
+        from collab_kit import store as S
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) == 1:
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return "text"
+        with mock.patch.object(S, "allow_downloads", return_value=True):
+            self.assertEqual(S._placeholder_retry(flaky), "text")
+        self.assertEqual(len(calls), 2)
+        with mock.patch.object(S, "allow_downloads", return_value=False), self.assertRaises(OSError):
+            S._placeholder_retry(lambda: (_ for _ in ()).throw(OSError(errno.EDEADLK, "x")))
+        with mock.patch.object(S, "allow_downloads") as allow, self.assertRaises(FileNotFoundError):
+            S._placeholder_retry(lambda: (_ for _ in ()).throw(FileNotFoundError(errno.ENOENT, "x")))
+        allow.assert_not_called()
+
+
 class Applying(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

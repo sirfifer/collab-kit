@@ -18,12 +18,43 @@ its name and id.
 from __future__ import annotations
 
 import dataclasses
+import errno
 import json
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+
+_DOWNLOADS = {"allowed": False}
+
+
+def allow_downloads() -> bool:
+    """Let this process download cloud-only placeholder files (macOS). A file another device wrote
+    sits in a synced folder as a placeholder until something reads it; a process started under
+    Claude Code inherits a policy that forbids that download, so every read fails at once with
+    EDEADLK ("Resource deadlock avoided"). One call turns the download on for this process."""
+    if _DOWNLOADS["allowed"] or os.uname().sysname != "Darwin":
+        return False
+    import ctypes
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        ok = libc.setiopolicy_np(3, 0, 2) == 0    # VFS_MATERIALIZE_DATALESS_FILES, PROCESS, ON
+    except (OSError, AttributeError):
+        return False
+    _DOWNLOADS["allowed"] = ok
+    return ok
+
+
+def _placeholder_retry(fn):
+    """Run a read; if it hit a placeholder this process may not download, allow it and run it again."""
+    try:
+        return fn()
+    except OSError as e:
+        if e.errno == errno.EDEADLK and allow_downloads():
+            return fn()
+        raise
+
 
 _ALIAS = re.compile(r"^(?P<stem>.+?) \((?P<n>\d{1,3})\)(?P<ext>\.[^.]+)?$")
 NATIVE_MIME = "application/vnd.google-apps."
@@ -183,7 +214,7 @@ class FolderStore(Store):
         p = self._resolve(rel)
         if not p.is_file():
             return None
-        return p.read_text(encoding="utf-8", errors="replace")
+        return _placeholder_retry(lambda: p.read_text(encoding="utf-8", errors="replace"))
 
     def write(self, rel: str, text: str) -> None:
         p = self._resolve(rel)
@@ -196,7 +227,7 @@ class FolderStore(Store):
         d.parent.mkdir(parents=True, exist_ok=True)
         if d.exists():
             raise StoreError(f"copy would overwrite {dst}")
-        shutil.copy2(self._resolve(src), d)
+        _placeholder_retry(lambda: shutil.copy2(self._resolve(src), d))
 
     def move(self, src: str, dst: str) -> None:
         d = self._p(dst)
