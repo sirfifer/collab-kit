@@ -57,6 +57,7 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 |---|---|
 | Knowledge | the person's whole world of work: every project (what it is, its state, its names), standards and procedures, skills, resources, their AI setup (assistants, machines, local models), personal and professional status |
 | Returns (the inbox) | anything about no single project, or several; ideas; project requests |
+| WIP | checkpoint notes between saves (section 17) |
 | Agenda | items about no single project; ideas growing into projects (no name needed yet); and, generated, the pressing items from every project, deadlines first |
 
 ### 3. Source control: one choice at setup, two answers
@@ -115,7 +116,7 @@ become the same act, which is also the version history that units without source
 1. Rename the current file to its version name and move it to the folder's `_versions/`
    (`agenda.md` becomes `_versions/agenda.2026-11-14T1530.md`).
 2. Create the new content under the original name, with conversion disabled.
-3. Keep the last three versions per file in `_versions/`; trash older ones.
+3. Keep versions per the retention rule in section 17 (it replaced "keep three"); trash older ones.
 
 Consequences, stated as rules: a file's **name** is its identity, never its Drive id (ids change on
 every edit); readers ignore `_versions/`; if step 2 fails, step 1 is undone by renaming back. Two
@@ -213,7 +214,7 @@ capped (top items, then "N more"); inactive projects collapse to one line.
    case-insensitive uniqueness), creates everything from a resumable journal, and reports on the
    agenda: ready, or why not.
 
-### 12. Sharing and privacy (Decided)
+### 12. Sharing and privacy (Decided; sharing withdrawn from 0.5, see section 17)
 
 A project's inbox can change only that project. When a project is shared, returns from anyone but
 the owner become proposals. A per-project confidential setting keeps raw captures out of anything
@@ -286,6 +287,46 @@ repositories; runs verify the Google account.
 credentials, keeping more versions of documents, moving items between projects) becomes agenda items
 in the collab-kit project, worked through with Collab Kit itself. Sharing is not claimed in 0.5
 until it is worked out.
+
+### 17. Decided by voice, the evening of 2026-11-14 (first dogfood session)
+
+Worked out in Collab Kit itself, from the phone, in the collab-kit project (agenda items W-002, W-004,
+W-005, W-010, W-011, W-012, W-015, W-016, W-017; return `2026-11-14-1912-wip-and-batched-saves`).
+
+- **Voice test passed (W-002).** In Claude voice mode with the Google Drive connector: open and list
+  by folder, create plain `.md` with conversion disabled, create folders, rename, move, trash, and read
+  aloud word for word all work. Content still cannot be edited in place.
+- **Per-reply action cap.** In voice, one reply can make only about seven tool calls (per reply, not
+  per session). Conversations size their work to it automatically: one WIP note per turn; a large save
+  is split across consecutive replies; many notes are rolled into one combined note first.
+- **`WIP/`, a fourth folder in every unit** (top level and each project's `collab-kit/`): checkpoint
+  notes between saves. The conversation is the working copy; a save is the commit. Notes are one call
+  each, named `YYYY-MM-DD-HHMM-<thread-slug>-NN.md`. Save points: moving to another document or area,
+  something settled, Richard says save, about five or six changes or ten minutes on one thing, always
+  before wrapping up. After a save the notes go to Drive trash. Leftover notes mean an unfinished
+  thread; the next conversation offers to finish it. A back end ignores `WIP/` and never applies it.
+- **Version retention (W-011, replaces "keep three"):** every version from today, one per day for the
+  past week, one per week for about two months; older ones trashed. **Pinning:** on request, copy the
+  current version to `_versions/<name>.pinned-<label>.<timestamp>.md`, lock it with Drive's read-only
+  lock and a reason, never trim it, unpin only when Richard says.
+- **Moving an item between projects (W-012):** create it in the right project under that project's
+  next number with a log line naming the old project and number; settle the old item with outcome
+  "moved", pointing to the new one.
+- **Approved pushes (W-015):** on Richard's yes in a conversation, a return carries a push request with
+  his approval verbatim; a back-end script commits and pushes exactly that. Conversations suggest a push
+  at natural points. This is in addition to the standing authorization for `collab-kit/` only.
+- **Status into knowledge (W-016):** anything working in the background (the back end, Claude Code
+  sessions, research runs) writes its status into the relevant `knowledge/` (project or top level), so
+  a conversation always knows what is going on.
+- **Kit version in every start file (W-005):** each start file says "Collab Kit 0.5". Each release
+  ships one migration from the previous version: a script for back-end users and plain written steps a
+  conversation can follow for folder-only users. Nobody but Richard used 0.4.
+- **Sharing is out of 0.5 entirely (W-004),** to be revisited from scratch later. Section 12's sharing
+  rules are withdrawn; the privacy rules for public repositories stay.
+- **The on-device app is dropped (W-010):** the assistant runs in the cloud; the phone is the line in.
+- **Observed:** Drive for desktop shows a file created under an existing name as `name (1).md` locally
+  even after the older one has moved to `_versions/`; the cloud has one file with the right name. A
+  machine back end must read names through the API (rclone), never trust local Drive for desktop names.
 
 ## Out of scope for 0.5
 
