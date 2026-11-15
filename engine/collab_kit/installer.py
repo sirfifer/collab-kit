@@ -129,7 +129,8 @@ def _block_into(path: Path, block: str, title: str, plan: Plan, rel: str) -> Non
 
 
 def install_project(root: Path, *, name: str | None = None, unit: str | None = None, home: str | None = None,
-                    human: str | None = None, python: str = "", dry: bool = False) -> Plan:
+                    human: str | None = None, python: str = "", dry: bool = False, about: str = "",
+                    spoken: str = "") -> Plan:
     root = root.resolve()
     plan = Plan(root, dry)
     pfile = root / C.PROJECT_FILE
@@ -200,7 +201,8 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
         set_human(human)
         base = "collab-kit"
         if not (root / base / "00-START-HERE.md").is_file():
-            plan.write(f"{base}/00-START-HERE.md", project_start_file(name, "", name, home="repo"), "the unit's start file")
+            plan.write(f"{base}/00-START-HERE.md", project_start_file(name, about, spoken or name, home="repo"),
+                       "the unit's start file")
         for rel, text in ((f"{base}/_returns/README.md", returns_readme(name)),
                           (f"{base}/knowledge/README.md", f"# {name}\n\nWhat this project knows.\n"),
                           (f"{base}/agenda/README.md", "# Agenda\n\nOne file per item (`W-NNN-...`). Change items by filing a return.\n")):

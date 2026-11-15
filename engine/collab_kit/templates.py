@@ -38,7 +38,8 @@ HOME_NOTES = {
 
 def project_start_file(name: str, about: str, spoken: str, *, home: str = "cloud") -> str:
     said = ", ".join(f"\"{s.strip()}\"" for s in spoken.split(",") if s.strip()) or f"\"{name}\""
-    return render("project-start.md", name=name, about=about.rstrip(".") + ".", spoken=said,
+    about = about.strip().rstrip(".")
+    return render("project-start.md", name=name, about=(about + ".") if about else "", spoken=said,
                   home_note=HOME_NOTES[home])
 
 

@@ -6,7 +6,8 @@ Project: **{{name}}**. {{human}} calls it {{spoken}}. {{about}}
 
 ## In this folder
 
-- `knowledge/`: what the project knows (read these to answer questions). `knowledge/status.md`
+- `knowledge/`: what the project knows (read these to answer questions). If it has `01-INDEX.md`,
+  start there: it lists every concept, answer, and document section by name. `knowledge/status.md`
   says what is running in the background.
 - `agenda/`: what needs {{human}}, one file per item (`W-NNN-...`).
 - `WIP/`: checkpoint notes between saves. List it first: leftovers mean an unfinished thread.

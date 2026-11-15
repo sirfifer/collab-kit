@@ -463,7 +463,7 @@ def _v05():
 def cmd_project(a):
     inst = _v05()
     plan = inst.install_project(Path(a.project), name=a.name, unit=a.unit, home=a.home, human=a.human,
-                                python=a.python, dry=a.dry_run)
+                                python=a.python, dry=a.dry_run, about=a.about or "", spoken=a.spoken or "")
     print(f"project {Path(a.project).resolve()}{' (dry run)' if a.dry_run else ''}:")
     plan.show()
     if a.check:
@@ -526,7 +526,9 @@ def main(argv=None):
     pr.add_argument("--unit", help="the unit inside the Collab Kit folder (default projects/<name>/collab-kit)")
     pr.add_argument("--home", choices=["cloud", "repo"], help="where the project's channels live (default cloud)")
     pr.add_argument("--human", help="who the agenda waits on (default: the machine config's human)")
-    pr.add_argument("--python", default="python3", help="the interpreter the hooks call (e.g. 'py -3' on Windows)")
+    pr.add_argument("--about", help="--home repo: one sentence for the unit's start file (what the project is)")
+    pr.add_argument("--spoken", help="--home repo: what the person calls it, comma-separated")
+    pr.add_argument("--python", default="python3", help=argparse.SUPPRESS)
     pr.add_argument("--dry-run", action="store_true")
     pr.add_argument("--check", action="store_true", help="with --dry-run: exit 1 if anything would change")
     pr.set_defaults(fn=cmd_project)
