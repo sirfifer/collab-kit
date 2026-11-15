@@ -295,8 +295,22 @@ class Planner:
         self.undo_target = target
 
     def op_push_request(self, ch: R.Change):
-        self.push_requests.append({"repo": ch.args["repo"], "branch": ch.args.get("branch", ""),
-                                   "approval": ch.args["approval"], "line": ch.line})
+        """An approved push becomes a task on the agenda, carrying the approval verbatim, until a
+        back end (or a session) carries it out and settles it."""
+        repo, branch = ch.args["repo"].strip(), ch.args.get("branch", "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", repo) or (branch and not re.fullmatch(r"[A-Za-z0-9._/-]{1,200}", branch)):
+            raise Reject(f"line {ch.line}: push-request names a repository (and branch) by name only")
+        what = f"{repo}" + (f" ({branch})" if branch else "")
+        self.push_requests.append({"repo": repo, "branch": branch, "approval": ch.args["approval"], "line": ch.line})
+        num = self.next_number()
+        wid = f"W-{num:03d}"
+        title = f"Push {what} to GitHub (approved)"
+        body = (f"## What's needed\nPush {what}, as approved.\n\n## What we know so far\n"
+                f"Approval, verbatim: \"{one_line(ch.args['approval'], 400)}\" (from {self.sender}).\n\n"
+                f"## Done when\nThe push is done and this item is settled with what was pushed.\n")
+        self.ov.write(f"{AGENDA}/{wid}-{slug(title, 40)}.md",
+                      render_item(wid, title, kind="task", importance=2, body=body, log=[f"created {self.tag()}"]))
+        self.minted.append(wid)
 
 
 def sha_or_none(text):
