@@ -64,6 +64,10 @@ ITEM_OPS = {"set", "log", "settle", "snooze", "withdraw", "reopen"}
 OP_ALIASES = {"newitem": "new-item", "new_item": "new-item", "newproject": "new-project",
               "new_project": "new-project", "push": "push-request", "push_request": "push-request",
               "pushrequest": "push-request", "drop": "withdraw", "close": "settle"}
+# A kind word starts a new item of that kind: `task "Order the drip line" importance=2 "What's needed"`.
+# Voice conversations write these unprompted. ("project" is not one: it is its own change.)
+KIND_OPS = {"question": "question", "decision": "decision", "work-out": "work-out", "workout": "work-out",
+            "hole": "hole", "task": "task", "todo": "task"}
 
 
 class ReturnError(ValueError):
@@ -255,8 +259,12 @@ def _parse_change(line: str, lineno: int) -> Change:
         raise ReturnError("a change starts with its name (new-item, set, log, ...)", lineno)
     op = toks[0][1].lower().replace("\u2013", "-").replace("\u2014", "-")
     op = OP_ALIASES.get(op, op)
+    kind_word = KIND_OPS.get(op)
+    if kind_word:
+        op = "new-item"
     if op not in OPS:
-        raise ReturnError(f"unknown change '{toks[0][1]}' (known: {', '.join(OPS)})", lineno)
+        raise ReturnError(f"unknown change '{toks[0][1]}' (known: {', '.join(OPS)}; or a kind word, "
+                          f"{', '.join(k for k in KIND_OPS if k not in ('workout', 'todo'))}, for a new item)", lineno)
     allowed, required = OPS[op]
     ch = Change(op, lineno)
     words = [t[1] for t in toks[1:] if t[0] == "w"]
@@ -288,8 +296,14 @@ def _parse_change(line: str, lineno: int) -> Change:
     elif op == "new-item":
         if words and HANDLE_RE.match(words[0]):
             ch.ref = words.pop(0).lower()
+        if kind_word:
+            if "kind" in ch.args:
+                raise ReturnError(f"'{toks[0][1]}' already says the kind; drop kind=", lineno)
+            ch.args["kind"] = kind_word
         if "title" not in ch.args and quoted:
             ch.args["title"] = quoted.pop(0)
+        if quoted:                                      # a second quoted text: what is needed
+            ch.body = f"## What's needed\n{quoted.pop(0)}"
     elif op == "status":
         if quoted:
             ch.text = quoted.pop(0)

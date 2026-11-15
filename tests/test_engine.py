@@ -90,6 +90,21 @@ class Grammar(unittest.TestCase):
         self.assertFalse(r.has_block)
         self.assertEqual(r.changes, [])
 
+    def test_kind_word_starts_a_new_item(self):
+        # as a voice conversation wrote it on 2026-11-15
+        r = R.parse('Project: g\nChanges v1:\ntask "Public example snapshot" importance=3 "Build what W-014 settled."\n'
+                    'Question "Which venue?"\nEnd.\n', "abc.md")
+        a, b = r.changes
+        self.assertEqual((a.op, a.args["kind"], a.args["title"], a.args["importance"]),
+                         ("new-item", "task", "Public example snapshot", 3))
+        self.assertEqual(a.body, "## What's needed\nBuild what W-014 settled.")
+        self.assertEqual((b.op, b.args["kind"], b.body), ("new-item", "question", None))
+        for line in ['task kind=question title="x"', 'task', 'task "a" "b" "c"']:
+            with self.subTest(line=line), self.assertRaises(R.ReturnError):
+                R.parse(f"Project: g\nChanges v1:\n{line}\nEnd.\n", "abc.md")
+        with self.assertRaises(R.ReturnError):     # "project" stays its own change, never a new item
+            R.parse('Project: g\nChanges v1:\nproject "x"\nEnd.\n', "abc.md")
+
     def test_render_round_trip(self):
         ch = R.render_change("log", "W-003", "venue", text='He said "no" twice', body=None)
         text = R.render_return("g", "2026-11-15-x", "Claude Code", "note", "t", [ch])
