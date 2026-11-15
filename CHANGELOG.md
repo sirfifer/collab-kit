@@ -45,9 +45,11 @@ agenda to 0.5.
 converted: importance runs the other way and `done` becomes `settled`), then
 `install.py project <repo> --home repo`. Unload the 0.4 scheduled jobs first.
 
-**Security.** Text from outside is fenced wherever an agent reads it; the back end validates every
-path a return or a ledger names (a forged-ledger traversal was found and fixed in review before
-release). See SECURITY.md, "Text from outside".
+**Security and integrity.** Text from outside is fenced wherever an agent reads it; the back end
+validates every path a return or a ledger names (a forged-ledger traversal was found and fixed in
+review before release); every unpushed commit is checked against the deny-list and its paths before
+a push; a failed push loses nothing. See SECURITY.md, "Text from outside", and DESIGN-0.5.md section
+18.
 
 ## 0.4.0 (2026-11-11)
 

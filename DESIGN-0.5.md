@@ -378,6 +378,20 @@ Verified with the real Claude Code (`tests/live-native-layer.sh`): the brief rea
 any tool use, and given an ordinary task the agent read the item in progress first, kept to what was
 already decided, logged its change on that item, and filed a status line.
 
+**Reviewed the same night** by three independent sceptical passes (agent harness and security; back
+end data integrity; a check of the fixes). Besides the traversal, they changed: the end-of-turn check
+re-arms rather than firing once; records count per worktree; repository-homed sessions never mint
+item numbers; a failed push loses nothing (each pass starts from the remote, one commit per return,
+cloud returns move only after a successful push); every unpushed commit is checked against the
+deny-list and the paths before a push; the mirror works by hash and copies any bytes; item numbers
+come from a counter and are never reused; Drive's "(1)" copies heal as one file.
+
+**Where the build differs from this record** (to settle in review): the lease lives in the cloud
+folder (`_backend/lease.json`, written, settled, read back, renewed per unit), not in git; the item
+counter lives with the ledgers (`_returns/applied/next-item.json`), in git for a repository-homed
+unit. Approved pushes of project work (section 17) become an agenda task carrying the approval; the
+back end does not push project work by itself yet.
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
