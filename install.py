@@ -480,9 +480,21 @@ def cmd_top(a):
     return 0
 
 
+def cmd_backend(a):
+    inst = _v05()
+    return inst.install_backend(Path(a.config).expanduser() if a.config else None, cloud=a.cloud,
+                                human=a.human, apply=a.apply)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    be = sub.add_parser("backend", help="0.5: set up this machine as the back end (config, then the schedule)")
+    be.add_argument("--config", help="the back end's TOML (default <config dir>/backend.toml)")
+    be.add_argument("--cloud", help="for a new config: the Collab Kit folder (path, or rclone:remote:path)")
+    be.add_argument("--human")
+    be.add_argument("--apply", action="store_true", help="write and load the schedule (default: show it)")
+    be.set_defaults(fn=cmd_backend)
     pr = sub.add_parser("project", help="0.5: install or upgrade Collab Kit in a project's repository")
     pr.add_argument("project")
     pr.add_argument("--name", help="the project's folder name (default: the repository's folder name)")

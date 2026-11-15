@@ -273,3 +273,82 @@ def install_top(folder: Path, *, human: str, dry: bool = False) -> Plan:
         if not (folder / rel).exists():
             plan.write(rel, text, "a new Collab Kit folder")
     return plan
+
+
+# ---------------------------------------------------------------------------- back end --
+
+BACKEND_TEMPLATE = """# Collab Kit back end (see the kit's engine/collab_kit/backend.py for every setting)
+[backend]
+cloud = {cloud}          # the Collab Kit folder: a path, or "rclone:<remote>:<path>"
+work = {work}            # the back end's own clones: never inside ~/dev or the Collab Kit folder
+interval_minutes = 60
+human = {human}
+local_roots = []         # e.g. ["~/dev", "~/projects"]: folder names there count as taken
+deny = []                # regexes a pushed change may never contain
+
+# One table per project whose home is a repository:
+# [[project]]
+# name = "garden-planner"
+# repo = "git@github.com:you/garden-planner.git"
+# branch = "main"
+# push = true
+# allow_public = false
+"""
+
+
+def build_runner(dest_dir: Path) -> Path:
+    """macOS: build collab-kit-runner (the one program a person grants Drive access to)."""
+    import subprocess
+    src = KIT / "engine" / "launchd" / "collab-kit-runner.c"
+    out = dest_dir / "collab-kit-runner"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["cc", "-O2", "-o", str(out), str(src)], check=True)
+    subprocess.run(["codesign", "-s", "-", "-f", str(out)], check=True, capture_output=True)
+    return out
+
+
+def install_backend(config: Path | None, *, cloud: str | None, human: str | None, apply: bool) -> int:
+    import subprocess
+    from . import schedule
+    config = config or C.config_dir() / "backend.toml"
+    if not config.is_file():
+        if not cloud:
+            print(f"no {config} yet: give --cloud (and --human) to create it", file=sys.stderr)
+            return 2
+        work = data_dir() / "backend"
+        text = BACKEND_TEMPLATE.format(cloud=json.dumps(cloud), work=json.dumps(str(work)),
+                                       human=json.dumps(human or "the owner"))
+        print(f"create {config}" + ("" if apply else "  (dry run)"))
+        if apply:
+            config.parent.mkdir(parents=True, exist_ok=True)
+            config.write_text(text, encoding="utf-8")
+    cfg = C.load_toml(config) if config.is_file() else {"backend": {"cloud": cloud or ""}}
+    minutes = int(cfg.get("backend", {}).get("interval_minutes", 60))
+    spec = C.expand(cfg.get("backend", {}).get("cloud", ""))
+    runner = None
+    if sys.platform == "darwin" and "/Library/CloudStorage/" in spec:
+        runner = data_dir() / "collab-kit-runner"
+        print(f"the Collab Kit folder is a Drive for desktop folder: launchd starts the back end through {runner}")
+        if apply:
+            build_runner(runner.parent)
+    p = schedule.plan(KIT, config, minutes, runner=runner)
+    print(f"schedule on {p['platform']}, every {minutes} minutes:")
+    for path, text in p["files"].items():
+        print(f"  write {path}")
+        if apply:
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            Path(path).write_text(text, encoding="utf-8")
+    for d in p["mkdir"]:
+        if apply:
+            Path(d).mkdir(parents=True, exist_ok=True)
+    for cmd in p["then"]:
+        print(f"  run   {cmd}")
+        if apply and not cmd.startswith("loginctl") and not cmd.startswith("schtasks"):
+            subprocess.run(cmd, shell=True, check=False)
+    if not apply:
+        print("(dry run: nothing written; add --apply)")
+    elif runner:
+        print("\nmacOS: the first run may ask whether collab-kit-runner may access files managed by Google Drive: "
+              "Allow. If nothing asks and the log says 'Operation not permitted', give the runner Full Disk "
+              "Access (System Settings, Privacy & Security), never /bin/bash or Terminal.")
+    return 0

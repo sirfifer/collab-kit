@@ -1,5 +1,6 @@
 /*
- * collab-kit-runner: starts a project's tools/kb/nightly.sh for launchd, and nothing else.
+ * collab-kit-runner: starts a project's tools/kb/nightly.sh (0.4), or the kit's engine/backend.sh
+ * (the 0.5 back end), for launchd, and nothing else.
  * Part of Collab Kit. Built by tools/kb/launchd/install.sh (cc, then an ad-hoc signature).
  *
  * Why it exists. On macOS, a job that launchd starts may not read Google Drive's folder
@@ -7,7 +8,8 @@
  * the read just fails. macOS has no narrower grant that a person can give a background program for
  * that folder. Without this runner, the program would be /bin/bash, and granting /bin/bash Full Disk
  * Access would grant it to every shell script on the machine. This runner is the program to grant
- * instead: it runs only an absolute path ending in /tools/kb/nightly.sh, through /bin/bash.
+ * instead: it runs only an absolute path ending in /tools/kb/nightly.sh or /engine/backend.sh,
+ * through /bin/bash.
  *
  * It does not exec: it starts bash as a child and waits. macOS attributes a child's file access to
  * the program launchd started (the "responsible" process), which stays this runner only while it is
@@ -29,11 +31,17 @@ static void forward(int sig) {
 }
 
 int main(int argc, char **argv) {
-    static const char suffix[] = "/tools/kb/nightly.sh";
-    size_t n = argc > 1 ? strlen(argv[1]) : 0, k = sizeof(suffix) - 1;
-    if (argc < 2 || argv[1][0] != '/' || n <= k || strcmp(argv[1] + n - k, suffix) != 0 ||
+    static const char *suffixes[] = {"/tools/kb/nightly.sh", "/engine/backend.sh"};
+    size_t n = argc > 1 ? strlen(argv[1]) : 0;
+    int allowed = 0;
+    for (size_t s = 0; s < sizeof(suffixes) / sizeof(suffixes[0]); s++) {
+        size_t k = strlen(suffixes[s]);
+        if (n > k && strcmp(argv[1] + n - k, suffixes[s]) == 0) allowed = 1;
+    }
+    if (argc < 2 || argv[1][0] != '/' || !allowed ||
         strstr(argv[1], "/../") != NULL || strstr(argv[1], "/./") != NULL) {
-        fprintf(stderr, "collab-kit-runner: runs only <repository>/tools/kb/nightly.sh, given as an absolute path\n");
+        fprintf(stderr, "collab-kit-runner: runs only <repository>/tools/kb/nightly.sh or <kit>/engine/backend.sh, "
+                        "given as an absolute path\n");
         return 64;
     }
     char *args[argc + 1];
