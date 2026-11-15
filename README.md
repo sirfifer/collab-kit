@@ -83,6 +83,10 @@ python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sa
 python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sam" --apply
 ```
 
+**No machine:** `templates/actions/collab-kit-backend.yml` runs the back end hourly on GitHub Actions
+from a private repository of your own (needs a bot Google account and your own OAuth client; see
+the file's header and [docs/rclone-intake.md](docs/rclone-intake.md)).
+
 **Moving a 0.4 project:** `python3 install.py migrate-04 <repo>`, then `install.py project <repo>
 --home repo`.
 

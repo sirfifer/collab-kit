@@ -1,5 +1,9 @@
 # Collab Kit: design
 
+> **Collab Kit 0.5** is described in [DESIGN-0.5.md](DESIGN-0.5.md). This document describes the 0.4
+> design, of which the knowledge build (`kb.py`: documents split into sections, concepts, the index)
+> is still part of the kit; its AI curator and nightly job are not part of the 0.5 base product.
+
 Version 0.4.0, November 2026. The repository is `collab-kit`, and a local clone lives in a folder
 of the same name (a local folder's name is always its repository's name). The pattern was first
 built by hand for one research project and extracted into this kit so that any project can
