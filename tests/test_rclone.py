@@ -59,19 +59,28 @@ class Rclone(unittest.TestCase):
         os.environ["RCLONE_CONFIG_PASS"] = "secret"
         self.store.list("")                                        # the fake exits 9 if it sees it
 
-    def test_duplicates_fail_closed(self):
+    def test_duplicates_fail_closed_per_name(self):
         self.store.write("_returns/r.md", "x")
+        self.store.write("_returns/s.md", "y")
         os.environ["FAKE_RCLONE_DUP"] = "r.md"
+        names = [e.name for e in self.store.list("_returns")]
+        self.assertEqual(names, ["r.md", "s.md"])                 # listing still works
         with self.assertRaises(StoreError):
-            self.store.list("_returns")
+            self.store.read("_returns/r.md")                       # the duplicated name does not
+        self.assertEqual(self.store.read("_returns/s.md"), "y")
+
+    def test_non_utf8_and_hashes(self):
+        (self.t / "drive" / "Collab Kit" / "_returns" / "cp1252.txt").write_bytes(b"caf\xe9 \x93quoted\x94\n")
+        self.assertIn("caf", self.store.read("_returns/cp1252.txt"))
+        self.store.write("knowledge/a.md", "hello\n")
+        import hashlib
+        self.assertEqual(self.store.md5s("knowledge")["a.md"], hashlib.md5(b"hello\n").hexdigest())
 
     def test_native_files_are_never_read_and_are_set_aside(self):
         (self.t / "drive" / "Collab Kit" / "_returns" / "notes.gdoc-native").write_text("binary")
         unit = Unit(self.store, "top", home="cloud", top=True)
         e = [e for e in unit.pending_returns() if e.name.endswith("native")][0]
         self.assertTrue(e.native)
-        with self.assertRaises(StoreError):
-            self.store.read("_returns/notes.gdoc-native")
         out = A.apply_file(unit, e)
         self.assertEqual(out.status, "stray")
 

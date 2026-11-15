@@ -19,14 +19,13 @@ if args[:1] == ["version"]:
     print("rclone " + os.environ.get("FAKE_RCLONE_VERSION", "v1.76.0"))
     sys.exit(0)
 cmd = args[0]
-pos = [a for a in args[1:] if not a.startswith("--") and a != ""]
 # drop values of flags that take one
 clean, skip = [], False
 for a in args[1:]:
     if skip:
         skip = False
         continue
-    if a in ("--config", "--drive-import-formats"):
+    if a in ("--config", "--drive-import-formats", "--hash-type"):
         skip = True
         continue
     if a.startswith("--"):
@@ -51,18 +50,24 @@ try:
         for c in sorted(d.iterdir()):
             st = c.stat()
             size = -1 if c.name.endswith(".gdoc-native") else (0 if c.is_dir() else st.st_size)
-            out.append({"Path": c.name, "Name": c.name, "Size": size, "IsDir": c.is_dir(),
+            import hashlib
+            h = {} if c.is_dir() or size < 0 else {"md5": hashlib.md5(c.read_bytes()).hexdigest()}
+            out.append({"Path": c.name, "Name": c.name, "Size": size, "IsDir": c.is_dir(), "Hashes": h,
                         "ModTime": datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc).isoformat(),
                         "MimeType": "inode/directory" if c.is_dir() else "text/markdown"})
         dup = os.environ.get("FAKE_RCLONE_DUP")
         out += [dict(o) for o in out if o["Name"] == dup]
         print(json.dumps(out))
     elif cmd == "cat":
-        sys.stdout.write(local(clean[0]).read_text(encoding="utf-8"))
+        p = local(clean[0])
+        if not p.is_file():
+            print("ERROR : object not found", file=sys.stderr)
+            sys.exit(4)
+        sys.stdout.buffer.write(p.read_bytes())
     elif cmd == "rcat":
         p = local(clean[0])
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(sys.stdin.read(), encoding="utf-8")
+        p.write_bytes(sys.stdin.buffer.read())
     elif cmd in ("copyto", "moveto"):
         s, d = local(clean[0]), local(clean[1])
         d.parent.mkdir(parents=True, exist_ok=True)

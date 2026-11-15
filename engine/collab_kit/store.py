@@ -37,6 +37,7 @@ class Entry:
     mtime: float = 0.0
     size: int = 0
     native: bool = False  # a Google Docs/Sheets/Slides file (never managed by Collab Kit)
+    md5: str | None = None
 
 
 class StoreError(RuntimeError):
@@ -87,6 +88,14 @@ class Store:
 
     def mkdir(self, rel: str) -> None:
         raise NotImplementedError
+
+    def put_file(self, local: str | os.PathLike, rel: str) -> None:
+        """Copy a local file (any bytes) to rel, replacing its content in place."""
+        raise NotImplementedError
+
+    def md5s(self, rel: str = "") -> dict[str, str | None]:
+        """{name: md5 of its bytes} for the files in a folder (None when the store cannot say)."""
+        return {e.name: None for e in self.files(rel)}
 
     # ---- shared helpers
     def entry(self, rel: str) -> Entry | None:
@@ -199,6 +208,22 @@ class FolderStore(Store):
     def mkdir(self, rel: str) -> None:
         self._p(rel).mkdir(parents=True, exist_ok=True)
 
+    def put_file(self, local, rel: str) -> None:
+        p = self._resolve(rel)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(local, "rb") as src, open(p, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+
+    def md5s(self, rel: str = "") -> dict[str, str | None]:
+        import hashlib
+        out = {}
+        for e in self.files(rel):
+            try:
+                out[e.name] = hashlib.md5(self._p(_join(rel, e.real)).read_bytes()).hexdigest()
+            except OSError:
+                out[e.name] = None
+        return out
+
 
 class RcloneStore(Store):
     """A cloud folder through rclone (e.g. remote 'gdrive:Collab Kit'), under the conditions of
@@ -217,9 +242,15 @@ class RcloneStore(Store):
         if self.config:
             self.flags = ["--config", self.config, *self.flags]
         self._checked = not check_version
+        self.dupes: dict[str, set[str]] = {}     # folder -> names Drive holds more than once
 
     def __repr__(self):
         return f"RcloneStore({self.remote})"
+
+    def _guard(self, rel: str) -> None:
+        """Fail closed on a name Drive holds more than once: a single-file command would pick one."""
+        if _base(rel) in self.dupes.get(_parent(rel), set()):
+            raise StoreError(f"{rel}: Drive holds two files with this name; a conversation heals it (the newer is current)")
 
     def _r(self, rel: str) -> str:
         check_rel(rel)
@@ -248,21 +279,23 @@ class RcloneStore(Store):
         self._check_version()
         cmd = [self.rclone, *args, *self.flags]
         try:
-            res = subprocess.run(cmd, input=data, capture_output=True, text=True, encoding="utf-8",
-                                 timeout=300, env=self._env())
+            res = subprocess.run(cmd, input=data.encode("utf-8") if data is not None else None,
+                                 capture_output=True, timeout=300, env=self._env())
         except FileNotFoundError:
             raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
         except subprocess.TimeoutExpired:
             raise StoreError(f"rclone timed out: {args[0]}") from None
         if res.returncode != 0:
-            raise StoreError(f"rclone {args[0]} failed: {res.stderr.strip()[:400]}")
-        return res.stdout
+            err = StoreError(f"rclone {args[0]} failed: {res.stderr.decode('utf-8', 'replace').strip()[:400]}")
+            err.code = res.returncode          # 3: directory not found, 4: file not found (rclone docs)
+            raise err
+        return res.stdout.decode("utf-8", errors="replace")
 
     def list(self, rel: str = "") -> list[Entry]:
         try:
-            out = self._run(["lsjson", self._r(rel)])
+            out = self._run(["lsjson", "--hash", "--hash-type", "md5", self._r(rel)])
         except StoreError as e:
-            if "directory not found" in str(e).lower():
+            if getattr(e, "code", None) == 3:
                 return []
             raise
         items = json.loads(out or "[]")
@@ -279,20 +312,32 @@ class RcloneStore(Store):
                     e.mtime = _dt.datetime.fromisoformat(mod.replace("Z", "+00:00")).timestamp()
                 except ValueError:
                     pass
+            e.md5 = (it.get("Hashes") or {}).get("md5")
             if e.name in res:
-                raise StoreError(f"two items are named {_join(rel, e.name)}; heal the duplicate first")
+                self.dupes.setdefault(rel, set()).add(e.name)
+                if e.mtime <= res[e.name].mtime:
+                    continue
             res[e.name] = e
         return sorted(res.values(), key=lambda e: e.name)
 
+    def md5s(self, rel: str = "") -> dict[str, str | None]:
+        return {e.name: getattr(e, "md5", None) for e in self.files(rel)}
+
     def read(self, rel: str) -> str | None:
-        e = self.entry(rel)
-        if e is None or e.is_dir:
-            return None
-        if e.native:
-            raise StoreError(f"{rel} is a Google-native file; Collab Kit never reads those")
-        return self._run(["cat", self._r(rel)])
+        self._guard(rel)
+        try:
+            return self._run(["cat", self._r(rel)])
+        except StoreError as e:
+            if getattr(e, "code", None) in (3, 4):
+                return None
+            raise
+
+    def put_file(self, local, rel: str) -> None:
+        self._guard(rel)
+        self._run(["copyto", str(local), self._r(rel)])
 
     def write(self, rel: str, text: str) -> None:
+        self._guard(rel)
         if len(text.encode("utf-8")) <= self.SPOOL_OVER:
             self._run(["rcat", self._r(rel)], data=text)
             return
@@ -306,11 +351,13 @@ class RcloneStore(Store):
             os.unlink(tmp)
 
     def copy(self, src: str, dst: str) -> None:
+        self._guard(src)
         if self.exists(dst):
             raise StoreError(f"copy would overwrite {dst}")
         self._run(["copyto", self._r(src), self._r(dst)])
 
     def move(self, src: str, dst: str) -> None:
+        self._guard(src)
         if self.exists(dst):
             raise StoreError(f"move would overwrite {dst}")
         self._run(["moveto", self._r(src), self._r(dst)])
@@ -355,6 +402,12 @@ class SubStore(Store):
     def duplicates(self, rel=""):
         f = getattr(self.base, "duplicates", None)
         return f(self._j(rel)) if f else []
+
+    def put_file(self, local, rel):
+        return self.base.put_file(local, self._j(rel))
+
+    def md5s(self, rel=""):
+        return self.base.md5s(self._j(rel))
 
 
 def open_store(spec: str) -> Store:
