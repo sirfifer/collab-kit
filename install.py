@@ -200,8 +200,8 @@ def plan(root: Path, adopt: bool = False) -> list[tuple[str, Path, str | None, s
         if not src.is_file() or src.name == ".DS_Store":
             continue
         rel = src.relative_to(TEMPLATES).as_posix()
-        if rel.startswith("project/"):
-            continue                                       # 0.5 project files: install.py project
+        if rel.startswith(("project/", "actions/")):
+            continue                                       # 0.5 files: install.py project; a runner template
         if not cfg["knowledge"].get("agenda", True) and rel.startswith(("OUT/agenda/", "OUT/_returns/")):
             continue                                       # 0.5 keeps the agenda and the inbox (collab-kit/)
         dest = root / target_path(rel, out)

@@ -602,7 +602,9 @@ class Pass:
         if self.cloud_spec.startswith("rclone:"):
             remote = self.cloud_spec[len("rclone:"):].split(":", 1)[0] + ":"
             try:
-                res = subprocess.run(["rclone", "config", "userinfo", remote], capture_output=True, text=True, timeout=60,
+                conf = os.environ.get("COLLAB_KIT_RCLONE_CONFIG", "")
+                res = subprocess.run(["rclone", *(["--config", conf] if conf else []), "config", "userinfo", remote],
+                                     capture_output=True, text=True, timeout=60,
                                      env={k: v for k, v in os.environ.items() if not k.startswith("RCLONE_")})
             except (OSError, subprocess.TimeoutExpired) as e:
                 return f"cannot ask rclone which account {remote} is: {e}"
