@@ -196,6 +196,8 @@ def plan(root: Path, adopt: bool = False) -> list[tuple[str, Path, str | None, s
         rel = src.relative_to(TEMPLATES).as_posix()
         if rel.startswith("project/"):
             continue                                       # 0.5 project files: install.py project
+        if not cfg["knowledge"].get("agenda", True) and rel.startswith(("OUT/agenda/", "OUT/_returns/")):
+            continue                                       # 0.5 keeps the agenda and the inbox (collab-kit/)
         dest = root / target_path(rel, out)
         fresh = render(src.read_text(encoding="utf-8"), ctx, rel)
         if rel in SEED:
@@ -480,6 +482,19 @@ def cmd_top(a):
     return 0
 
 
+def cmd_migrate(a):
+    inst = _v05()
+    from collab_kit import migrate
+    steps = migrate.migrate_repo(Path(a.project), dry=a.dry_run)
+    print(f"migrate {Path(a.project).resolve()} from 0.4 to 0.5{' (dry run)' if a.dry_run else ''}:")
+    for st in steps:
+        print(f"  {st}")
+    if not a.dry_run:
+        print("next: python3 install.py project <repo> --home repo; python3 tools/kb/kb.py build && "
+              "python3 tools/kb/kb.py check; review and commit")
+    return 0
+
+
 def cmd_backend(a):
     inst = _v05()
     return inst.install_backend(Path(a.config).expanduser() if a.config else None, cloud=a.cloud,
@@ -489,6 +504,10 @@ def cmd_backend(a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    mg = sub.add_parser("migrate-04", help="0.5: move a 0.4 project's repository to the 0.5 layout")
+    mg.add_argument("project")
+    mg.add_argument("--dry-run", action="store_true")
+    mg.set_defaults(fn=cmd_migrate)
     be = sub.add_parser("backend", help="0.5: set up this machine as the back end (config, then the schedule)")
     be.add_argument("--config", help="the back end's TOML (default <config dir>/backend.toml)")
     be.add_argument("--cloud", help="for a new config: the Collab Kit folder (path, or rclone:remote:path)")

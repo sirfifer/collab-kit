@@ -111,6 +111,7 @@ DEFAULTS: dict = {
         "max_words": 1800,               # ceiling for one section file (~2.4k tokens)
         "index_max_words": 9000,         # warn when 01-INDEX.md grows past this
         "recent_heading": "Newest additions",
+        "agenda": True,                  # false: Collab Kit 0.5 keeps the agenda (collab-kit/agenda/), not this build
     },
     "tiers": DEFAULT_TIERS,
     "concepts": {
@@ -960,7 +961,7 @@ class Build:
             m[1] for d in self.docs if (m := CODE_FAMILY_RE.match(d.code))}
         self.by_code = {d.code: d for d in self.docs}
         self.concepts, self.kbs = load_entries(self.out, self.errors, self.warnings)
-        self.agenda = load_agenda(self.out, self.errors)
+        self.agenda = load_agenda(self.out, self.errors) if self.cfg["knowledge"].get("agenda", True) else {}
         self.resolved: dict[tuple[str, str], list[Resolved]] = {}  # (kind,id) -> resolved sources
         self.chunk_concepts: dict[tuple[str, int], list[str]] = {}
         self.chunk_kbs: dict[tuple[str, int], list[str]] = {}
@@ -1749,6 +1750,9 @@ def cmd_agenda(_):
 
 
 def cmd_new_item(args):
+    if not cfg()["knowledge"].get("agenda", True):
+        print("new-item: this project's agenda is kept by Collab Kit 0.5: python3 tools/collab-kit/ck.py ask \"...\"")
+        return 1
     if args.kind not in agenda_kinds():
         print(f"new-item: kind must be one of {', '.join(agenda_kinds())}")
         return 1
