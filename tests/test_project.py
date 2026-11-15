@@ -283,3 +283,44 @@ class ProjectSide(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MachineAndTop(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.t = Path(self.tmp.name)
+        os.environ["COLLAB_KIT_CONFIG"] = str(self.t / "cfg" / "config.toml")
+
+    def tearDown(self):
+        os.environ.pop("COLLAB_KIT_CONFIG", None)
+        self.tmp.cleanup()
+
+    def test_user_hooks_merge_and_refresh(self):
+        settings = self.t / "settings.json"
+        settings.write_text(json.dumps({"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [
+            {"type": "command", "command": "echo mine"}]}]}, "model": "x"}))
+        for _ in range(2):                                   # twice: idempotent
+            installer.install_machine(cloud_root=str(self.t), human="Sam", kit_source=str(KIT), user_hooks=True,
+                                      claude_settings=settings)
+        s = json.loads(settings.read_text())
+        self.assertEqual(s["model"], "x")
+        cmds = [h["command"] for ev in s["hooks"].values() for g in ev for h in g["hooks"]]
+        self.assertIn("echo mine", cmds)
+        self.assertEqual(sum("hook touch" in c for c in cmds), 1)
+        self.assertEqual(sum("hook stop" in c for c in cmds), 1)
+        self.assertEqual(sum("hook session-start" in c for c in cmds), 1)
+        self.assertTrue((self.t / "settings.json.before-collab-kit").is_file())
+
+    def test_top_upgrade_adds_markers_once(self):
+        top = self.t / "Collab Kit"
+        top.mkdir()
+        (top / "00-START-HERE.md").write_text("# Start here\n\n## What is true right now (read this)\n\nThings.\n\n"
+                                              "## Due soon\n\nKeep this current.\n\n- 2026-11-16: the article\n\n## The layout\n\nx\n")
+        installer.install_top(top, human="Sam")
+        text = (top / "00-START-HERE.md").read_text()
+        self.assertIn("<!-- collab-kit:begin health -->", text)
+        self.assertIn("<!-- collab-kit:begin due -->\n- 2026-11-16: the article\n<!-- collab-kit:end due -->", text)
+        self.assertIn("Keep this current.", text)
+        self.assertEqual(len(list((top / "_versions").glob("*.md"))), 1)
+        installer.install_top(top, human="Sam")
+        self.assertEqual((top / "00-START-HERE.md").read_text(), text)
