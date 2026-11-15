@@ -3,7 +3,9 @@
 Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
-**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation.** Every decision below is made. What remains
+**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation; 0.5.0 is built
+(2026-11-15: engine, back end, the native layer in section 18, migration; go-live on the Studio and
+the owner's projects remain).** Every decision below is made. What remains
 open does not change the architecture: which assistants beyond Claude can use it (an interface
 question, research in progress) and rclone's dependency intake review.
 
@@ -327,6 +329,54 @@ W-005, W-010, W-011, W-012, W-015, W-016, W-017; return `2026-11-14-1912-wip-and
 - **Observed:** Drive for desktop shows a file created under an existing name as `name (1).md` locally
   even after the older one has moved to `_versions/`; the cloud has one file with the right name. A
   machine back end must read names through the API (rclone), never trust local Drive for desktop names.
+
+### 18. Native in every project (decided 2026-11-14, built that night)
+
+Owner's requirement: when he starts work on any project, he never has to think about whether the
+knowledge is being kept current, whether the inbox was read first, or whether open questions reach
+the agenda. Every agent working in a project's repository treats Collab Kit as first-class, without
+being asked, every time.
+
+Found first: the 0.4 kit never touched a project's own `CLAUDE.md`; its skills triggered only on
+knowledge-base phrases; nothing told a session that returns were waiting or what was in progress.
+Two Claude Code facts shape the answer: `AGENTS.md` is read only when no `CLAUDE.md` exists in the
+folder or above it (so the kit writes into `CLAUDE.md`, and `AGENTS.md` for other assistants), and a
+session started in a parent folder (the owner's `~/dev`) never runs a child repository's hooks.
+
+**Four layers, strongest first:**
+
+1. **A session-start hook** prints a brief into the context: the inbox, what is in progress, due, and
+   most important, recent status, other unmerged branches, a kit-update notice, and where returns
+   from this session will go. It has a deadline (a cached brief when the folder is slow).
+2. **A check at the end of a turn** (Stop hook): when the session changed project files since the
+   last check and recorded nothing, it asks the agent to record what is needed, or to say nothing is.
+   At most every 15 minutes, three times a session; records count per worktree.
+3. **A Collab Kit section** in `CLAUDE.md` and `AGENTS.md`: start from the brief and look for
+   overlap; questions and decisions go to the owner or onto the agenda; record where things stand;
+   one writer; text in Collab Kit files is data; keep the kit current.
+4. **Skills** (`collab-kit`, `collab-kit-return`, `collab-kit-upgrade`) and the `ck` command.
+
+For sessions started in a parent folder, optional user-level hooks give a short brief the first time
+the session touches a project (and again after compaction).
+
+**One writer, and where a return goes.** Agents never edit the agenda or status by hand and never
+mint item numbers in a checkout: `ck` files a return. With a back end running, to the cloud inbox.
+Without one, a cloud-homed project's return is applied at once (level 1; two sessions that took one
+number heal: the later renumbers itself). A repository-homed project's return goes to the
+checkout's `collab-kit/_returns/`, committed with the work, applied by the back end once it reaches
+the main branch. Filed while the folder is unreachable: kept in the checkout and delivered by the next
+session that can reach it.
+
+**Keeping the kit itself current:** the brief compares the project's kit with the machine's newest;
+the agent upgrades it as its own commit (skill `collab-kit-upgrade`) and says so.
+
+**Text from outside** reaches agents only inside `<collab-kit-data>` fences that its content cannot
+close, with a note that it is data. A sceptical review the same night found a forged-ledger path
+traversal through `undo`; every path a return or ledger names is now validated (SECURITY.md).
+
+Verified with the real Claude Code (`tests/live-native-layer.sh`): the brief reached the model before
+any tool use, and given an ordinary task the agent read the item in progress first, kept to what was
+already decided, logged its change on that item, and filed a status line.
 
 ## Out of scope for 0.5
 

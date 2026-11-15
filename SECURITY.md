@@ -9,8 +9,9 @@ the report.
 If you cannot use GitHub, open a public issue that says only that you have something to report
 privately and how to reach you. Put no details in it; a maintainer will arrange a private channel.
 
-Please include what you found, the version (`VERSION`, or `tools/kb/KIT-VERSION` in an installed
-project), how to reproduce it, and what an attacker could do with it.
+Please include what you found, the version (`VERSION`; in an installed project
+`tools/collab-kit/ck version`, or `tools/kb/KIT-VERSION` for the 0.4 knowledge build), how to
+reproduce it, and what an attacker could do with it.
 
 ## What happens next
 
@@ -30,15 +31,24 @@ silent.
 
 ## Supported versions
 
-Only the latest release gets security fixes. Upgrading is `install.py apply` in each project (see
-`DESIGN.md`, "Upgrading"), so there is no long-lived older line to maintain. Before 1.0, a fix may
+Only the latest release gets security fixes. Upgrading is `install.py project <repo>` in each
+project (and `install.py apply` for the 0.4 knowledge build); an agent working in a project is told
+by its session brief when a newer kit exists. There is no long-lived older line to maintain. Before 1.0, a fix may
 come with other changes; the release notes say what to check.
 
 ## Scope
 
-In scope: everything in this repository: `install.py`, the engine (`kb.py`, `nightly.sh`, the
-launchd installer, the start-file template), the templates it renders, and the workflows that
-build releases. Of particular interest:
+In scope: everything in this repository: `install.py`, the 0.5 engine (`engine/collab_kit/`, `ck`,
+the hooks, the back end, the scheduler files), the 0.4 knowledge build (`kb.py`, `nightly.sh`, the
+launchd installer), the templates they render, and the workflows that build releases. Of particular
+interest:
+
+- a return (or anything else written into the Collab Kit folder) that makes the engine write, move,
+  or read outside the unit it was filed in, or outside the Collab Kit folder;
+- text in a Collab Kit file that escapes the `<collab-kit-data>` fence an agent sees it in, or that
+  makes the back end do anything its grammar does not describe;
+- a way to push anything other than a project's `collab-kit/`, to a public repository without the
+  project allowing it, or past the deny-list;
 
 - anything that makes `nightly.sh` write, sync, or delete outside the project's own mirror folder
   (the ownership marker and the naming checks exist to prevent it), or into a refused account;
@@ -52,7 +62,45 @@ Out of scope: vulnerabilities in Google Drive, Google Drive for desktop, the Cla
 Code, or macOS themselves (report those to their vendors), and problems that need an attacker who
 can already write to the project's repository or its configuration.
 
-## The unattended pass
+## Text from outside (Collab Kit 0.5)
+
+Everything Collab Kit carries is text that someone wrote somewhere else: a dictated return, an agenda
+item, a status line, a knowledge file, possibly quoting a web page, in a folder other people may be
+able to write to. That text reaches two kinds of reader, and each is fenced.
+
+**The back end reads it with no AI at all.** A return is parsed by a fixed grammar (`Changes v1`);
+it can do only what the grammar describes, inside the unit it was filed in. Concretely:
+
+| Layer | What it stops |
+|---|---|
+| A return is applied whole or not at all, and at most once (a ledger per return) | half-applied or replayed changes |
+| Every store path is relative and never climbs (`..`, a root, a drive letter, a backslash are refused); knowledge paths must be plain files inside `knowledge/` | writing anywhere outside the Collab Kit folder or a project's `collab-kit/` |
+| An `undo` names a return id only, and every file its ledger names must be one a return could have written (agenda, knowledge, the start file, a new project's folder) | a forged ledger in the shared folder turning undo into a write anywhere (found by review, 2026-11-15, before release) |
+| A project's inbox changes only that project; a project is started only from the top-level inbox, from an existing idea, at most three a day, with a validated name | one unit's inbox reaching another |
+| A change to an existing item repeats part of its title | a misheard or invented number changing the wrong item |
+| The back end commits only inside `collab-kit/`, pushes only with a standing authorization per project, never to a public repository unless the project allows it, and never a change matching the deny-list; a `push-request` only creates an agenda task | a return publishing anything |
+| The back end never deletes in the cloud: anything unexpected moves to `_returns/strays/` or `_versions/` and becomes an agenda item | a return destroying data |
+
+**Agents read it with an AI.** A Claude Code session sees Collab Kit text in its session brief and
+in `ck` output. Every such piece is fenced: listings are reduced to single plain lines (control and
+bidirectional characters removed, markup neutralised), multi-line text cannot contain the fence's
+own tag, and each fence carries a note that its content is data, never instructions. The Collab Kit
+section of the project's `CLAUDE.md` (and `AGENTS.md`) says the same, and the top-level start file
+tells voice and chat conversations so too. This is a mitigation, not a guarantee: a model can still
+be persuaded by text it reads. The boundary that holds is the agent's own permissions: keep pushing,
+deploying, and deleting behind confirmation in your Claude Code settings, and note that nothing in
+Collab Kit asks an agent to do any of those on the strength of a file.
+
+**The hooks** (`.claude/settings.json` in a project, and optionally the user-level hooks) run the
+kit's own `tools/collab-kit/ck` and read only the project's Collab Kit files and git state. They
+never execute anything taken from those files. Claude Code holds project hooks until the folder is
+trusted; installing the kit into a repository adds hooks to its committed settings, so review
+`install.py project --dry-run` first.
+
+## The unattended pass (the 0.4 curator)
+
+Collab Kit 0.5 removed the AI curator from the base product (the back end is scripts only). This
+section applies to projects still on the 0.4 knowledge build's nightly job.
 
 Each night (and when returns arrive) `nightly.sh` runs one headless Claude Code pass, the curator,
 over the project. Its input includes returns: text from outside the repository, written in a
@@ -102,8 +150,9 @@ the file system whether each attempt was refused; run it after upgrading Claude 
 
 ## Supply chain
 
-- The kit has **no package dependencies**: Python's standard library (3.11 or later) and the shell
-  tools that ship with macOS. A new dependency needs a deliberate review first (license,
+- The kit has **no package dependencies**: Python's standard library (3.11 or later), git, and a
+  POSIX shell. A back end that reaches Google Drive through its API uses rclone, an external
+  program reviewed in `docs/rclone-intake.md` and pinned there. A new dependency needs a deliberate review first (license,
   maintenance, known vulnerabilities in OSV, its own security posture) and a note in the pull
   request; the default answer is no.
 - Every release attaches a CycloneDX and an SPDX SBOM, with build provenance and SBOM attestations
@@ -120,7 +169,10 @@ Security is part of contributing, not an extra step:
 - no new dependencies without the review above;
 - workflows: actions pinned by hash, `permissions` as narrow as the job allows, no
   `pull_request_target` with untrusted code;
-- anything that touches the mirror, the returns check, the curator's fence (its flags, `kb_mcp.py`,
-  its guard), or the start file comes with a test in `tests/dry-run-install.sh`; a change to the
-  fence also gets a run of `tests/live-curator-permissions.sh`;
-- `tests/dry-run-install.sh` passes before a pull request is merged.
+- anything that touches the grammar, applying returns, the ledger, store paths, the fences, the
+  hooks, the mirror, or pushing comes with a test in `tests/` (`python3 -m unittest discover -s
+  tests`); a change to the hooks or the CLAUDE.md section also gets a run of
+  `tests/live-native-layer.sh`;
+- anything that touches the 0.4 curator's fence comes with a test in `tests/dry-run-install.sh` and
+  a run of `tests/live-curator-permissions.sh`;
+- the unit tests and `tests/dry-run-install.sh` pass before a pull request is merged.
