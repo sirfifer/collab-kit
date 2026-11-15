@@ -89,8 +89,8 @@ def migrate_repo(root: Path, *, dry: bool = False, label_prefix: str | None = No
             raise SystemExit(f"migrate: the 0.4 curator branch {branch} has {ahead} commit(s) not on {main}; "
                              f"merge or drop them first")
     if sys.platform == "darwin":
-        slug = cfg.get("project", {}).get("slug", "")
-        prefix = label_prefix or cfg.get("schedule", {}).get("label_prefix", "")
+        slug = cfg.get("project", {}).get("slug", "") or "kb"                     # 0.4's defaults
+        prefix = label_prefix or cfg.get("schedule", {}).get("label_prefix", "") or "local.kb"
         import os
         for job in (f"{prefix}.{slug}-kb-nightly", f"{prefix}.{slug}-kb-returns"):
             res = subprocess.run(["launchctl", "print", f"gui/{os.getuid()}/{job}"], capture_output=True)
@@ -100,6 +100,12 @@ def migrate_repo(root: Path, *, dry: bool = False, label_prefix: str | None = No
     src, dst = root / out, root / "collab-kit"
     if (dst / "knowledge").exists() or (dst / "agenda").exists():
         raise SystemExit("migrate: collab-kit/knowledge or collab-kit/agenda already exists")
+    converted = {}
+    for p in sorted((src / "agenda").glob("W-*.md")) if (src / "agenda").is_dir() else []:
+        try:
+            converted[p.name] = convert_item(p.read_text(encoding="utf-8"))   # everything checked before anything moves
+        except ValueError as e:
+            raise SystemExit(f"migrate: {p.relative_to(root)}: {e}; fix it first (nothing has been moved)")
 
     def mv(a: Path, b: Path):
         steps.append(f"git mv {a.relative_to(root)} {b.relative_to(root)}")
@@ -112,7 +118,7 @@ def migrate_repo(root: Path, *, dry: bool = False, label_prefix: str | None = No
     adir = (dst / "agenda") if not dry else (src / "agenda")
     if adir.is_dir():
         for p in sorted(adir.glob("W-*.md")):
-            new = convert_item(p.read_text(encoding="utf-8"))
+            new = converted.get(p.name, p.read_text(encoding="utf-8"))
             if new != p.read_text(encoding="utf-8"):
                 steps.append(f"convert {p.name} (importance scale, done -> settled, generated block dropped)")
                 if not dry:

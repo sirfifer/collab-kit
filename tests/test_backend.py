@@ -64,7 +64,8 @@ class BackEnd(unittest.TestCase):
         sh("git", "commit", "-qm", "seed", cwd=seed)
         sh("git", "push", "-q", "origin", "HEAD:main", cwd=seed)
         self.cfg = {"backend": {"cloud": str(self.cloud), "work": str(t / "work"), "human": "Sam",
-                                "local_roots": [], "deny": ["codename-x"]},
+                                "local_roots": [], "deny": ["codename-x"],
+                                "lease_settle_seconds": 0},
                     "project": [{"name": "site", "repo": str(self.origin), "branch": "main", "push": True,
                                  "allow_public": True}]}
 
@@ -129,7 +130,7 @@ class BackEnd(unittest.TestCase):
         self.assertTrue(self.s.files("projects/site/collab-kit/agenda"))      # mirrored out
         self.assertIn("Footer reported broken", self.s.read("projects/site/collab-kit/knowledge/status.md"))
         log = sh("git", "log", "--format=%s", "-1", cwd=check)
-        self.assertIn("collab-kit: apply returns", log)
+        self.assertIn("collab-kit: applied return r1", log)
 
     def test_cloud_edit_of_a_mirror_is_saved(self):
         self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nstatus \"one\"\nEnd.\n")
@@ -168,6 +169,119 @@ class BackEnd(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("could not be filed", self.s.read("00-START-HERE.md"))
         self.assertTrue(self.s.exists("projects/garden/collab-kit/_returns/failed/bad.md"))
+
+    # ------------------------------------------------------------- from the back-end review
+    def reject_pushes(self, on: bool):
+        hook = self.origin / "hooks" / "pre-receive"
+        if on:
+            hook.write_text("#!/bin/sh\necho rejected >&2\nexit 1\n")
+            hook.chmod(0o755)
+        elif hook.exists():
+            hook.unlink()
+
+    def origin_text(self):
+        check = self.t / f"check-{time.time_ns()}"
+        sh("git", "clone", "-q", str(self.origin), str(check))
+        return "\n".join(p.read_text(errors="replace") for p in (check / "collab-kit").rglob("*") if p.is_file())
+
+    def test_failed_push_loses_nothing(self):
+        self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nnew-item title=\"Survives\"\nEnd.\n")
+        self.reject_pushes(True)
+        p, rc = self.run_pass()
+        self.assertTrue(any("push failed" in x for x in p.problems))
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/r1.md"), "the return stays in the inbox")
+        p2, _ = self.run_pass()                                    # still failing: still reported
+        self.assertTrue(any("push failed" in x for x in p2.problems))
+        self.reject_pushes(False)
+        p3, rc3 = self.run_pass()
+        self.assertEqual(rc3, 0, p3.problems)
+        self.assertIn("Survives", self.origin_text())
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/applied/r1.md"))
+
+    def test_deny_list_cannot_be_bypassed_by_a_later_pass(self):
+        self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nstatus \"about codename-x\"\nEnd.\n")
+        self.run_pass()
+        self.assertTrue(self.s.exists("projects/site/collab-kit/_returns/failed/r1.md"))
+        self.drop("projects/site/collab-kit/_returns/r2.md", "Project: site\nChanges v1:\nnew-item title=\"Unrelated\"\nEnd.\n")
+        p, rc = self.run_pass()
+        text = self.origin_text()
+        self.assertIn("Unrelated", text)
+        self.assertNotIn("codename-x", text)
+
+    def test_unreadable_mirror_state_stops_that_mirror(self):
+        self.drop("projects/site/collab-kit/_returns/r1.md", "Project: site\nChanges v1:\nstatus \"one\"\nEnd.\n")
+        self.run_pass()
+        self.s.write("_backend/mirror/site.json", "{not json")
+        self.s.write("projects/site/collab-kit/knowledge/README.md", "an edit that must survive\n")
+        p, _ = self.run_pass()
+        self.assertTrue(any("unreadable" in x for x in p.problems))
+        self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"), "an edit that must survive\n")
+
+    def test_first_mirror_keeps_differing_files(self):
+        self.s.write("projects/site/collab-kit/knowledge/README.md", "a hand copy with notes\n")
+        self.run_pass()
+        self.assertEqual(self.s.read("projects/site/collab-kit/_versions/before-first-mirror/knowledge/README.md"),
+                         "a hand copy with notes\n")
+
+    def test_binary_files_mirror_exactly(self):
+        seed = self.t / "seed"
+        png = bytes(range(256)) * 2
+        (seed / "collab-kit/knowledge/diagram.png").write_bytes(png)
+        sh("git", "add", "-A", cwd=seed)
+        sh("git", "commit", "-qm", "a picture", cwd=seed)
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=seed)
+        self.run_pass()
+        self.assertEqual((self.cloud / "projects/site/collab-kit/knowledge/diagram.png").read_bytes(), png)
+
+    def test_two_cloud_edits_are_two_returns(self):
+        seed = self.t / "seed"
+        for n in ("a", "b"):
+            (seed / f"collab-kit/knowledge/a-very-long-shared-folder-name-for-notes/{n}.md").parent.mkdir(parents=True, exist_ok=True)
+            (seed / f"collab-kit/knowledge/a-very-long-shared-folder-name-for-notes/{n}.md").write_text(f"{n}\n")
+        sh("git", "add", "-A", cwd=seed)
+        sh("git", "commit", "-qm", "notes", cwd=seed)
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=seed)
+        self.run_pass()
+        for n in ("a", "b"):
+            self.s.write(f"projects/site/collab-kit/knowledge/a-very-long-shared-folder-name-for-notes/{n}.md", f"edited {n}\n")
+        self.run_pass()
+        saved = [e.name for e in self.s.files("projects/site/collab-kit/_returns") if "edited" in e.name]
+        self.assertEqual(len(saved), 2, saved)
+
+    def test_cloud_only_file_in_a_copy_goes_to_strays(self):
+        self.run_pass()
+        self.s.write("projects/site/collab-kit/agenda/W-050-made-in-the-folder.md", "+++\nid = \"W-050\"\n+++\n")
+        p, _ = self.run_pass()
+        self.assertFalse(self.s.exists("projects/site/collab-kit/agenda/W-050-made-in-the-folder.md"))
+        self.assertTrue(any("created in the folder" in x for x in p.problems))
+
+    def test_bad_encoding_does_not_stop_the_pass(self):
+        (self.cloud / "projects/garden/collab-kit/_returns/cp.txt").write_bytes(b"Project: garden\nTopic: caf\xe9\nEnd.\n")
+        old(self.cloud / "projects/garden/collab-kit/_returns/cp.txt")
+        p, _ = self.run_pass()
+        self.assertTrue(self.s.exists("_backend/heartbeat.json"))
+        self.assertIn("A back end runs", self.s.read("00-START-HERE.md"))
+
+    def test_drive_alias_copy_is_not_a_second_item(self):
+        a = self.cloud / "projects/garden/collab-kit/agenda"
+        item = '+++\nid = "W-005"\ntitle = "Water"\nkind = "task"\nimportance = 3\nstatus = "open"\n+++\n'
+        (a / "W-005-water.md").write_text(item)
+        old(a / "W-005-water.md")
+        (a / "W-005-water (1).md").write_text(item.replace("Water", "Water the beds"))
+        self.run_pass()
+        names = sorted(p.name for p in a.glob("W-*.md"))
+        self.assertEqual(len(names), 1, names)
+        self.assertTrue(names[0].startswith("W-005"))
+
+    def test_public_check(self):
+        p = BE.Pass(self.cfg)
+        d = self.t / "pub"
+        sh("git", "init", "-q", str(d))
+        for url, public in (("git@github-personal:sam/site.git", True), ("https://gitlab.example.com/a/b.git", True),
+                            (str(self.origin), False)):
+            sh("git", "-C", str(d), "remote", "remove", "origin") if "origin" in sh("git", "-C", str(d), "remote") else None
+            sh("git", "-C", str(d), "remote", "add", "origin", url)
+            self.assertEqual(p.is_public(d), public, url)
 
     def test_inactive_projects_collapse(self):
         self.s.write("projects/old/collab-kit/agenda/W-001-x.md",

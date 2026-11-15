@@ -189,6 +189,16 @@ class Applying(unittest.TestCase):
         out = apply_all(self.garden)
         self.assertEqual(out[0].minted, ["W-003"])         # W-002 is never reused
 
+    def test_numbers_never_reused_after_undo_and_trimming(self):
+        drop(self.garden, "r1.md", "Project: garden\nChanges v1:\nnew-item title=\"First\"\nEnd.\n")
+        apply_all(self.garden)
+        drop(self.garden, "r2.md", "Project: garden\nChanges v1:\nundo r1\nEnd.\n")
+        apply_all(self.garden)
+        for p in (self.root / "projects/garden/collab-kit/agenda/_versions").glob("*"):
+            p.unlink()                                  # retention trimmed the old versions
+        drop(self.garden, "r3.md", "Project: garden\nChanges v1:\nnew-item title=\"Second\"\nEnd.\n")
+        self.assertEqual(apply_all(self.garden)[0].minted, ["W-002"])
+
     def test_strays(self):
         drop(self.garden, "r1.md", "Project: another\nChanges v1:\nnew-item title=\"x\"\nEnd.\n")
         out = apply_all(self.garden)

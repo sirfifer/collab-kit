@@ -16,6 +16,8 @@
  * alive; an exec would make the responsible program /bin/bash again.
  */
 #include <errno.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
@@ -31,12 +33,22 @@ static void forward(int sig) {
 }
 
 int main(int argc, char **argv) {
+    int allowed = 0;
+#ifdef ALLOWED_SCRIPT
+    /* Built for one script (install.py backend passes -DALLOWED_SCRIPT): that path and no other. */
+    allowed = argc > 1 && strcmp(argv[1], ALLOWED_SCRIPT) == 0;
+#else
     static const char *suffixes[] = {"/tools/kb/nightly.sh", "/engine/backend.sh"};
     size_t n = argc > 1 ? strlen(argv[1]) : 0;
-    int allowed = 0;
     for (size_t s = 0; s < sizeof(suffixes) / sizeof(suffixes[0]); s++) {
         size_t k = strlen(suffixes[s]);
         if (n > k && strcmp(argv[1] + n - k, suffixes[s]) == 0) allowed = 1;
+    }
+#endif
+    struct stat st;
+    if (allowed && (stat(argv[1], &st) != 0 || st.st_uid != getuid() || (st.st_mode & (S_IWGRP | S_IWOTH)))) {
+        fprintf(stderr, "collab-kit-runner: %s must exist, belong to this user, and be writable by no one else\n", argv[1]);
+        return 64;
     }
     if (argc < 2 || argv[1][0] != '/' || !allowed ||
         strstr(argv[1], "/../") != NULL || strstr(argv[1], "/./") != NULL) {
@@ -44,10 +56,15 @@ int main(int argc, char **argv) {
                         "given as an absolute path\n");
         return 64;
     }
-    char *args[argc + 1];
+    /* No startup files: bash reads neither BASH_ENV nor ENV nor a profile on the way to the script. */
+    unsetenv("BASH_ENV");
+    unsetenv("ENV");
+    char *args[argc + 3];
     args[0] = "/bin/bash";
-    for (int i = 1; i < argc; i++) args[i] = argv[i];
-    args[argc] = NULL;
+    args[1] = "--norc";
+    args[2] = "--noprofile";
+    for (int i = 1; i < argc; i++) args[i + 2] = argv[i];
+    args[argc + 2] = NULL;
 
     signal(SIGTERM, forward);
     signal(SIGINT, forward);

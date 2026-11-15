@@ -118,7 +118,7 @@ class Planner:
     def next_number(self) -> int:
         if self._next is None:
             used = self.unit.used_numbers()
-            self._next = (max(used) if used else 0) + 1
+            self._next = max((max(used) if used else 0) + 1, read_counter(self.unit))
         n = self._next
         self._next += 1
         return n
@@ -454,6 +454,24 @@ def recent_new_projects(top: Unit, now) -> int:
 
 # --------------------------------------------------------------------------- ledger --
 
+COUNTER = f"{APPLIED}/next-item.json"
+
+
+def read_counter(unit: Unit) -> int:
+    """The next item number never yet used in this unit (numbers are never reused, even after an
+    undo and the trimming of old versions)."""
+    try:
+        return int(json.loads(unit.store.read(COUNTER) or "{}").get("next", 1))
+    except (ValueError, TypeError, AttributeError):
+        return 1
+
+
+def bump_counter(unit: Unit, minted: list[str]) -> None:
+    nums = [int(m[2:]) for m in minted if re.fullmatch(r"W-\d+", m)]
+    if nums and max(nums) + 1 > read_counter(unit):
+        unit.store.write(COUNTER, json.dumps({"next": max(nums) + 1}) + "\n")
+
+
 def ledger_path(rid: str) -> str:
     return f"{APPLIED}/{rid}.ledger.json"
 
@@ -546,6 +564,7 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
                            for e in effects]}
         write_ledger(unit, led)
     _run_effects(led, unit, top)
+    bump_counter(unit, led.get("minted", []))
     led["state"] = "done"
     write_ledger(unit, led)
     if led.get("undo_of"):
@@ -584,25 +603,23 @@ def _set_aside(unit: Unit, entry: Entry, where: str, why: str, now, top) -> Outc
     unit.store.mkdir(where)
     unit.store.move(src, dst)
     label = "could not be filed" if where == FAILED else "was set aside"
-    rid = f"{stamp(now)}-backend-{slug(name, 40)}"
-    title = f"A return {label}: {one_line(name, 60)}"
-    body = (f"## What's needed\nThe file `{dst}` {label}: {one_line(why, 300)}.\n\n"
-            f"Read it, fix it (or file what it meant again), and move it back into `_returns/`; "
-            f"or settle this item if it should be dropped.\n")
-    ret = R.Return(rid, unit.name, {"from": "the back end", "topic": title}, [
-        R.Change("new-item", 0, args={"title": title, "kind": "task", "importance": 2}, body=body)],
-        True, True, "")
-    out = apply_return(unit, ret, None, top=top, now=now)
+    out = raise_item(unit, f"A return {label}: {one_line(name, 60)}",
+                     f"The file `{dst}` {label}: {one_line(why, 300)}.\n\nRead it, fix it (or file what it meant "
+                     f"again), and move it back into `_returns/`; or settle this item if it should be dropped.",
+                     top=top, now=now)
     status = "failed" if where == FAILED else "stray"
     return Outcome(status, name, why, out.minted)
 
 
-def fenced(label: str, lines: list[str]) -> str:
-    """Text from outside, fenced for an agent's context (see text.FENCE_NOTE)."""
-    if not lines:
-        return ""
-    body = "\n".join(lines)
-    return f"<collab-kit-data source=\"{label}\">\n{FENCE_NOTE}\n{body}\n</collab-kit-data>"
+def raise_item(unit: Unit, title: str, needed: str, *, top: Unit | None = None, now=None, importance: int = 2) -> Outcome:
+    """The back end puts something on a unit's agenda (through a return of its own, with a ledger)."""
+    now = now or utcnow()
+    rid = f"{stamp(now)}-backend-{slug(title, 40)}-{sha(title + now.isoformat())[:6]}"
+    body = f"## What's needed\n{needed}\n\n## Done when\nSomeone has looked at it and settled this item.\n"
+    ret = R.Return(rid, unit.name, {"from": "the back end", "topic": title}, [
+        R.Change("new-item", 0, args={"title": title, "kind": "task", "importance": importance}, body=body)],
+        True, True, "")
+    return apply_return(unit, ret, None, top=top, now=now)
 
 
 def heal_duplicates(unit: Unit) -> list[tuple[str, str]]:
@@ -615,9 +632,22 @@ def heal_duplicates(unit: Unit) -> list[tuple[str, str]]:
     for e in files:
         by_num.setdefault(int(ITEM_FILE_RE.match(e.name).group(1)), []).append(e)
     healed = []
+    alias = re.compile(r" \(\d{1,3}\)(?=\.[^.]+$)")
     for num, group in sorted(by_num.items()):
         if len(group) < 2:
             continue
+        group.sort(key=lambda e: (e.mtime, e.name))
+        # The same file twice (Drive for desktop's "name (1).md" while a conversation edits by
+        # versioning): the newer is current, the older goes to _versions/. Not two items.
+        same: dict[str, list] = {}
+        for e in group:
+            same.setdefault(alias.sub("", e.name), []).append(e)
+        group = []
+        for copies in same.values():
+            copies.sort(key=lambda e: e.mtime)
+            for old in copies[:-1]:
+                retire(unit, f"{AGENDA}/{old.name}")
+            group.append(copies[-1])
         group.sort(key=lambda e: (e.mtime, e.name))
         for e in group[1:]:
             used = unit.used_numbers()
@@ -629,8 +659,9 @@ def heal_duplicates(unit: Unit) -> list[tuple[str, str]]:
             item = Item(old_id, num, path, fields, raw, body, text)
             fixed = edit_item_text(item, {"id": new_id},
                                    f"renumbered from {old_id}: another item took that number at the same time")
-            new_path = f"{AGENDA}/{new_id}{e.name[len(old_id):]}"
+            new_path = f"{AGENDA}/{new_id}{alias.sub('', e.name)[len(old_id):]}"
             unit.store.write(new_path, fixed)
             retire(unit, path)
+            bump_counter(unit, [new_id])
             healed.append((old_id, new_id))
     return healed

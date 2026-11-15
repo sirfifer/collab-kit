@@ -45,6 +45,8 @@ def launchd_plist(kit: Path, config: Path, log_dir: Path, minutes: int, runner: 
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>COLLAB_KIT_PYTHON</key><string>{escape(sys.executable)}</string>
+    <key>GIT_TERMINAL_PROMPT</key><string>0</string>
   </dict>
 </dict>
 </plist>
@@ -59,7 +61,7 @@ def systemd_units(kit: Path, config: Path, minutes: int) -> dict[str, str]:
             f"ExecStart={cmd}\nNice=10\n"),
         "collab-kit-backend.timer": (
             "[Unit]\nDescription=Collab Kit back end, every "
-            f"{minutes} minutes\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec={minutes}min\nPersistent=true\n\n"
+            f"{minutes} minutes\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec={minutes}min\n\n"
             "[Install]\nWantedBy=timers.target\n"),
     }
 

@@ -4,6 +4,6 @@
 #   backend.sh <backend.toml>
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-py="$(command -v python3 || true)"
+py="${COLLAB_KIT_PYTHON:-$(command -v python3 || true)}"   # the plist names the interpreter install.py used
 [ -n "$py" ] || { echo "collab-kit: python3 not found" >&2; exit 127; }
 exec "$py" "$here/ck.py" backend run --config "$1"

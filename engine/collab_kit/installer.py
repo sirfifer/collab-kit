@@ -351,12 +351,14 @@ account = ""             # the Google account the folder must belong to, e.g. "y
 
 
 def build_runner(dest_dir: Path) -> Path:
-    """macOS: build collab-kit-runner (the one program a person grants Drive access to)."""
+    """macOS: build collab-kit-runner (the one program a person grants Drive access to), able to
+    start exactly this kit's engine/backend.sh and nothing else."""
     import subprocess
     src = KIT / "engine" / "launchd" / "collab-kit-runner.c"
     out = dest_dir / "collab-kit-runner"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["cc", "-O2", "-o", str(out), str(src)], check=True)
+    script = str((KIT / "engine" / "backend.sh").resolve())
+    subprocess.run(["cc", "-O2", f"-DALLOWED_SCRIPT={json.dumps(script)}", "-o", str(out), str(src)], check=True)
     subprocess.run(["codesign", "-s", "-", "-f", str(out)], check=True, capture_output=True)
     return out
 
