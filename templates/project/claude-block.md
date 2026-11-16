@@ -6,7 +6,7 @@ its knowledge). Keeping that folder current is part of every task here, not a se
 command is `tools/collab-kit/ck` (from another folder, use its full path; the brief shows it).
 
 1. **Start from the brief.** A hook shows the Collab Kit brief at session start: what waits in the
-   inbox, what is in progress or due, recent status, other unmerged work. If you did not get one,
+   inbox, what is due, critical, or in progress, recent status, other unmerged work. If you did not get one,
    run `tools/collab-kit/ck brief`. Before you plan, look for anything your task overlaps and read
    it first (`ck show W-012`, `ck show <return>`), so nothing decided or under way is redone or
    contradicted. If your task contradicts a settled item, ask {{human}} before going on.

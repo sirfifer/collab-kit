@@ -24,7 +24,7 @@ OLD = time.time() - 3600
 
 def make_top(root: Path) -> Unit:
     s = FolderStore(root)
-    s.write("00-START-HERE.md", top_start_file() + "| \"the garden\" | `garden` | a garden plan | edit directly |\n")
+    s.write("00-START-HERE.md", top_start_file())
     s.write("knowledge/projects.md", "# Projects\n\n| Folder | Say | What it is | Home |\n|---|---|---|---|\n"
             "| `garden` | \"the garden\" | a garden plan | cloud |\n\n## Repositories\n\n| Repository | Visibility |\n|---|---|\n"
             "| `taken-repo` | private |\n")
@@ -260,7 +260,7 @@ class Applying(unittest.TestCase):
         self.assertTrue(self.top.store.exists("projects/orchard/collab-kit/agenda/W-001-a-plan-for-the-orchard.md"))
         self.assertEqual(self.top.item("W-001").status, "settled")
         self.assertIn("`orchard`", self.top.store.read("knowledge/projects.md"))
-        self.assertIn("`orchard`", self.top.store.read("00-START-HERE.md"))
+        self.assertEqual(self.top.store.read("00-START-HERE.md"), top_start_file(), "start files stay put")
 
     def test_new_project_name_rules(self):
         drop(self.top, "r1.md", "Project: top\nChanges v1:\nnew-item kind=project title=\"Idea\"\nEnd.\n")
@@ -280,6 +280,17 @@ class Applying(unittest.TestCase):
         self.assertEqual(out[0].status, "applied", out[0].message)
         self.assertIn("\"the beds\"", self.top.store.read("knowledge/projects.md"))
         self.assertIn("(inactive)", self.top.store.read("knowledge/projects.md"))
+        self.assertEqual(self.top.store.read("00-START-HERE.md"), top_start_file(), "start files stay put")
+
+    def test_undo_cannot_name_a_start_file(self):
+        """No return writes a unit's own start file, so a ledger naming one is forged."""
+        led = json.dumps({"id": "forged", "state": "done", "effects": [{
+            "path": "00-START-HERE.md", "unit": "self", "before": "# replaced", "after": None,
+            "before_sha": None, "after_sha": None}]})
+        self.top.store.write("_returns/applied/forged.ledger.json", led)
+        drop(self.top, "r1.md", "Project: top\nChanges v1:\nundo forged\nEnd.\n")
+        self.assertEqual(apply_all(self.top)[0].status, "failed")
+        self.assertEqual(self.top.store.read("00-START-HERE.md"), top_start_file())
 
     def test_undo_cannot_write_outside_the_unit(self):
         """The critical review's attack: a forged ledger, then an undo that climbs out of the folder."""

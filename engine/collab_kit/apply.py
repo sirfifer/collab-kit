@@ -226,17 +226,13 @@ class Planner:
             raise Reject(f"line {ch.line}: a project's inbox can only change its own entry")
         if not name:
             raise Reject(f"line {ch.line}: 'project' from the top-level inbox names the project")
-        found = False
-        for path in (f"{KNOWLEDGE}/projects.md", START):
-            text = self.ov.read(path, "top")
-            if text is None or not has_project_row(text, name):
-                continue
-            found = True                               # already as asked counts too (a pass redone after a failed push)
-            new = edit_project_row(text, name, ch.args)
-            if new != text:
-                self.ov.write(path, new, "top")
-        if not found:
-            raise Reject(f"line {ch.line}: no row for '{name}' in the top level's project tables")
+        path = f"{KNOWLEDGE}/projects.md"              # the one list of projects (the start file has none)
+        text = self.ov.read(path, "top")
+        if text is None or not has_project_row(text, name):
+            raise Reject(f"line {ch.line}: no row for '{name}' in the top level's knowledge/projects.md")
+        new = edit_project_row(text, name, ch.args)   # already as asked is fine (a pass redone after a failed push)
+        if new != text:
+            self.ov.write(path, new, "top")
 
     def op_new_project(self, ch: R.Change):
         if not self.unit.top:
@@ -270,10 +266,9 @@ class Planner:
         self.ov.write(idea.path, edit_item_text(idea, {"status": "settled", "outcome": f"started as project {name}"},
                                                 f"settled: started as project {name} (its W-001) {self.tag()}"))
         row = {"folder": name, "say": spoken, "what": about, "home": "cloud folder (no repository)"}
-        for path in (f"{KNOWLEDGE}/projects.md", START):
-            text = self.ov.read(path)
-            if text is not None:
-                self.ov.write(path, add_project_row(text, row))
+        text = self.ov.read(f"{KNOWLEDGE}/projects.md")
+        if text is not None:
+            self.ov.write(f"{KNOWLEDGE}/projects.md", add_project_row(text, row))
         self.minted.append(f"project:{name}")
 
     def op_undo(self, ch: R.Change):
@@ -325,7 +320,8 @@ _PROJECT_PATH = re.compile(r"^projects/[a-z][a-z0-9-]{0,39}/collab-kit/(?:00-STA
 
 def check_effect_path(path: str, where: str) -> None:
     """Every file a ledger names must be one a return could have written: inside the unit's agenda/
-    or knowledge/, its start file, or (top level only) a new project's folder. A ledger is a file in
+    or knowledge/, or (top level only) a new project's folder. No return writes a unit's own start
+    file: start files stay put. A ledger is a file in
     the shared folder, so it is checked like any other text from outside before it is trusted."""
     if where not in ("self", "top"):
         raise Reject(f"a ledger names an unknown unit {where!r}")
@@ -337,7 +333,7 @@ def check_effect_path(path: str, where: str) -> None:
     parts = path.split("/")
     if any(p.startswith(".") or p == VERSIONS for p in parts):
         raise Reject(f"a ledger names a path a return never writes: {path!r}")
-    if path == START or path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")) or _PROJECT_PATH.match(path):
+    if path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")) or _PROJECT_PATH.match(path):
         return
     raise Reject(f"a ledger names a path a return never writes: {path!r}")
 
@@ -621,7 +617,7 @@ def _set_aside(unit: Unit, entry: Entry, where: str, why: str, now, top) -> Outc
     return Outcome(status, name, why, out.minted)
 
 
-def raise_item(unit: Unit, title: str, needed: str, *, top: Unit | None = None, now=None, importance: int = 2) -> Outcome:
+def raise_item(unit: Unit, title: str, needed: str, *, top: Unit | None = None, now=None, importance: int = 1) -> Outcome:
     """The back end puts something on a unit's agenda (through a return of its own, with a ledger)."""
     now = now or utcnow()
     rid = f"{stamp(now)}-backend-{slug(title, 40)}-{sha(title + now.isoformat())[:6]}"

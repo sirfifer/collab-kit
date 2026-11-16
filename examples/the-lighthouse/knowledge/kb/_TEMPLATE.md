@@ -26,4 +26,4 @@ Keep it to what was asked; link concepts rather than re-explaining them.
 Where the answer was NOT (what was searched first), and where it was. This is what tells the
 next maintainer which index entry or alias was missing.
 
-<!-- managed by Collab Kit 0.5.0: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
+<!-- managed by Collab Kit 0.5.1: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->

@@ -17,13 +17,31 @@ def set_human(name: str) -> None:
 
 def render(template: str, **ctx) -> str:
     text = (TEMPLATES / template).read_text(encoding="utf-8")
-    ctx = {"kit_version": kit_version(), "human": _HUMAN["name"], **ctx}
+    ctx = {"kit_version": kit_version(), "kit_series": kit_series(), "human": _HUMAN["name"], **ctx}
 
     def sub(m):
         if m.group(1) not in ctx:
             raise KeyError(f"template {template} needs {{{{{m.group(1)}}}}}")
         return str(ctx[m.group(1)])
     return _PH.sub(sub, text)
+
+
+def kit_series() -> str:
+    """The version a start file names: major and minor only ("0.5"), so a patch release never changes
+    a start file (they are meant to stay put; what is going on lives on the agenda)."""
+    return ".".join(kit_version().split(".")[:2])
+
+
+# The one line of the top-level start file that depends on how the folder is set up. It changes when
+# the folder is set up and when a back end first runs for it (the back end sets it, once), never as
+# a report: the back end's health is at the top of agenda/00-PRESSING.md.
+SETUP_TEXT = {
+    "none": ("**No back end runs for this folder.** You apply changes yourself, as described below (\"Changing "
+             "anything\"): what you write is what exists."),
+    "backend": ("**A back end runs for this folder.** File returns and stop: it applies them, usually within the "
+                "hour, and reports on the agenda anything it could not file. Never edit an agenda or knowledge "
+                "yourself. Its health is at the top of `agenda/00-PRESSING.md`."),
+}
 
 
 HOME_NOTES = {
@@ -47,8 +65,8 @@ def returns_readme(name: str) -> str:
     return render("returns-readme.md", name=name)
 
 
-def top_start_file() -> str:
-    return render("top-start.md")
+def top_start_file(setup: str = "none") -> str:
+    return render("top-start.md", setup=SETUP_TEXT[setup])
 
 
 BLOCK_RE = re.compile(r"(<!-- collab-kit:begin (?P<name>[\w-]+) -->\n)(?P<body>.*?)(\n?<!-- collab-kit:end (?P=name) -->)", re.S)

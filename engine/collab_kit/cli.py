@@ -128,7 +128,16 @@ def cmd_items(a):
     items = unit.items()
     if not a.all:
         items = [i for i in items if i.is_open]
-    items.sort(key=lambda i: (i.status != "in-progress", i.due or "9999", i.importance, i.num))
+    import datetime as _dt
+    from .text import check_date, utcnow
+    soon = (utcnow().date() + _dt.timedelta(days=7)).isoformat()
+
+    def order(i):                      # the agenda's own order: due within a week, critical, in progress, the rest
+        d = check_date(i.due or "") or ""
+        urgent = bool(d) and d <= soon
+        return (not urgent, d if urgent else "", i.importance > 1, i.status != "in-progress", i.importance,
+                d or "9999", i.num)
+    items.sort(key=order)
     lines = [f"{i.id} [{one_line(i.status, 12)}, {one_line(i.kind, 12)}, importance {i.importance}"
              f"{', due ' + one_line(i.due, 12) if i.due else ''}] {one_line(i.title, 100)}" for i in items]
     print(fenced(f"{p.name} agenda", "\n".join(lines) or "(no open items)"))
@@ -281,7 +290,8 @@ def main(argv=None) -> int:
     s = sub.add_parser("ask")
     s.add_argument("question")
     s.add_argument("--kind", default="question", choices=R.KINDS)
-    s.add_argument("--importance", type=int, default=3, choices=range(1, 6))
+    s.add_argument("--importance", type=int, default=3, choices=range(1, 6),
+                   help="1 critical (raised first, everywhere, until settled), 2 important, 3 normal (default), 4 and 5 later")
     s.add_argument("--due")
     s.add_argument("--why")
     s.set_defaults(fn=cmd_ask)

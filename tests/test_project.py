@@ -291,6 +291,18 @@ class ProjectSide(unittest.TestCase):
         names = sorted(p.name[:5] for p in a.glob("W-*.md"))
         self.assertEqual(names, ["W-001", "W-002", "W-003"], out)
 
+    def test_brief_order_and_a_stopped_back_end(self):
+        self.install()
+        self.ck("ask", "Someday maybe", "--importance", "3")
+        self.ck("ask", "The gate is broken", "--importance", "1")
+        out = self.hook("SessionStart", sid="o1").stdout
+        self.assertNotIn("HAS STOPPED", out)                            # no back end ever ran: nothing stopped
+        self.assertLess(out.index("Critical (importance 1):"), out.index("Most important open:"))
+        self.assertIn("1 critical", out)
+        FolderStore(self.cloud).write("_backend/heartbeat.json",
+                                      json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
+        self.assertIn("THE BACK END HAS STOPPED", self.hook("SessionStart", sid="o2").stdout)
+
     def test_bad_heartbeat_does_not_break_filing(self):
         self.install()
         FolderStore(self.cloud).write("_backend/heartbeat.json", '{"last_run": "2026-11-15T03:00:00"}')
@@ -337,16 +349,19 @@ class MachineAndTop(unittest.TestCase):
         self.assertEqual(sum("hook session-start" in c for c in cmds), 1)
         self.assertTrue((self.t / "settings.json.before-collab-kit").is_file())
 
-    def test_top_upgrade_adds_markers_once(self):
+    def test_top_upgrade_adds_setup_line_once(self):
         top = self.t / "Collab Kit"
         top.mkdir()
-        (top / "00-START-HERE.md").write_text("# Start here\n\n## What is true right now (read this)\n\nThings.\n\n"
-                                              "## Due soon\n\nKeep this current.\n\n- 2026-11-16: the article\n\n## The layout\n\nx\n")
+        hand = ("# Start here\n\nYou are working with Sam.\n\n## What is true right now (read this)\n\nThings.\n\n"
+                "## Due soon\n\nKeep this current.\n\n- 2026-11-16: the article\n\n## The layout\n\nx\n")
+        (top / "00-START-HERE.md").write_text(hand)
         installer.install_top(top, human="Sam")
         text = (top / "00-START-HERE.md").read_text()
-        self.assertIn("<!-- collab-kit:begin health -->", text)
-        self.assertIn("<!-- collab-kit:begin due -->\n- 2026-11-16: the article\n<!-- collab-kit:end due -->", text)
-        self.assertIn("Keep this current.", text)
+        self.assertTrue(text.startswith("# Start here\n\nYou are working with Sam.\n\n<!-- collab-kit:begin setup -->\n"
+                                        "**No back end runs for this folder.**"), text)
+        self.assertNotIn("begin health", text)
+        self.assertNotIn("begin due", text)
+        self.assertEqual(text.replace(text[text.index("<!-- collab-kit:begin setup"):text.index("## What is true")], ""), hand)
         self.assertEqual(len(list((top / "_versions").glob("*.md"))), 1)
         installer.install_top(top, human="Sam")
         self.assertEqual((top / "00-START-HERE.md").read_text(), text)

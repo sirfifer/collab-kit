@@ -1,4 +1,4 @@
-<!-- managed by Collab Kit 0.5.0: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
+<!-- managed by Collab Kit 0.5.1: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
 # _returns: what comes back from conversations
 
 **This folder is not part of the knowledge base.** It is the opposite: the way back in. Everything else in this folder is shared knowledge, mirrored from the project and rebuilt automatically. This folder holds what conversations (voice in the Claude app, or any other tool using this folder) send *back*: ideas, decisions, research, drafts, questions, holes, to-do items, and progress on agenda items.

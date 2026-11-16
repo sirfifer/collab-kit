@@ -46,7 +46,8 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 - **A project folder is the project.** `collab-kit/` is how it is collaborated on; everything beside
   it is the project itself. A project with its own repository usually has only `collab-kit/` here,
   a copy of the repository's `collab-kit/` folder. A project without one keeps all of itself here.
-- **The back end only ever writes inside the channel folders** (and the start files). It never
+- **The back end only ever writes inside the channel folders** (and start files only when it creates or
+  mirrors them, plus once the top-level start file's setup line: section 19). It never
   touches a project's own files, so there are no reserved names in a project.
 - **Moving a project into a repository later:** the project's own files move to the repository;
   `collab-kit/` stays and becomes the copy of the repository's `collab-kit/`.
@@ -60,7 +61,7 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 | Knowledge | the person's whole world of work: every project (what it is, its state, its names), standards and procedures, skills, resources, their AI setup (assistants, machines, local models), personal and professional status |
 | Returns (the inbox) | anything about no single project, or several; ideas; project requests |
 | WIP | checkpoint notes between saves (section 17) |
-| Agenda | items about no single project; ideas growing into projects (no name needed yet); and, generated, the pressing items from every project, deadlines first |
+| Agenda | items about no single project; ideas growing into projects (no name needed yet); and, generated, its front page `00-PRESSING.md`: the back end's health, then the pressing items from every project, deadlines first (section 19) |
 
 ### 3. Source control: one choice at setup, two answers
 
@@ -195,13 +196,16 @@ whose only output is a return through the same parser.
 - **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
   only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
   runner. Cloud runners reach the API through rclone (decided, subject to the dependency intake review).
-- **Health is visible:** the top-level start file says, in plain words, when the back end last ran,
-  when it runs next, and what failed.
+- **Health is visible:** the agenda's front page (`agenda/00-PRESSING.md`) opens with the date the back
+  end is current as of and anything it could not handle. (Revised 2026-11-15: not in the start file;
+  section 19.)
 
 ### 10. The person hears what matters first (Decided)
 
-The top-level start file carries the back end's health, anything due within a week, and anything
-that failed to file. The conversation raises these first, unprompted. The agenda read aloud is
+The agenda's front page carries the back end's health, anything that failed to file, anything overdue
+or due within two weeks, and critical items (importance 1). The start file sends every conversation
+there right after itself, and the conversation raises what is overdue, due within a week, or
+critical first, unprompted. (Revised 2026-11-15: this was in the start file; section 19.) The agenda read aloud is
 capped (top items, then "N more"); inactive projects collapse to one line.
 
 ### 11. Starting a project, by voice (Decided)
@@ -268,7 +272,8 @@ All four second-round simulations: lockable, with these rules.
   two duplicates renumbers itself.
 - The conversation writes its changes as a return first, applies them, then marks the return
   applied: a ledger, a way to finish an interrupted change, and a clean path to level 2.
-- A short "due soon" section in the top-level start file, updated when a due date is set.
+- No "due soon" list anywhere: due dates live on the items, and the conversation reads the open
+  items (there is no generated front page without a back end). (Revised 2026-11-15, section 19.)
 
 **Repository-homed units:** the start file says "do not edit here; file a return". The mirror keeps
 a hash of what it wrote; a cloud file that no longer matches is saved as a return before it is
@@ -391,6 +396,31 @@ folder (`_backend/lease.json`, written, settled, read back, renewed per unit), n
 counter lives with the ledgers (`_returns/applied/next-item.json`), in git for a repository-homed
 unit. Approved pushes of project work (section 17) become an agenda task carrying the approval; the
 back end does not push project work by itself yet.
+
+### 19. Start files stay put; what is going on is on the agenda (decided 2026-11-15)
+
+Richard, reviewing the go-live steps: a start file is the one consistent way into Collab Kit. It is
+meant to change when someone sets things up, and for many people never again. The very next thing a
+conversation reads is the agenda, so that is where anything urgent or critical belongs; the list of
+projects belongs in the top-level knowledge.
+
+- **Every conversation starts the same way** (the top-level start file says so): the start file; then
+  `WIP/`; then the agenda, through its front page `agenda/00-PRESSING.md` when a back end writes one
+  (otherwise the open items themselves); then `knowledge/projects.md`, only when the talk turns to a
+  project. Anything overdue, due within a week, or critical is raised first, unprompted.
+- **The front page leads with the back end's health:** "up to date as of" a date (a date, not a time,
+  so the page changes at most daily when nothing else does; more than a day old means the back end has
+  stopped), then what it could not handle, then deadlines, critical items, work in progress,
+  important items, inactive projects. The Claude Code brief uses the same order and says plainly when
+  a back end has stopped.
+- **Importance 1 means critical:** raised at the start of every conversation until settled. Urgency
+  is the due date. No new field. The back end files its own failures at importance 1.
+- **The start file holds no state:** no "what is true right now", no due-soon list, no projects table,
+  no date. Its one setup-dependent line (`<!-- collab-kit:begin setup -->`) says whether a back end
+  runs for the folder; `install.py top` adds it to a hand-written start file, and the back end sets it
+  once, the first time it runs. Start files name the kit's series ("Collab Kit 0.5"), so a patch
+  release never changes them. No return writes a unit's own start file.
+- **Projects live in `knowledge/projects.md` only;** `project` and `new-project` changes write there.
 
 ## Out of scope for 0.5
 

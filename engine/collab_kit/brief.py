@@ -1,7 +1,7 @@
 """The session brief: what an agent sees, unasked, when it starts work in a Collab Kit project.
 
 It answers, in about forty lines: is the kit current; is a back end running; what is waiting in
-the inbox; what is in progress, due soon, and most important on the agenda; what was reported
+the inbox; what is due, critical, in progress, and most important on the agenda; what was reported
 recently; what other work is in flight in this repository; and how to record things.
 
 Everything quoted from the project's files (titles, topics, status lines, branch subjects) is
@@ -31,27 +31,33 @@ def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list
             return None
     snoozed = {i.id for i in open_items if str(i.fields.get("snoozed_until", "")) > today.isoformat()}
     active = [i for i in open_items if i.id not in snoozed]
-    progress = [i for i in active if i.status == "in-progress"]
+    # the same order as the agenda's front page: deadlines, critical, in progress, then the rest
     due = sorted((i for i in active if due_date(i) and due_date(i) <= soon), key=due_date)
-    rest = sorted((i for i in active if i not in progress and i not in due),
+    critical = sorted((i for i in active if i.importance <= 1 and i not in due), key=lambda i: i.num)
+    progress = [i for i in active if i.status == "in-progress" and i not in due and i not in critical]
+    rest = sorted((i for i in active if i not in progress and i not in due and i not in critical),
                   key=lambda i: (i.importance, due_date(i) or dt.date.max, i.num))
     lines = []
 
     def fmt(i, extra=""):
         d = f", due {one_line(i.due, 12)}" if i.due else ""
         return f"  {i.id} [{one_line(i.kind, 12)}, importance {i.importance}{d}{extra}] {one_line(i.title, 90)}"
+    if due:
+        lines.append("Overdue or due within a week:")
+        lines += [fmt(i, " OVERDUE" if due_date(i) < today else "") for i in due[:limit]]
+    if critical:
+        lines.append("Critical (importance 1):")
+        lines += [fmt(i) for i in critical[:limit]]
     if progress:
         lines.append("In progress:")
         lines += [fmt(i) for i in progress[:limit]]
-    if due:
-        lines.append("Due within a week:")
-        lines += [fmt(i, " OVERDUE" if due_date(i) < today else "") for i in due[:limit]]
     if rest and not compact:
         lines.append("Most important open:")
         lines += [fmt(i) for i in rest[:limit]]
         if len(rest) > limit:
             lines.append(f"  ... and {len(rest) - limit} more ({ck} items)")
-    counts = {"open": len(active), "progress": len(progress), "due": len(due), "snoozed": len(snoozed)}
+    counts = {"open": len(active), "critical": len(critical), "due": len(due), "snoozed": len(snoozed),
+              "progress": sum(1 for i in active if i.status == "in-progress")}
     return lines, counts
 
 
@@ -122,6 +128,9 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
                     f"it as its own commit with the collab-kit-upgrade skill, unless an unmerged branch already does; "
                     f"then tell {who}.")
     route = project.route()[0]
+    if be.get("stopped"):                              # a back end ran here once and has not run since
+        head.append(f"THE BACK END HAS STOPPED ({be['say']}): tell {who} first. Returns you file wait safely until it "
+                    f"runs again.")
     if be["live"]:
         head.append(f"Back end: {be['say']}. `{ck} ask/status/return` file returns; it applies them. Never edit "
                     f"the agenda or status files by hand.")
@@ -134,7 +143,7 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
         head.append(f"Back end: {be['say']}. Returns you file wait in collab-kit/_returns/: commit them; the next "
                     f"session that can reach the Collab Kit folder delivers them. Tell {who}.")
     data: list[str] = []
-    counts = {"open": 0, "progress": 0, "due": 0}
+    counts = {"open": 0, "critical": 0, "progress": 0, "due": 0}
     if unit is not None:
         data += inbox_lines(unit, f"the project's inbox (not yet applied; read any that touch your task: `{ck} show <name>`)",
                             4 if compact else 8)
@@ -154,7 +163,8 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
                 data += st
     if not compact:
         data += _git_lines(project)
-    summary = (f"Agenda: {counts['open']} open, {counts['progress']} in progress, {counts['due']} due within a week."
+    summary = (f"Agenda: {counts['open']} open, {counts['due']} overdue or due within a week, {counts['critical']} critical, "
+               f"{counts['progress']} in progress."
                if unit is not None else "Agenda: not readable from here.")
     out = head + [summary]
     if data:

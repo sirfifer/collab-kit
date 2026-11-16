@@ -162,15 +162,15 @@ class Project:
             every = int(hb.get("interval_minutes", 60))
             age_min = (utcnow() - last).total_seconds() / 60
         except (ValueError, KeyError, TypeError):
-            self._backend = {"known": True, "live": False, "say": "its heartbeat file is unreadable"}
+            self._backend = {"known": True, "live": False, "stopped": True, "say": "its heartbeat file is unreadable"}
             return self._backend
         live = age_min <= max(3 * every, 90)
         when = last.strftime("%Y-%m-%d %H:%M UTC")
         problems = hb.get("problems") or []
         say = f"running (last ran {when}, every {every} minutes)" if live else f"stopped: it last ran {when}"
         if problems and isinstance(problems, list):
-            say += f"; {len(problems)} problem(s) listed in the top-level start file"
-        self._backend = {"known": True, "live": live, "say": say, "last": when}
+            say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
+        self._backend = {"known": True, "live": live, "stopped": not live, "say": say, "last": when}
         return self._backend
 
     # ------------------------------------------------------------------------ kit version --

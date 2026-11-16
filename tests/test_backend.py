@@ -41,7 +41,7 @@ class BackEnd(unittest.TestCase):
         set_human("Sam")
         s = FolderStore(self.cloud)
         self.s = s
-        s.write("00-START-HERE.md", top_start_file() + "| \"the garden\" | `garden` | g | edit |\n")
+        s.write("00-START-HERE.md", top_start_file())
         s.write("knowledge/projects.md", "| Folder | Say | What it is | Home |\n|---|---|---|---|\n"
                 "| `garden` | \"g\" | g | cloud |\n| `site` | \"s\" | the site | repo |\n| `old` | \"o\" | old one (inactive) | cloud |\n")
         for d in ("_returns", "agenda", "WIP", "projects/garden/collab-kit/_returns", "projects/garden/collab-kit/agenda",
@@ -85,15 +85,25 @@ class BackEnd(unittest.TestCase):
         self.drop("projects/garden/collab-kit/_returns/r1.md",
                   "Project: garden\nChanges v1:\nnew-item title=\"Order seeds\" importance=1 due=2026-11-16\n"
                   "new-item title=\"Someday\" importance=4\nEnd.\n")
-        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\" importance=2\nEnd.\n")
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\" importance=2\n"
+                                    "new-item title=\"Fix the gate\" importance=1\nEnd.\n")
         p, rc = self.run_pass()
         self.assertEqual(rc, 0, p.problems)
         pressing = self.s.read("agenda/00-PRESSING.md")
         self.assertIn("Order seeds", pressing)
         self.assertIn("Top thing", pressing)
         self.assertNotIn("Someday", pressing)
+        # the front page: the back end's health first, then deadlines, critical, important
+        from collab_kit.text import utcnow
+        self.assertIn(f"**Up to date as of {utcnow().date().isoformat()}**", pressing)
+        sections = [line for line in pressing.splitlines() if line.startswith("## ")]
+        self.assertEqual(sections, ["## Overdue and due in the next two weeks", "## Critical (importance 1)",
+                                    "## Important (importance 2)", "## Inactive projects"], pressing)
+        self.assertIn("Fix the gate", pressing.split("## Critical")[1].split("## Important")[0])
+        # the start file changed in one place only: its setup line now says a back end runs
+        from collab_kit.templates import SETUP_TEXT, replace_block
         start = self.s.read("00-START-HERE.md")
-        self.assertIn("A back end runs for this folder", start)
+        self.assertEqual(start, replace_block(top_start_file(), "setup", SETUP_TEXT["backend"]))
         hb = json.loads(self.s.read("_backend/heartbeat.json"))
         self.assertEqual(hb["problems"], [])
         # a second pass with nothing new changes nothing (no new versions)
@@ -167,8 +177,30 @@ class BackEnd(unittest.TestCase):
         self.drop("projects/garden/collab-kit/_returns/bad.md", "Project: garden\nChanges v1:\nfrobnicate\nEnd.\n")
         p, rc = self.run_pass()
         self.assertEqual(rc, 1)
-        self.assertIn("could not be filed", self.s.read("00-START-HERE.md"))
+        pressing = self.s.read("agenda/00-PRESSING.md")
+        first = pressing.split("## ")[1]
+        self.assertTrue(first.startswith("Raise with Sam first"), pressing)
+        self.assertIn("could not be filed", first)
+        self.assertIn("A return could not be filed", pressing.split("## Critical (importance 1)")[1])
+        self.assertNotIn("could not be filed", self.s.read("00-START-HERE.md"))
         self.assertTrue(self.s.exists("projects/garden/collab-kit/_returns/failed/bad.md"))
+
+    def test_start_file_without_setup_line_is_left_alone(self):
+        hand = "# Start here\n\nWritten by hand.\n\n## Due soon\n\n- 2026-12-01: something\n"
+        self.s.write("00-START-HERE.md", hand)
+        p, rc = self.run_pass()
+        self.assertEqual(self.s.read("00-START-HERE.md"), hand)
+        self.assertTrue(any("no setup line" in x for x in p.problems), p.problems)
+        self.assertIn("no setup line", self.s.read("agenda/00-PRESSING.md"))
+
+    def test_start_file_setup_line_set_once(self):
+        self.run_pass()
+        start = self.s.read("00-START-HERE.md")
+        versions = [f.name for f in self.s.files("_versions") if f.name.startswith("00-START-HERE")]
+        self.drop("_returns/t2.md", "Project: top\nChanges v1:\nnew-item title=\"Later\" due=2026-11-20\nEnd.\n")
+        self.run_pass()
+        self.assertEqual(self.s.read("00-START-HERE.md"), start)
+        self.assertEqual([f.name for f in self.s.files("_versions") if f.name.startswith("00-START-HERE")], versions)
 
     # ------------------------------------------------------------- from the back-end review
     def reject_pushes(self, on: bool):

@@ -32,7 +32,7 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 | Change | Example |
 |---|---|
-| new item | `new-item @h kind=question importance=2 due=2026-12-01 title="..."` (kinds: question, decision, work-out, hole, task, project; importance 1 highest to 5) |
+| new item | `new-item @h kind=question importance=2 due=2026-12-01 title="..."` (kinds: question, decision, work-out, hole, task, project; importance 1 critical, raised first everywhere, to 5) |
 | change fields | `set W-012 "part of its title" importance=1 due=2026-12-01 status=in-progress` |
 | add to its log | `log W-012 "part of its title" "what happened"` |
 | settle | `settle W-012 "part of its title" outcome="what was decided or done"` |

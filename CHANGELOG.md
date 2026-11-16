@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.1 (2026-11-15)
+
+**Start files stay put; what is going on is on the agenda** (DESIGN-0.5.md section 19). A start file
+is the one consistent way in and changes only at setup. It now says how every conversation starts
+(the start file, `WIP/`, the agenda's front page, and `knowledge/projects.md` when a project comes
+up) and holds no state: no health or due-soon blocks, no projects table. `agenda/00-PRESSING.md`
+opens with the back end's health ("up to date as of", what it could not handle), then deadlines,
+critical items, work in progress, and important items. Importance 1 means critical, raised first
+everywhere; the back end files its own failures at importance 1. The Claude Code brief and
+`ck items` use the same order, and the brief says plainly when a back end has stopped.
+`install.py top` adds only the start file's setup line, which the back end sets once when it first
+runs. Projects are listed only in `knowledge/projects.md`. Start files name the kit's series (0.5),
+so a patch release never changes them.
+
 ## 0.5.0 (2026-11-15)
 
 The release that makes Collab Kit work from a phone for weeks without touching the back end
@@ -20,7 +34,7 @@ otherwise the back end does.
 applied, repository-homed projects pulled, applied, committed (`collab-kit/` only), pushed under
 guards (private repositories only unless allowed, a deny-list), and mirrored to the cloud folder
 (copy, never sync; an edit to a mirror is saved as a return first). It writes the top-level start
-file's health and due-soon blocks and `agenda/00-PRESSING.md` across every project. Scheduled by
+file's setup line once, and `agenda/00-PRESSING.md` across every project (0.5.1: with its health). Scheduled by
 launchd (through `collab-kit-runner` when the folder is a Drive for desktop folder), a systemd user
 timer, or Task Scheduler: `install.py backend`.
 

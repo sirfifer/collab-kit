@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-KIT_VERSION = "0.5.0"
+KIT_VERSION = "0.5.1"
 ROOT = Path(os.environ["KB_ROOT"]).resolve() if os.environ.get("KB_ROOT") else Path(__file__).resolve().parents[2]
 KB_DIR = Path("tools") / "kb"
 
