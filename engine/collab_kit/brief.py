@@ -41,7 +41,8 @@ def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list
 
     def fmt(i, extra=""):
         d = f", due {one_line(i.due, 12)}" if i.due else ""
-        return f"  {i.id} [{one_line(i.kind, 12)}, importance {i.importance}{d}{extra}] {one_line(i.title, 90)}"
+        p = ", in progress" if i.status == "in-progress" else ""      # an item shows once, under its first heading
+        return f"  {i.id} [{one_line(i.kind, 12)}, importance {i.importance}{d}{p}{extra}] {one_line(i.title, 90)}"
     if due:
         lines.append("Overdue or due within a week:")
         lines += [fmt(i, " OVERDUE" if due_date(i) < today else "") for i in due[:limit]]

@@ -66,7 +66,8 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
         name, it = r
         where = "top level" if name == "top" else name
         d = f"due {it.due}{' (OVERDUE)' if due(it) and due(it) < today else ''}; " if it.due else ""
-        return f"- **{one_line(it.title, 100)}** ({where} {it.id}; {d}{one_line(it.kind, 12)}, importance {it.importance})"
+        p = ", in progress" if it.status == "in-progress" else ""     # an item shows once, under its first heading
+        return f"- **{one_line(it.title, 100)}** ({where} {it.id}; {d}{one_line(it.kind, 12)}, importance {it.importance}{p})"
 
     def capped(rs):
         return "\n".join(line(r) for r in rs[:CAP]) + (f"\n- ... and {len(rs) - CAP} more" if len(rs) > CAP else "")

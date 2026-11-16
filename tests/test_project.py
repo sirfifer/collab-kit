@@ -298,6 +298,9 @@ class ProjectSide(unittest.TestCase):
         out = self.hook("SessionStart", sid="o1").stdout
         self.assertNotIn("HAS STOPPED", out)                            # no back end ever ran: nothing stopped
         self.assertLess(out.index("Critical (importance 1):"), out.index("Most important open:"))
+        self.ck("return", "--type", "note", "--topic", "t", "--change", 'set W-002 "gate" status=in-progress')
+        out = self.hook("SessionStart", sid="o3").stdout
+        self.assertIn("importance 1, in progress] The gate is broken", out)   # counted and shown as in progress
         self.assertIn("1 critical", out)
         FolderStore(self.cloud).write("_backend/heartbeat.json",
                                       json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
