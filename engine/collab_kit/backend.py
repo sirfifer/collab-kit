@@ -63,14 +63,14 @@ from pathlib import Path
 from . import config as C
 from .apply import Outcome, apply_file, heal_duplicates, raise_item
 from .store import FolderStore, Store, StoreError, SubStore, open_store
-from .templates import SETUP_TEXT, get_block, replace_block, set_human
+from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
+from .views import PRESSING, cloud_units, front_page, inactive_projects, write_front_page  # noqa: F401
 from .text import one_line, sha, stamp, utcnow
 from .unit import AGENDA, APPLIED, FAILED, KNOWLEDGE, RETURNS, START, STRAYS, VERSIONS, Unit, write_versioned
 
 LEASE = "_backend/lease.json"
 HEARTBEAT = "_backend/heartbeat.json"
 MIRROR_STATE = "_backend/mirror"
-PRESSING = f"{AGENDA}/00-PRESSING.md"
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".html", ".toml", ".tsv", ".svg", ".yml", ".yaml"}
 GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
 
@@ -293,8 +293,8 @@ class Pass:
         moves: list[tuple[str, str, str | None]] = []       # (cloud file, where it goes, the commit that applied it)
         for e in cloud_unit.pending_returns():
             if e.native or not e.name.lower().endswith((".md", ".txt")):
-                out = raise_item(repo_unit, f"A file was set aside: {one_line(e.name, 60)}",
-                                 f"`{e.name}` arrived in the inbox but is not a plain .md or .txt return "
+                out = raise_item(repo_unit, "A file in the inbox was set aside",
+                                 f"`{one_line(e.name, 120)}` arrived in the inbox but is not a plain .md or .txt return "
                                  f"(a Google Doc, or another kind of file); it is in `_returns/strays/`.", top=self.top)
                 moves.append((e.name, STRAYS, self.commit(d, f"collab-kit: set aside {e.name}")))
                 self.problem(f"{name}: {e.name} was set aside (not a plain return)")
@@ -355,8 +355,8 @@ class Pass:
                 git(d, "reset", "-q", "--hard", f"{sha_}^")       # the bad commit and everything after it go
                 if culprit:
                     self.move_cloud(cloud_unit, culprit[0], FAILED)
-                    self.file_cloud_note(cloud_unit, name, f"A return was not filed: {culprit[0]}",
-                                         f"It was moved to `_returns/failed/`: {why}. Change it and file it again, or "
+                    self.file_cloud_note(cloud_unit, name, "A return was not filed",
+                                         f"`{one_line(culprit[0], 120)}` was moved to `_returns/failed/`: {why}. Change it and file it again, or "
                                          f"drop it.")
                 self.problem(f"{name}: not pushed: {why}" + (f"; the return {culprit[0]} was moved to _returns/failed/"
                                                              if culprit else ""))
@@ -413,7 +413,7 @@ class Pass:
         from .returns import render_change, render_return
         rid = f"{stamp()}-backend-{hashlib.sha256(title.encode()).hexdigest()[:8]}"
         body = f"## What's needed\n{needed}\n\n## Done when\nSomeone has looked at it and settled this item.\n"
-        ch = render_change("new-item", None, None, None, body, kind="task", importance="2", title=one_line(title, 120))
+        ch = render_change("new-item", None, None, None, body, kind="task", importance="1", title=one_line(title, 120))
         cloud_unit.store.write(f"{RETURNS}/{rid}.md", render_return(name, rid, "the back end", "task", title, [ch]))
 
     def move_cloud(self, cloud_unit: Unit, fname: str, where: str) -> None:
@@ -532,108 +532,43 @@ class Pass:
     def all_units(self) -> list[tuple[str, Unit]]:
         """The top level, then every project: each folder with a collab-kit/ in the cloud, and every
         repository-homed project in the config (its cloud copy is created by the first mirror)."""
-        out = [("top", self.top)]
-        names = {e.name for e in self.cloud.dirs("projects") if self.cloud.exists(f"projects/{e.name}/collab-kit")}
-        for name in sorted(names | set(self.repos)):
-            home = "repo" if name in self.repos else "cloud"
-            out.append((name, Unit(SubStore(self.cloud, f"projects/{name}/collab-kit"), name, home=home)))
-        return out
+        return cloud_units(self.cloud, set(self.repos))
 
     def views(self) -> None:
+        """The agenda's front page (views.py), the back end's health first."""
+        self.step("the top-level start file", self.start_file_setup)
         today = utcnow().date()
-        if not self.dry:
-            self.step("the top-level start file", self.start_file_setup)
-        inactive = self.inactive_projects()
-        rows = []
-        for name, unit in self.all_units():
-            try:
-                items = unit.items()
-            except Exception as ex:                  # noqa: BLE001
-                self.problem(f"{name}: its agenda could not be read: {ex}")
-                continue
-            for it in items:
-                if not it.is_open:
-                    continue
-                if str(it.fields.get("snoozed_until", "")) > today.isoformat():
-                    continue
-                rows.append((name, it))
-
-        def due(it):
-            try:
-                return dt.date.fromisoformat(it.due)
-            except ValueError:
-                return None
-        active = [r for r in rows if r[0] not in inactive]
-        dated = sorted((r for r in rows if due(r[1]) and due(r[1]) <= today + dt.timedelta(days=14)),
-                       key=lambda r: due(r[1]))
-        order = lambda r: (r[1].importance, r[0], r[1].num)        # noqa: E731
-        critical = sorted((r for r in active if r not in dated and r[1].importance <= 1), key=order)
-        busy = [r for r in active if r not in dated and r not in critical and r[1].status == "in-progress"]
-        important = sorted((r for r in active if r not in dated and r not in critical and r not in busy
-                            and r[1].importance == 2), key=order)
-
-        def line(r):
-            name, it = r
-            where = "top level" if name == "top" else name
-            d = f"due {it.due}{' (OVERDUE)' if due(it) and due(it) < today else ''}; " if it.due else ""
-            return f"- **{one_line(it.title, 100)}** ({where} {it.id}; {d}{one_line(it.kind, 12)}, importance {it.importance})"
-
-        def capped(rs, n=15):
-            return "\n".join(line(r) for r in rs[:n]) + (f"\n- ... and {len(rs) - n} more" if len(rs) > n else "")
-        parts = [f"# What needs attention first, across everything\n\n"
-                 f"Generated by the back end from every agenda; never edit it (change items with returns).\n\n"
-                 f"**Up to date as of {today.isoformat()}** (the back end runs every {self.interval} minutes). If that "
-                 f"date is more than a day old, the back end has stopped: tell {self.human} before anything else.\n"]
-        if self.problems:
-            probs = [f"- {one_line(p, 200)}" for p in self.problems[:8]]
-            if len(self.problems) > 8:
-                probs.append(f"- ... and {len(self.problems) - 8} more (in `_backend/heartbeat.json`)")
-            parts.append(f"## Raise with {self.human} first: the back end could not handle these\n\n" + "\n".join(probs) + "\n")
-        if dated:
-            parts.append("## Overdue and due in the next two weeks\n\n" + "\n".join(line(r) for r in dated) + "\n")
-        if critical:
-            parts.append("## Critical (importance 1)\n\n" + capped(critical) + "\n")
-        if busy:
-            parts.append("## In progress\n\n" + capped(busy) + "\n")
-        if important:
-            parts.append("## Important (importance 2)\n\n" + capped(important) + "\n")
-        if inactive:
-            counts = {n: sum(1 for r in rows if r[0] == n) for n in inactive}
-            parts.append("## Inactive projects\n\n" + "\n".join(f"- {n}: {c} open item(s)" for n, c in sorted(counts.items())) + "\n")
-        if not (dated or critical or busy or important):
-            parts.append("Nothing is due, critical, in progress, or important.\n")
-        if not self.dry:
-            self.write_if_changed(self.top, PRESSING, "\n".join(parts))
-
-    def inactive_projects(self) -> set[str]:
-        text = self.cloud.read(f"{KNOWLEDGE}/projects.md") or ""
-        return {m.group(1) for m in re.finditer(r"^\|\s*`([a-z0-9-]+)`\s*\|.*\(inactive\)", text, re.M)}
+        text = front_page(self.all_units(), today=today, human=self.human, inactive=inactive_projects(self.cloud),
+                          interval=self.interval, problems=self.problems, unreadable=self.problem)
+        if not self.dry and write_front_page(self.cloud, text):
+            self.note("the agenda's front page was rebuilt")
 
     def write_if_changed(self, unit: Unit, rel: str, text: str) -> None:
         if unit.store.read(rel) != text:
             write_versioned(unit, rel, text)
 
     def start_file_setup(self) -> None:
-        """The top-level start file says once that a back end runs for this folder (its setup line).
-        Nothing else in a start file is ever written by the back end: start files stay put, and the
-        back end's health is on the agenda's front page."""
-        want = SETUP_TEXT["backend"]
-        for _attempt in range(2):                 # compare and swap: a conversation may edit it meanwhile
-            text = self.cloud.read(START)
-            if not text:
-                return
-            have = get_block(text, "setup")
-            if have is None:
-                self.problem("the top-level start file has no setup line (<!-- collab-kit:begin setup -->): "
-                             "run install.py top on the folder")
-                return
-            if have.strip() == want:
-                return
-            new = replace_block(text, "setup", want)
-            if self.cloud.read(START) == text:
-                write_versioned(self.top, START, new)
-                self.note("the top-level start file now says a back end runs for this folder")
-                return
+        """The top-level start file's setup line says a back end runs: set once, on the first run,
+        and only from the "no back end" wording. A line edited by hand, or already set, is left alone,
+        and nothing else in any start file is ever written: start files stay put, and the back end's
+        health is on the agenda's front page. (A store has no atomic swap: the file is read again just
+        before the write, and left alone if it changed.)"""
+        raw = self.cloud.read(START)
+        if raw is None:
+            self.problem("the top-level start file (00-START-HERE.md) is missing")
+            return
+        text = raw.replace("\r\n", "\n")
+        have = get_block(text, "setup")
+        if have is None:
+            self.problem("the top-level start file has no setup line (<!-- collab-kit:begin setup -->): it predates "
+                         "Collab Kit 0.5.1; replace it with install.py top --replace-start (the old one is kept)")
+            return
+        if self.dry or not have.strip().startswith(SETUP_NONE_MARK):
+            return
+        new = replace_block(text, "setup", SETUP_TEXT["backend"])
+        if self.cloud.read(START) == raw:
+            write_versioned(self.top, START, new)
+            self.note("the top-level start file now says a back end runs for this folder")
 
     def repositories(self) -> None:
         """knowledge/repositories.md: every name already taken (GitHub, and local project folders)."""

@@ -44,6 +44,9 @@ SETUP_TEXT = {
 }
 
 
+SETUP_NONE_MARK = "**No back end runs for this folder.**"
+
+
 HOME_NOTES = {
     "cloud": ("**Home: this folder.** It is the truth for this project: there is no repository copy to "
               "keep in step. Change it the way the top-level start file says (write a return; apply it "

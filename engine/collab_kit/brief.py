@@ -129,8 +129,7 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
                     f"then tell {who}.")
     route = project.route()[0]
     if be.get("stopped"):                              # a back end ran here once and has not run since
-        head.append(f"THE BACK END HAS STOPPED ({be['say']}): tell {who} first. Returns you file wait safely until it "
-                    f"runs again.")
+        head.append(f"THE BACK END HAS STOPPED ({be['say']}): tell {who} first.")
     if be["live"]:
         head.append(f"Back end: {be['say']}. `{ck} ask/status/return` file returns; it applies them. Never edit "
                     f"the agenda or status files by hand.")

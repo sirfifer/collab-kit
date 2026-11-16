@@ -280,10 +280,13 @@ class Planner:
             raise Reject(f"line {ch.line}: '{target}' was already undone by {led['undone_by']}")
         for eff in reversed(led.get("effects", [])):
             where = eff.get("unit", "self")
-            check_effect_path(str(eff.get("path", "")), where)
             if not isinstance(eff.get("before"), (str, type(None))):
                 raise Reject(f"line {ch.line}: the ledger of '{target}' is malformed")
+            check_effect_path(str(eff.get("path", "")), where, before=eff.get("before"), top_unit=self.unit.top)
             cur = self.ov.read(eff["path"], where)
+            if where == "top" and not self.unit.top and not only_own_row(eff.get("before"), cur, self.unit.name):
+                raise Reject(f"line {ch.line}: cannot undo '{target}': it would change more of the projects list "
+                             f"than {self.unit.name}'s own row")
             if sha_or_none(cur) != eff.get("after_sha"):
                 raise Reject(f"line {ch.line}: cannot undo '{target}': {eff['path']} has changed since")
             if eff.get("before") is None:
@@ -318,11 +321,16 @@ def sha_or_none(text):
 _PROJECT_PATH = re.compile(r"^projects/[a-z][a-z0-9-]{0,39}/collab-kit/(?:00-START-HERE\.md|(?:agenda|knowledge|_returns|WIP)/.+)$")
 
 
-def check_effect_path(path: str, where: str) -> None:
-    """Every file a ledger names must be one a return could have written: inside the unit's agenda/
-    or knowledge/, or (top level only) a new project's folder. No return writes a unit's own start
-    file: start files stay put. A ledger is a file in
-    the shared folder, so it is checked like any other text from outside before it is trusted."""
+def check_effect_path(path: str, where: str, *, before=None, top_unit: bool = False) -> None:
+    """Every file a ledger names must be one a return could have written. A ledger is a file in the
+    shared folder (and, for a repository-homed project, in git), so it is checked like any other text
+    from outside before it is trusted:
+
+    - inside the unit's own agenda/ or knowledge/;
+    - from a project, at the top level: only knowledge/projects.md (its own row: checked in op_undo);
+    - at the top level, a new project's folder, and then only to remove what new-project created.
+
+    No return writes a start file, so no ledger may restore one."""
     if where not in ("self", "top"):
         raise Reject(f"a ledger names an unknown unit {where!r}")
     from .store import StoreError, check_rel
@@ -333,9 +341,23 @@ def check_effect_path(path: str, where: str) -> None:
     parts = path.split("/")
     if any(p.startswith(".") or p == VERSIONS for p in parts):
         raise Reject(f"a ledger names a path a return never writes: {path!r}")
-    if path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")) or _PROJECT_PATH.match(path):
+    if where == "top" and not top_unit:
+        if path == f"{KNOWLEDGE}/projects.md":
+            return
+        raise Reject(f"a project's ledger names a top-level path other than its row in the projects list: {path!r}")
+    if path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")):
         return
+    if _PROJECT_PATH.match(path) and before is None:
+        return                                           # undoing a new project removes what it created
     raise Reject(f"a ledger names a path a return never writes: {path!r}")
+
+
+def only_own_row(before: str | None, current: str | None, name: str) -> bool:
+    """True if two versions of the projects list differ only in lines that name this project."""
+    if before is None or current is None:
+        return False
+    keep = lambda text: [ln for ln in text.splitlines() if f"`{name}`" not in ln]   # noqa: E731
+    return keep(before) == keep(current)
 
 
 # --------------------------------------------------------------- tables and status --
@@ -494,9 +516,12 @@ def _unit_for(where: str, unit: Unit, top: Unit | None) -> Unit:
 
 def _run_effects(led: dict, unit: Unit, top: Unit | None) -> None:
     for eff in led["effects"]:
-        check_effect_path(eff["path"], eff.get("unit", "self"))
-        u = _unit_for(eff.get("unit", "self"), unit, top)
+        where = eff.get("unit", "self")
+        check_effect_path(eff["path"], where, before=eff.get("before"), top_unit=unit.top)
+        u = _unit_for(where, unit, top)
         cur = u.store.read(eff["path"])
+        if where == "top" and not unit.top and not only_own_row(eff.get("after"), cur, unit.name):
+            raise StoreError(f"a ledger would change more of the projects list than {unit.name}'s own row")
         if sha_or_none(cur) == eff["after_sha"]:
             continue                                   # already in place (a resumed run)
         if sha_or_none(cur) != eff["before_sha"]:
@@ -609,8 +634,8 @@ def _set_aside(unit: Unit, entry: Entry, where: str, why: str, now, top) -> Outc
     unit.store.mkdir(where)
     unit.store.move(src, dst)
     label = "could not be filed" if where == FAILED else "was set aside"
-    out = raise_item(unit, f"A return {label}: {one_line(name, 60)}",
-                     f"The file `{dst}` {label}: {one_line(why, 300)}.\n\nRead it, fix it (or file what it meant "
+    out = raise_item(unit, f"A return {label}",                 # a neutral title: the file's name is outside text
+                     f"The file `{one_line(dst, 160)}` {label}: {one_line(why, 300)}.\n\nRead it, fix it (or file what it meant "
                      f"again), and move it back into `_returns/`; or settle this item if it should be dropped.",
                      top=top, now=now)
     status = "failed" if where == FAILED else "stray"

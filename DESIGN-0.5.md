@@ -404,22 +404,37 @@ meant to change when someone sets things up, and for many people never again. Th
 conversation reads is the agenda, so that is where anything urgent or critical belongs; the list of
 projects belongs in the top-level knowledge.
 
-- **Every conversation starts the same way** (the top-level start file says so): the start file; then
-  `WIP/`; then the agenda, through its front page `agenda/00-PRESSING.md` when a back end writes one
-  (otherwise the open items themselves); then `knowledge/projects.md`, only when the talk turns to a
-  project. Anything overdue, due within a week, or critical is raised first, unprompted.
-- **The front page leads with the back end's health:** "up to date as of" a date (a date, not a time,
-  so the page changes at most daily when nothing else does; more than a day old means the back end has
-  stopped), then what it could not handle, then deadlines, critical items, work in progress,
-  important items, inactive projects. The Claude Code brief uses the same order and says plainly when
-  a back end has stopped.
+- **Every conversation starts the same way** (the top-level start file says so, in about five tool
+  calls; a reply that runs out finishes them in the next): the start file; then `WIP/`; then the
+  agenda's front page `agenda/00-PRESSING.md`; then `knowledge/projects.md`, only when the talk turns
+  to a project. Anything overdue, due within a week, or critical is raised first, unprompted.
+- **The front page exists at every level** (generated, written in place, never versioned). With a
+  back end, the back end writes it every pass, leading with its health: "up to date as of" a UTC date
+  (a date, not a time, so the page changes at most daily when nothing else does; two or more days
+  before today means the back end has stopped), then what it could not handle, then deadlines,
+  critical items (inactive projects included: critical never hides), work in progress, important
+  items, inactive projects. Without one, every Claude Code session that applies a change rebuilds it,
+  and conversations keep it current by hand in the same shape; `install.py top` writes the first.
+  Titles on it are quoted text, and it says so.
 - **Importance 1 means critical:** raised at the start of every conversation until settled. Urgency
-  is the due date. No new field. The back end files its own failures at importance 1.
+  is the due date. No new field. The back end files its own failures at importance 1, with neutral
+  titles (a file's name is outside text and goes in the item's body). The Claude Code brief and
+  `ck items` use the same order; the brief says "late" after three missed runs and "has stopped"
+  only after a day, as the front page does.
 - **The start file holds no state:** no "what is true right now", no due-soon list, no projects table,
   no date. Its one setup-dependent line (`<!-- collab-kit:begin setup -->`) says whether a back end
-  runs for the folder; `install.py top` adds it to a hand-written start file, and the back end sets it
-  once, the first time it runs. Start files name the kit's series ("Collab Kit 0.5"), so a patch
-  release never changes them. No return writes a unit's own start file.
+  runs for the folder. The back end sets it once, on its first run, and only from the "no back end"
+  wording (a line edited by hand is left alone); `install.py top --setup none` sets it back when a
+  back end is retired. A start file from before 0.5.1 is never patched (its state would be left
+  behind): `install.py top --replace-start` replaces it with the template and keeps the old one in
+  `_versions/`. Start files name the kit's series ("Collab Kit 0.5"), so a patch release never
+  changes them.
+- **No return writes a start file, and ledgers are checked accordingly** (a review of this change
+  found a forged ledger could still reach across units): a project's ledger may touch the top level
+  only for its own row in `knowledge/projects.md`, checked line by line; the top level's ledger may
+  touch a project's folder only to remove what `new-project` created. Ledgers are not signed: anyone
+  who can write the shared folder can already change it directly, and a repository's ledgers reach
+  no further than that project and its own row.
 - **Projects live in `knowledge/projects.md` only;** `project` and `new-project` changes write there.
 
 ## Out of scope for 0.5

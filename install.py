@@ -482,7 +482,8 @@ def cmd_machine(a):
 
 def cmd_top(a):
     inst = _v05()
-    plan = inst.install_top(Path(a.folder).expanduser(), human=a.human, dry=a.dry_run)
+    plan = inst.install_top(Path(a.folder).expanduser(), human=a.human, dry=a.dry_run,
+                            replace_start=a.replace_start, setup=a.setup)
     print(f"top level {a.folder}{' (dry run)' if a.dry_run else ''}:")
     plan.show()
     return 0
@@ -545,6 +546,10 @@ def main(argv=None):
     t.add_argument("folder")
     t.add_argument("--human", required=True)
     t.add_argument("--dry-run", action="store_true")
+    t.add_argument("--replace-start", action="store_true",
+                   help="replace a start file that predates 0.5.1 with the template (the old one is kept in _versions/)")
+    t.add_argument("--setup", choices=("none", "backend"),
+                   help="set the start file's setup line by hand (e.g. 'none' when a back end is retired)")
     t.set_defaults(fn=cmd_top)
     i = sub.add_parser("init", help="write tools/kb/config.toml for a project")
     i.add_argument("project")

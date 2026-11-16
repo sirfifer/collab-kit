@@ -164,13 +164,15 @@ class Project:
         except (ValueError, KeyError, TypeError):
             self._backend = {"known": True, "live": False, "stopped": True, "say": "its heartbeat file is unreadable"}
             return self._backend
-        live = age_min <= max(3 * every, 90)
+        live = age_min <= max(3 * every, 90)            # routing: file only while it is keeping up
+        stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
         when = last.strftime("%Y-%m-%d %H:%M UTC")
         problems = hb.get("problems") or []
-        say = f"running (last ran {when}, every {every} minutes)" if live else f"stopped: it last ran {when}"
+        say = (f"running (last ran {when}, every {every} minutes)" if live else
+               f"stopped: it last ran {when}" if stopped else f"late: it last ran {when}, every {every} minutes")
         if problems and isinstance(problems, list):
             say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
-        self._backend = {"known": True, "live": live, "stopped": not live, "say": say, "last": when}
+        self._backend = {"known": True, "live": live, "stopped": stopped, "say": say, "last": when}
         return self._backend
 
     # ------------------------------------------------------------------------ kit version --
@@ -230,6 +232,12 @@ class Project:
                           status=out.status, message=out.message)
             if out.minted:
                 result["renumbered"] = heal_duplicates(target)
+            if result["applied"]:
+                try:                                    # level 1: nobody else keeps the agenda's front page
+                    from .views import rebuild_without_backend
+                    rebuild_without_backend(self.cloud(), self.machine.get("human") or "the owner", utcnow().date())
+                except Exception:                       # noqa: BLE001 (the change itself is filed and applied)
+                    pass
         log_filed(self.root, self.name, ret.id, where)
         return result
 

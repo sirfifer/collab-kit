@@ -282,6 +282,41 @@ class Applying(unittest.TestCase):
         self.assertIn("(inactive)", self.top.store.read("knowledge/projects.md"))
         self.assertEqual(self.top.store.read("00-START-HERE.md"), top_start_file(), "start files stay put")
 
+    def test_project_ledger_reaches_the_top_only_for_its_own_row(self):
+        """The review's attack: a project's ledger (in git, for a repository-homed project) naming
+        top-level files, to write into the top level or another project's inbox."""
+        for path, before in (("_returns/planted.md", "Project: top\nChanges v1:\nnew-item title=\"x\"\nEnd.\n"),
+                             ("agenda/W-009-planted.md", "+++\nid = \"W-009\"\n+++\n"),
+                             ("projects/other/collab-kit/_returns/x.md", "planted")):
+            with self.subTest(path=path):
+                led = json.dumps({"id": "forged", "state": "done", "effects": [{
+                    "path": path, "unit": "top", "before": before, "after": None,
+                    "before_sha": None, "after_sha": None}]})
+                self.garden.store.write("_returns/applied/forged.ledger.json", led)
+                drop(self.garden, "u.md", "Project: garden\nChanges v1:\nundo forged\nEnd.\n")
+                self.assertEqual(apply_all(self.garden, self.top)[0].status, "failed")
+                self.assertFalse(self.top.store.exists(path))
+        # the projects list: only lines naming the project itself may change
+        cur = self.top.store.read("knowledge/projects.md")
+        led = json.dumps({"id": "forged2", "state": "done", "effects": [{
+            "path": "knowledge/projects.md", "unit": "top", "before": cur + "| `evil` | x | x | x |\n", "after": cur,
+            "before_sha": None, "after_sha": A.sha_or_none(cur)}]})
+        self.garden.store.write("_returns/applied/forged2.ledger.json", led)
+        drop(self.garden, "u2.md", "Project: garden\nChanges v1:\nundo forged2\nEnd.\n")
+        self.assertEqual(apply_all(self.garden, self.top)[0].status, "failed")
+        self.assertEqual(self.top.store.read("knowledge/projects.md"), cur)
+
+    def test_top_ledger_never_restores_a_project_start_file(self):
+        cur = "# garden\n"
+        self.top.store.write("projects/garden/collab-kit/00-START-HERE.md", cur)
+        led = json.dumps({"id": "forged", "state": "done", "effects": [{
+            "path": "projects/garden/collab-kit/00-START-HERE.md", "unit": "self", "before": "# replaced",
+            "after": cur, "before_sha": None, "after_sha": A.sha_or_none(cur)}]})
+        self.top.store.write("_returns/applied/forged.ledger.json", led)
+        drop(self.top, "u.md", "Project: top\nChanges v1:\nundo forged\nEnd.\n")
+        self.assertEqual(apply_all(self.top)[0].status, "failed")
+        self.assertEqual(self.top.store.read("projects/garden/collab-kit/00-START-HERE.md"), cur)
+
     def test_undo_cannot_name_a_start_file(self):
         """No return writes a unit's own start file, so a ledger naming one is forged."""
         led = json.dumps({"id": "forged", "state": "done", "effects": [{

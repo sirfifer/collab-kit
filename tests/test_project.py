@@ -303,6 +303,38 @@ class ProjectSide(unittest.TestCase):
                                       json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
         self.assertIn("THE BACK END HAS STOPPED", self.hook("SessionStart", sid="o2").stdout)
 
+    def test_stopped_and_late_back_end_in_a_cloud_homed_project(self):
+        self.install()
+        import datetime as dt
+        from collab_kit.text import utcnow
+        late = (utcnow() - dt.timedelta(hours=3)).isoformat()
+        FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": late, "interval_minutes": 15}))
+        out = self.hook("SessionStart", sid="l1").stdout
+        self.assertNotIn("HAS STOPPED", out)
+        self.assertIn("late: it last ran", out)
+        FolderStore(self.cloud).write("_backend/heartbeat.json",
+                                      json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
+        out = self.hook("SessionStart", sid="l2").stdout
+        self.assertIn("THE BACK END HAS STOPPED", out)
+        self.assertNotIn("wait safely", out)                           # it applies at once here: no contradiction
+        self.assertIn("file AND apply", out)
+
+    def test_level_one_keeps_the_front_page(self):
+        self.install()
+        self.ck("ask", "Order the seeds", "--importance", "1")
+        page = (self.cloud / "agenda/00-PRESSING.md").read_text()
+        self.assertIn("Order the seeds", page.split("## Critical (importance 1)")[1])
+        self.assertIn("no back end runs for this folder", page)
+
+    def test_items_order(self):
+        self.install()
+        self.ck("ask", "Later", "--importance", "3")
+        self.ck("ask", "Critical", "--importance", "1")
+        self.ck("ask", "Soon", "--importance", "4", "--due", utcnow_date(2))
+        out = self.ck("items").stdout
+        self.assertLess(out.index("] Soon"), out.index("] Critical"))
+        self.assertLess(out.index("] Critical"), out.index("] Later"))
+
     def test_bad_heartbeat_does_not_break_filing(self):
         self.install()
         FolderStore(self.cloud).write("_backend/heartbeat.json", '{"last_run": "2026-11-15T03:00:00"}')
@@ -319,6 +351,12 @@ class ProjectSide(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def utcnow_date(days: int) -> str:
+    import datetime as dt
+    from collab_kit.text import utcnow
+    return (utcnow().date() + dt.timedelta(days=days)).isoformat()
 
 
 class MachineAndTop(unittest.TestCase):
@@ -349,19 +387,22 @@ class MachineAndTop(unittest.TestCase):
         self.assertEqual(sum("hook session-start" in c for c in cmds), 1)
         self.assertTrue((self.t / "settings.json.before-collab-kit").is_file())
 
-    def test_top_upgrade_adds_setup_line_once(self):
+    def test_top_upgrade_replaces_an_old_start_file_only_when_asked(self):
         top = self.t / "Collab Kit"
         top.mkdir()
         hand = ("# Start here\n\nYou are working with Sam.\n\n## What is true right now (read this)\n\nThings.\n\n"
                 "## Due soon\n\nKeep this current.\n\n- 2026-11-16: the article\n\n## The layout\n\nx\n")
         (top / "00-START-HERE.md").write_text(hand)
-        installer.install_top(top, human="Sam")
+        plan = installer.install_top(top, human="Sam")
+        self.assertEqual((top / "00-START-HERE.md").read_text(), hand, "never patched: state would be left behind")
+        self.assertTrue(any("--replace-start" in s[0] for s in plan.steps), plan.steps)
+        self.assertTrue((top / "agenda/00-PRESSING.md").is_file(), "the agenda's front page exists from the start")
+        installer.install_top(top, human="Sam", replace_start=True)
         text = (top / "00-START-HERE.md").read_text()
-        self.assertTrue(text.startswith("# Start here\n\nYou are working with Sam.\n\n<!-- collab-kit:begin setup -->\n"
-                                        "**No back end runs for this folder.**"), text)
-        self.assertNotIn("begin health", text)
-        self.assertNotIn("begin due", text)
-        self.assertEqual(text.replace(text[text.index("<!-- collab-kit:begin setup"):text.index("## What is true")], ""), hand)
-        self.assertEqual(len(list((top / "_versions").glob("*.md"))), 1)
-        installer.install_top(top, human="Sam")
-        self.assertEqual((top / "00-START-HERE.md").read_text(), text)
+        self.assertIn("<!-- collab-kit:begin setup -->\n**No back end runs for this folder.**", text)
+        self.assertNotIn("Due soon", text)
+        self.assertEqual([p.read_text() for p in (top / "_versions").glob("00-START-HERE*")], [hand])
+        installer.install_top(top, human="Sam", replace_start=True)
+        self.assertEqual((top / "00-START-HERE.md").read_text(), text, "a current start file is left alone")
+        installer.install_top(top, human="Sam", setup="backend")
+        self.assertIn("**A back end runs for this folder.**", (top / "00-START-HERE.md").read_text())

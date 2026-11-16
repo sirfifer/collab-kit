@@ -95,7 +95,7 @@ class BackEnd(unittest.TestCase):
         self.assertNotIn("Someday", pressing)
         # the front page: the back end's health first, then deadlines, critical, important
         from collab_kit.text import utcnow
-        self.assertIn(f"**Up to date as of {utcnow().date().isoformat()}**", pressing)
+        self.assertIn(f"**Up to date as of {utcnow().date().isoformat()} (UTC)**", pressing)
         sections = [line for line in pressing.splitlines() if line.startswith("## ")]
         self.assertEqual(sections, ["## Overdue and due in the next two weeks", "## Critical (importance 1)",
                                     "## Important (importance 2)", "## Inactive projects"], pressing)
@@ -192,6 +192,26 @@ class BackEnd(unittest.TestCase):
         self.assertEqual(self.s.read("00-START-HERE.md"), hand)
         self.assertTrue(any("no setup line" in x for x in p.problems), p.problems)
         self.assertIn("no setup line", self.s.read("agenda/00-PRESSING.md"))
+
+    def test_hand_edited_setup_line_is_left_alone(self):
+        from collab_kit.templates import replace_block
+        hand = replace_block(top_start_file(), "setup", "**A back end runs here, on the Studio.** File returns.")
+        self.s.write("00-START-HERE.md", hand)
+        self.run_pass()
+        self.run_pass()
+        self.assertEqual(self.s.read("00-START-HERE.md"), hand)
+
+    def test_windows_line_endings_in_the_start_file(self):
+        self.s.write("00-START-HERE.md", top_start_file().replace("\n", "\r\n"))
+        p, rc = self.run_pass()
+        self.assertFalse(any("setup line" in x for x in p.problems), p.problems)
+        self.assertIn("A back end runs for this folder", self.s.read("00-START-HERE.md"))
+
+    def test_dry_run_writes_nothing(self):
+        start = self.s.read("00-START-HERE.md")
+        BE.Pass(self.cfg, dry_run=True).run()
+        self.assertEqual(self.s.read("00-START-HERE.md"), start)
+        self.assertFalse(self.s.exists("agenda/00-PRESSING.md"))
 
     def test_start_file_setup_line_set_once(self):
         self.run_pass()
@@ -392,11 +412,14 @@ class BackEnd(unittest.TestCase):
 
     def test_inactive_projects_collapse(self):
         self.s.write("projects/old/collab-kit/agenda/W-001-x.md",
-                     '+++\nid = "W-001"\ntitle = "Old thing"\nkind = "task"\nimportance = 1\nstatus = "open"\n+++\n')
+                     '+++\nid = "W-001"\ntitle = "Old thing"\nkind = "task"\nimportance = 2\nstatus = "open"\n+++\n')
+        self.s.write("projects/old/collab-kit/agenda/W-002-y.md",
+                     '+++\nid = "W-002"\ntitle = "Still critical"\nkind = "task"\nimportance = 1\nstatus = "open"\n+++\n')
         self.run_pass()
         pressing = self.s.read("agenda/00-PRESSING.md")
         self.assertNotIn("Old thing", pressing)
-        self.assertIn("old: 1 open item(s)", pressing)
+        self.assertIn("Still critical", pressing.split("## Critical (importance 1)")[1])   # critical never hides
+        self.assertIn("old: 2 open item(s)", pressing)
 
 
 if __name__ == "__main__":

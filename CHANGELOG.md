@@ -10,9 +10,13 @@ opens with the back end's health ("up to date as of", what it could not handle),
 critical items, work in progress, and important items. Importance 1 means critical, raised first
 everywhere; the back end files its own failures at importance 1. The Claude Code brief and
 `ck items` use the same order, and the brief says plainly when a back end has stopped.
-`install.py top` adds only the start file's setup line, which the back end sets once when it first
-runs. Projects are listed only in `knowledge/projects.md`. Start files name the kit's series (0.5),
-so a patch release never changes them.
+The front page exists at every level: without a back end, Claude Code sessions rebuild it and
+conversations keep it current. The back end sets the start file's setup line once, on its first run,
+and leaves a hand-edited line alone; `install.py top --replace-start` replaces a start file from
+before 0.5.1 (the old one is kept), and `--setup` sets the line by hand. Projects are listed only in
+`knowledge/projects.md`. Start files name the kit's series (0.5), so a patch release never changes
+them. A review of this change found that a forged ledger could still reach across units through
+`undo`: a project's ledger now reaches the top level only for its own row in the projects list.
 
 ## 0.5.0 (2026-11-15)
 

@@ -58,6 +58,9 @@ Google Drive through its API uses rclone ([docs/rclone-intake.md](docs/rclone-in
 python3 install.py top "<your cloud drive>/Collab Kit" --human "Sam"
 ```
 
+(An existing folder from before 0.5.1: add `--replace-start` to replace its start file with the
+template; the old one is kept in `_versions/`.)
+
 In the Claude app, turn on the Google Drive connector and add one line to your preferences:
 *"When I talk about my work or a project, first open 00-START-HERE.md in my Google Drive folder
 'Collab Kit' (list the folder; never search all of Drive) and follow it."* That is all a phone

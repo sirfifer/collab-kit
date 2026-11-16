@@ -269,8 +269,12 @@ def install_machine(*, cloud_root: str | None, human: str | None, kit_source: st
 
 # -------------------------------------------------------------------------------- top --
 
-def install_top(folder: Path, *, human: str, dry: bool = False) -> Plan:
-    from .templates import returns_readme, set_human, top_start_file
+def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: bool = False,
+                setup: str | None = None) -> Plan:
+    """A new Collab Kit folder's top level (never overwrites), or, for an existing one: replace a start
+    file that predates 0.5.1 with the template (only when asked; the old one is kept in _versions/),
+    and set its setup line by hand (`setup`: "none" when a back end is retired, "backend")."""
+    from .templates import SETUP_TEXT, get_block, replace_block, returns_readme, set_human, top_start_file
     set_human(human)
     plan = Plan(folder, dry)
     seeds = {"00-START-HERE.md": top_start_file(),
@@ -287,27 +291,32 @@ def install_top(folder: Path, *, human: str, dry: bool = False) -> Plan:
     start = folder / "00-START-HERE.md"
     if start.is_file():
         cur = start.read_text(encoding="utf-8")
-        new = add_setup_line(cur)
-        if new != cur:
-            plan.note("update 00-START-HERE.md: add its setup line (whether a back end runs for this folder; the back "
-                      "end sets it the first time it runs). The older version is kept in _versions/")
-            if not dry:
-                from .store import FolderStore
-                from .unit import Unit, write_versioned
-                write_versioned(Unit(FolderStore(folder), "top", home="cloud", top=True), "00-START-HERE.md", new)
+        new = cur
+        if get_block(cur, "setup") is None:
+            if replace_start:
+                new = top_start_file(setup or "none")
+                plan.note("replace 00-START-HERE.md with the 0.5.1 template (the old one is kept in _versions/: carry "
+                          "over anything you added to it by hand)")
+            else:
+                plan.note("00-START-HERE.md predates Collab Kit 0.5.1 (it has no setup line, and may hold state such "
+                          "as due dates or a projects table, which now live on the agenda and in knowledge/projects.md). "
+                          "Left as it is; run again with --replace-start to replace it with the template")
+        elif setup and get_block(cur, "setup").strip() != SETUP_TEXT[setup]:
+            new = replace_block(cur, "setup", SETUP_TEXT[setup])
+            plan.note(f"set 00-START-HERE.md's setup line to '{setup}'")
+        if new != cur and not dry:
+            from .store import FolderStore
+            from .unit import Unit, write_versioned
+            write_versioned(Unit(FolderStore(folder), "top", home="cloud", top=True), "00-START-HERE.md", new)
+    if not dry:
+        from .store import FolderStore
+        from .text import utcnow
+        from .views import PRESSING, rebuild_without_backend
+        store = FolderStore(folder)
+        if not store.exists(PRESSING) and folder.is_dir():
+            rebuild_without_backend(store, human, utcnow().date())
+            plan.note("write agenda/00-PRESSING.md, the agenda's front page (no back end runs yet)")
     return plan
-
-
-def add_setup_line(text: str) -> str:
-    """Give a hand-written top-level start file its setup line (<!-- collab-kit:begin setup -->),
-    right after the first paragraph under the title. Nothing else changes: a start file stays put."""
-    from .templates import SETUP_TEXT, get_block
-    if get_block(text, "setup") is not None:
-        return text
-    block = f"<!-- collab-kit:begin setup -->\n{SETUP_TEXT['none']}\n<!-- collab-kit:end setup -->\n"
-    m = re.search(r"^# .*\n(?:\n(?:(?!#).+\n)+)?", text, re.M)   # the title, and the paragraph under it if any
-    at = m.end() if m else 0
-    return text[:at] + "\n" + block + text[at:]
 
 
 # ---------------------------------------------------------------------------- back end --
