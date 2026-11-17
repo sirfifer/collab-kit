@@ -278,9 +278,9 @@ class RcloneStore(Store):
     label = "rclone"
     SPOOL_OVER = 90 * 1024
 
-    def __init__(self, remote: str, rclone: str = "rclone", config: str | None = None, check_version: bool = True):
+    def __init__(self, remote: str, rclone: str | None = None, config: str | None = None, check_version: bool = True):
         self.remote = remote.rstrip("/")
-        self.rclone = rclone
+        self.rclone = rclone or os.environ.get("COLLAB_KIT_RCLONE") or "rclone"
         self.config = config or os.environ.get("COLLAB_KIT_RCLONE_CONFIG", "")
         self.flags = ["--ask-password=false", "--drive-import-formats", "", "--drive-use-trash=true"]
         if self.config:

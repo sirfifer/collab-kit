@@ -351,6 +351,8 @@ watch = ""               # optional, macOS: a synced copy of the folder (Drive f
 local_roots = []         # e.g. ["~/dev", "~/projects"]: folder names there count as taken
 deny = []                # regexes a pushed change may never contain
 account = ""             # the Google account the folder must belong to, e.g. "you@example.com" (checked every run)
+rclone = ""              # with an rclone remote: the pinned binary, e.g. "~/.local/bin/rclone" (else found on PATH)
+rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/rclone.conf"
 
 # Optional: a push notification the moment a critical item (importance 1) appears. The command gets
 # COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE and COLLAB_KIT_ITEM in its environment (docs/notifications.md):

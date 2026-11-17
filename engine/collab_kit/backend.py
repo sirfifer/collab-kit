@@ -708,8 +708,12 @@ def version_path(rel: str) -> str:
 def load_config(path: str | None) -> dict:
     p = Path(C.expand(path)) if path else C.config_dir() / "backend.toml"
     cfg = C.load_toml(p)
-    if not cfg.get("backend", {}).get("cloud"):
+    b = cfg.get("backend", {})
+    if not b.get("cloud"):
         raise SystemExit(f"collab-kit back end: no [backend].cloud in {p}")
+    for key, env in (("rclone", "COLLAB_KIT_RCLONE"), ("rclone_config", "COLLAB_KIT_RCLONE_CONFIG")):
+        if b.get(key):                               # the pinned binary and its own config, where a schedule's PATH
+            os.environ[env] = C.expand(b[key])        # would not find them
     return cfg
 
 
