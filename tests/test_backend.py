@@ -427,7 +427,7 @@ class BackEnd(unittest.TestCase):
         self.s.write("_returns/a.md", "x")
         self.s.write("_returns/README.md", "x")
         self.s.write("projects/garden/collab-kit/_returns/b.md", "x")
-        self.s.write("projects/garden/collab-kit/_returns/_failed/c.md", "x")
+        self.s.write("projects/garden/collab-kit/_returns/_set-aside/c.md", "x")
         self.assertEqual(sorted(self.s.inbox_files()),
                          ["_returns/a.md", "projects/garden/collab-kit/_returns/b.md"])
 
@@ -493,7 +493,8 @@ class BackEnd(unittest.TestCase):
                       self.s.read("knowledge/projects.md"))
         self.drop("_returns/t3.md", "Project: top\nChanges v1:\nproject shed collab-kit=maybe\nEnd.\n")
         self.run_pass()
-        self.assertTrue(self.s.files("_returns/_failed"))       # refused: not one of the three states
+        from collab_kit.unit import FAILED
+        self.assertTrue(self.s.files(FAILED))                    # refused: not one of the three states
 
 
 if __name__ == "__main__":
