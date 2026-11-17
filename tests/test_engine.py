@@ -106,6 +106,22 @@ class Grammar(unittest.TestCase):
             with self.subTest(line=line), self.assertRaises(R.ReturnError):
                 R.parse(f"Project: g\nChanges v1:\n{line}\nEnd.\n", "abc.md")
 
+    def test_commentary_after_the_changes(self):
+        # what voice conversations write (2026-11-15): a note after the changes, before End.
+        r = R.parse('Project: x\nType: decision\nTopic: t\n\nChanges v1:\nlog W-019 "example" "ok"\n'
+                    'settle W-019 "example" outcome="merge"\n\nVerbatim: "Other than that, it is good to go."\nEnd.\n', "a")
+        self.assertEqual([c.op for c in r.changes], ["log", "settle"])
+        self.assertTrue(r.complete)
+        r = R.parse('Project: x\nChanges v1:\nlog W-006 "Studio" "go"\n\nStandard (applies beyond W-006): one '
+                    'script on the desktop.\n\nVerbatim: "..."\nEnd.\n', "b")
+        self.assertEqual(len(r.changes), 1)
+        r = R.parse('Project: x\nChanges v1:\nlog W-1 "a" "b"\nVerbatim: "x"\nEnd.\n', "c")
+        self.assertEqual(len(r.changes), 1)
+        for bad in ('Project: x\nChanges v1:\nlog W-1 "a" "b"\n\nsette W-2 "c"\nEnd.\n',      # a typo still fails
+                    'Project: x\nChanges v1:\nlog W-1 "a" "b"\nSettle the rest later\nEnd.\n'):   # no blank, not a field
+            with self.assertRaises(R.ReturnError):
+                R.parse(bad, "d")
+
     def test_incomplete_and_second_block(self):
         r = R.parse("Project: g\nChanges v1:\nnew-item title=\"x\"\n", "abc.md")
         self.assertFalse(r.complete)

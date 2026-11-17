@@ -222,13 +222,34 @@ def parse(text: str, name: str = "") -> Return:
     return Return(rid, project, fields, changes, block_at is not None, complete, text)
 
 
+def _first_word(line: str) -> str:
+    m = re.match(r"\s*([A-Za-z][\w\u2013\u2014-]*)", line)
+    return (m.group(1) if m else "").lower().replace("\u2013", "-").replace("\u2014", "-")
+
+
+def _is_commentary(line: str) -> bool:
+    """After the changes and a blank line, a voice conversation often adds a note before End.
+    ("Verbatim: ...", "Standard (applies beyond W-006): ..."). A line that starts with a capital and is
+    not a change ends the changes; the rest is kept in the return as text. A lowercase word that is not
+    a change still fails, so a misspelled change is never dropped quietly."""
+    w = _first_word(line)
+    return bool(line.lstrip()[:1].isupper()) and w not in OPS and w not in OP_ALIASES and w not in KIND_OPS
+
+
 def _parse_block(lines: list[str], start: int) -> tuple[list[Change], int | None]:
     changes: list[Change] = []
     i = start
+    blank_before = False
     while i < len(lines):
         raw = lines[i]
         if straighten(raw).strip() == "End.":
             return changes, i
+        if changes and raw.strip() and _is_commentary(normalise_line(raw)) and (
+                blank_before or FIELD_RE.match(normalise_line(raw).strip())):
+            while i < len(lines) and straighten(lines[i]).strip() != "End.":
+                i += 1                                   # commentary to the end: kept in the file, not parsed
+            return changes, (i if i < len(lines) else None)
+        blank_before = not raw.strip()
         if FENCE_RE.match(raw):
             fence = FENCE_RE.match(raw).group(1)
             body, j = [], i + 1

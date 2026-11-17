@@ -24,6 +24,11 @@ waits (`ck backend run --if-waiting`: one listing of every inbox) or the hourly 
 `watch` lets a synced copy's inboxes start it the moment a file lands. Its read path is the Drive API
 (rclone). Upgrade: run `install.py backend --apply` again to rewrite the schedule.
 
+**Returns: a note after the changes is fine.** Voice conversations add "Verbatim: ..." or a sentence
+after the last change, before `End.`; two of Richard's returns of 2026-11-15 were refused for it. A line
+that starts with a capital and is not a change now ends the changes when it follows a blank line or
+reads as a field ("Verbatim: ..."); the note stays in the return. A misspelled change still fails.
+
 **Optional push notifications.** The first time a critical item appears, the back end runs one
 command of yours (`[notify]` in `backend.toml`; ntfy, Pushover, and Telegram examples in
 docs/notifications.md). Item text reaches it in environment variables, never on a command line.
