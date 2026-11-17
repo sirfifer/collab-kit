@@ -2,7 +2,7 @@
 name: collab-kit-upgrade
 description: Upgrade the Collab Kit installed in collab-kit to the newest kit. Use when the session brief says "KIT UPDATE" (a newer Collab Kit is available), when `ck doctor` reports an upgrade, or when asked to upgrade, reinstall, or repair Collab Kit in this repository.
 ---
-<!-- managed by Collab Kit 0.5.0: replaced on upgrade; delete this line to make the file your own -->
+<!-- managed by Collab Kit 0.5.2: replaced on upgrade; delete this line to make the file your own -->
 
 # Upgrade Collab Kit in this repository
 

@@ -2,7 +2,7 @@
 name: collab-kit-return
 description: File a change to collab-kit's Collab Kit agenda or knowledge as a return (the one way anything changes there). Use whenever work in this repository settles, advances, re-prioritises, or adds an agenda item; raises a question or decision for Richard; finishes or starts something worth a status line; adds a knowledge note; asks for a push; or undoes an earlier return. Also use when a brief, an item, or Richard says "put that on the agenda", "close that item", "log that", "record this".
 ---
-<!-- managed by Collab Kit 0.5.0: replaced on upgrade; delete this line to make the file your own -->
+<!-- managed by Collab Kit 0.5.2: replaced on upgrade; delete this line to make the file your own -->
 
 # File a return
 
@@ -33,7 +33,7 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 | Change | Example |
 |---|---|
-| new item | `new-item @h kind=question importance=2 due=2026-12-01 title="..."` (kinds: question, decision, work-out, hole, task, project; importance 1 highest to 5) |
+| new item | `new-item @h kind=question importance=2 due=2026-12-01 title="..."` (kinds: question, decision, work-out, hole, task, project; importance 1 critical, raised first everywhere, to 5) |
 | change fields | `set W-012 "part of its title" importance=1 due=2026-12-01 status=in-progress` |
 | add to its log | `log W-012 "part of its title" "what happened"` |
 | settle | `settle W-012 "part of its title" outcome="what was decided or done"` |
@@ -56,5 +56,5 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 `ck` prints where the return went: applied at once (no back end runs, so it applies it
 itself; in a repository-homed project, commit `collab-kit/` with your work), or filed for the back
-end, which applies it within the hour. A refused return says exactly why (a failed title check,
+end, which applies it within a few minutes. A refused return says exactly why (a failed title check,
 an unknown item, a bad date): fix it and file again. Never edit the agenda's files by hand instead.

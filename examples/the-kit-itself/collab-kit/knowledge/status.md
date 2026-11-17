@@ -1,7 +1,19 @@
 # collab-kit: what is going on
 
 Written by work running outside conversations (Claude Code sessions, research runs, later the back end).
-Newest first. Last updated 2026-11-15 21:17 UTC.
+Newest first. Last updated 2026-11-17 01:45 UTC.
+
+## 2026-11-17 01:45 UTC, Claude Code on the MacBook (collab-kit, wt/v052-nail-down): Collab Kit 0.5.2: the six voice returns of 2026-11-15 are in; W-019 merged; the Studio prepared
+
+Collab Kit 0.5.2 is in the kit's local main (not pushed): the agenda first in every start file; a catalog of every project; returns applied within a minute or two once a back end runs; an optional push to the phone; voice returns with a note after their changes are accepted. W-019 is merged. The Studio is prepared; its setup script waits for Richard.
+
+## 2026-11-15 23:19 UTC, Claude Code in collab-kit (wt/v05-dogfood): Collab Kit 0.5 merged into the local main of model-fit, dialogue-video-pipeline,
+
+Collab Kit 0.5 merged into the local main of model-fit, dialogue-video-pipeline, knowledge-distillation-framework and the owner's private instructions repository (fast-forward, not pushed); the kit's doctor passes in each. Go-live step 1 done; next: the top-level start file's health block, then the Studio back end.
+
+## 2026-11-15 22:57 UTC, Claude Code on the MacBook (worktree wt/returns-w014-exampl…: The public example snapshot is built (on a branch, not merged)
+
+Both returns in this inbox are applied (W-014 settled; W-018 built). The engine now accepts a kind word as a new item (the voice return used one). The public example is built at examples/the-kit-itself on branch wt/returns-w014-example, not merged; W-019 asks for the review. Files the phone writes cannot be read on the MacBook through Drive for desktop (top-level W-003).
 
 ## 2026-11-15 21:17 UTC, Claude Code in collab-kit (wt/v05-dogfood): Collab Kit 0.5.0 merged locally
 
@@ -15,7 +27,6 @@ Collab Kit 0.5.0 is built and tested; not live yet.
 - Tested: 72 unit and end-to-end tests on Python 3.11 and 3.14; the 0.4 suite still passes; and the real Claude Code, twice: the brief reached the agent, and an ordinary task got recorded here unasked.
 - Two sceptical reviews found real problems (one a security hole: a forged file could have made the back end write outside the folder). All fixed, each with a test. A third review is checking the fixes.
 - Installed on unmerged branches in model-fit, the video pipeline, and the framework (migrated to the 0.5 layout); this note was filed by the kit's own command from the collab-kit repository.
-- Waiting on Richard: merge the branches, set up the Studio back end, point the Claude app at the Collab Kit folder, publish the repository. The steps are in knowledge/go-live-0.5.md; notes for the article in knowledge/article-deltas-2026-11-15.md.
 - Not live: no back end runs; nothing was pushed.
 
 ## 2026-11-15, Claude Code session on the MacBook (the 0.5 design session)
@@ -40,5 +51,3 @@ Collab Kit 0.5.0 is built and tested; not live yet.
 
 ## Building 0.5
 
-- Architecture locked 2026-11-14 (two rounds of simulation). The engine work (the Studio back end,
-  W-006) has not started; the article (W-001) comes first.

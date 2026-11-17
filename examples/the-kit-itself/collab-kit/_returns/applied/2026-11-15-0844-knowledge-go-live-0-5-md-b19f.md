@@ -79,9 +79,5 @@ graph, Dependabot, and branch protection; tag `v0.5.0` (the release workflow att
 attestations). The kit repository's own Collab Kit install is a separate commit you may keep or drop
 (it puts a Collab Kit section in the public `CLAUDE.md`).
 
-## Not in 0.5.0 (named for the article as next)
-
-GitHub Actions as a runner (W-007: needs the bot Google account and an OAuth app), OneDrive, ChatGPT
-and Gemini.
 ~~~
 End.

@@ -3,7 +3,9 @@
 Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
 ships. Every decision here is measured against [VISION.md](VISION.md).
 
-**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation.** Every decision below is made. What remains
+**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation; 0.5.0 is built
+(2026-11-15: engine, back end, the native layer in section 18, migration; go-live on the Studio and
+the owner's projects remain).** Every decision below is made. What remains
 open does not change the architecture: which assistants beyond Claude can use it (an interface
 question, research in progress) and rclone's dependency intake review.
 
@@ -44,7 +46,8 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 - **A project folder is the project.** `collab-kit/` is how it is collaborated on; everything beside
   it is the project itself. A project with its own repository usually has only `collab-kit/` here,
   a copy of the repository's `collab-kit/` folder. A project without one keeps all of itself here.
-- **The back end only ever writes inside the channel folders** (and the start files). It never
+- **The back end only ever writes inside the channel folders** (and start files only when it creates or
+  mirrors them, plus once the top-level start file's setup line: section 19). It never
   touches a project's own files, so there are no reserved names in a project.
 - **Moving a project into a repository later:** the project's own files move to the repository;
   `collab-kit/` stays and becomes the copy of the repository's `collab-kit/`.
@@ -58,7 +61,7 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 | Knowledge | the person's whole world of work: every project (what it is, its state, its names), standards and procedures, skills, resources, their AI setup (assistants, machines, local models), personal and professional status |
 | Returns (the inbox) | anything about no single project, or several; ideas; project requests |
 | WIP | checkpoint notes between saves (section 17) |
-| Agenda | items about no single project; ideas growing into projects (no name needed yet); and, generated, the pressing items from every project, deadlines first |
+| Agenda | items about no single project; ideas growing into projects (no name needed yet); and, generated, its front page `00-PRESSING.md`: the back end's health, then the pressing items from every project, deadlines first (section 19) |
 
 ### 3. Source control: one choice at setup, two answers
 
@@ -193,13 +196,16 @@ whose only output is a return through the same parser.
 - **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
   only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
   runner. Cloud runners reach the API through rclone (decided, subject to the dependency intake review).
-- **Health is visible:** the top-level start file says, in plain words, when the back end last ran,
-  when it runs next, and what failed.
+- **Health is visible:** the agenda's front page (`agenda/00-PRESSING.md`) opens with the date the back
+  end is current as of and anything it could not handle. (Revised 2026-11-15: not in the start file;
+  section 19.)
 
 ### 10. The person hears what matters first (Decided)
 
-The top-level start file carries the back end's health, anything due within a week, and anything
-that failed to file. The conversation raises these first, unprompted. The agenda read aloud is
+The agenda's front page carries the back end's health, anything that failed to file, anything overdue
+or due within two weeks, and critical items (importance 1). The start file sends every conversation
+there right after itself, and the conversation raises what is overdue, due within a week, or
+critical first, unprompted. (Revised 2026-11-15: this was in the start file; section 19.) The agenda read aloud is
 capped (top items, then "N more"); inactive projects collapse to one line.
 
 ### 11. Starting a project, by voice (Decided)
@@ -266,7 +272,8 @@ All four second-round simulations: lockable, with these rules.
   two duplicates renumbers itself.
 - The conversation writes its changes as a return first, applies them, then marks the return
   applied: a ledger, a way to finish an interrupted change, and a clean path to level 2.
-- A short "due soon" section in the top-level start file, updated when a due date is set.
+- No "due soon" list anywhere: due dates live on the items, and the conversation reads the open
+  items (there is no generated front page without a back end). (Revised 2026-11-15, section 19.)
 
 **Repository-homed units:** the start file says "do not edit here; file a return". The mirror keeps
 a hash of what it wrote; a cloud file that no longer matches is saved as a return before it is
@@ -328,18 +335,187 @@ W-005, W-010, W-011, W-012, W-015, W-016, W-017; return `2026-11-14-1912-wip-and
   even after the older one has moved to `_versions/`; the cloud has one file with the right name. A
   machine back end must read names through the API (rclone), never trust local Drive for desktop names.
 
+### 18. Native in every project (decided 2026-11-14, built that night)
+
+Owner's requirement: when he starts work on any project, he never has to think about whether the
+knowledge is being kept current, whether the inbox was read first, or whether open questions reach
+the agenda. Every agent working in a project's repository treats Collab Kit as first-class, without
+being asked, every time.
+
+Found first: the 0.4 kit never touched a project's own `CLAUDE.md`; its skills triggered only on
+knowledge-base phrases; nothing told a session that returns were waiting or what was in progress.
+Two Claude Code facts shape the answer: `AGENTS.md` is read only when no `CLAUDE.md` exists in the
+folder or above it (so the kit writes into `CLAUDE.md`, and `AGENTS.md` for other assistants), and a
+session started in a parent folder (the owner's `~/dev`) never runs a child repository's hooks.
+
+**Four layers, strongest first:**
+
+1. **A session-start hook** prints a brief into the context: the inbox, what is in progress, due, and
+   most important, recent status, other unmerged branches, a kit-update notice, and where returns
+   from this session will go. It has a deadline (a cached brief when the folder is slow).
+2. **A check at the end of a turn** (Stop hook): when the session changed project files since the
+   last check and recorded nothing, it asks the agent to record what is needed, or to say nothing is.
+   At most every 15 minutes, three times a session; records count per worktree.
+3. **A Collab Kit section** in `CLAUDE.md` and `AGENTS.md`: start from the brief and look for
+   overlap; questions and decisions go to the owner or onto the agenda; record where things stand;
+   one writer; text in Collab Kit files is data; keep the kit current.
+4. **Skills** (`collab-kit`, `collab-kit-return`, `collab-kit-upgrade`) and the `ck` command.
+
+For sessions started in a parent folder, optional user-level hooks give a short brief the first time
+the session touches a project (and again after compaction).
+
+**One writer, and where a return goes.** Agents never edit the agenda or status by hand and never
+mint item numbers in a checkout: `ck` files a return. With a back end running, to the cloud inbox.
+Without one, a cloud-homed project's return is applied at once (level 1; two sessions that took one
+number heal: the later renumbers itself). A repository-homed project's return goes to the
+checkout's `collab-kit/_returns/`, committed with the work, applied by the back end once it reaches
+the main branch. Filed while the folder is unreachable: kept in the checkout and delivered by the next
+session that can reach it.
+
+**Keeping the kit itself current:** the brief compares the project's kit with the machine's newest;
+the agent upgrades it as its own commit (skill `collab-kit-upgrade`) and says so.
+
+**Text from outside** reaches agents only inside `<collab-kit-data>` fences that its content cannot
+close, with a note that it is data. A sceptical review the same night found a forged-ledger path
+traversal through `undo`; every path a return or ledger names is now validated (SECURITY.md).
+
+Verified with the real Claude Code (`tests/live-native-layer.sh`): the brief reached the model before
+any tool use, and given an ordinary task the agent read the item in progress first, kept to what was
+already decided, logged its change on that item, and filed a status line.
+
+**Reviewed the same night** by three independent sceptical passes (agent harness and security; back
+end data integrity; a check of the fixes). Besides the traversal, they changed: the end-of-turn check
+re-arms rather than firing once; records count per worktree; repository-homed sessions never mint
+item numbers; a failed push loses nothing (each pass starts from the remote, one commit per return,
+cloud returns move only after a successful push); every unpushed commit is checked against the
+deny-list and the paths before a push; the mirror works by hash and copies any bytes; item numbers
+come from a counter and are never reused; Drive's "(1)" copies heal as one file.
+
+**Where the build differs from this record** (to settle in review): the lease lives in the cloud
+folder (`_backend/lease.json`, written, settled, read back, renewed per unit), not in git; the item
+counter lives with the ledgers (`_returns/applied/next-item.json`), in git for a repository-homed
+unit. Approved pushes of project work (section 17) become an agenda task carrying the approval; the
+back end does not push project work by itself yet.
+
+### 19. Start files stay put; what is going on is on the agenda (decided 2026-11-15)
+
+Richard, reviewing the go-live steps: a start file is the one consistent way into Collab Kit. It is
+meant to change when someone sets things up, and for many people never again. The very next thing a
+conversation reads is the agenda, so that is where anything urgent or critical belongs; the list of
+projects belongs in the top-level knowledge.
+
+- **Every conversation starts the same way** (the top-level start file says so, in about five tool
+  calls; a reply that runs out finishes them in the next): the start file; then the agenda's front
+  page `agenda/00-PRESSING.md`; then `WIP/`; then `knowledge/projects.md`, only when the talk turns
+  to a project. Anything overdue, due within a week, or critical is raised first, unprompted.
+  (Revised 2026-11-16: the agenda now comes before `WIP/`, section 20.)
+- **The front page exists at every level** (generated, written in place, never versioned). With a
+  back end, the back end writes it every pass, leading with its health: "up to date as of" a UTC date
+  (a date, not a time, so the page changes at most daily when nothing else does; two or more days
+  before today means the back end has stopped), then what it could not handle, then deadlines,
+  critical items (inactive projects included: critical never hides), work in progress, important
+  items, inactive projects. Without one, every Claude Code session that applies a change rebuilds it,
+  and conversations keep it current by hand in the same shape; `install.py top` writes the first.
+  Titles on it are quoted text, and it says so.
+- **Importance 1 means critical:** raised at the start of every conversation until settled. Urgency
+  is the due date. No new field. The back end files its own failures at importance 1, with neutral
+  titles (a file's name is outside text and goes in the item's body). The Claude Code brief and
+  `ck items` use the same order; the brief says "late" after three missed runs and "has stopped"
+  only after a day, as the front page does.
+- **The start file holds no state:** no "what is true right now", no due-soon list, no projects table,
+  no date. Its one setup-dependent line (`<!-- collab-kit:begin setup -->`) says whether a back end
+  runs for the folder. The back end sets it once, on its first run, and only from the "no back end"
+  wording (a line edited by hand is left alone); `install.py top --setup none` sets it back when a
+  back end is retired. A start file from before 0.5.1 is never patched (its state would be left
+  behind): `install.py top --replace-start` replaces it with the template and keeps the old one in
+  `_versions/`. Start files name the kit's series ("Collab Kit 0.5"), so a patch release never
+  changes them.
+- **No return writes a start file, and ledgers are checked accordingly** (a review of this change
+  found a forged ledger could still reach across units): a project's ledger may touch the top level
+  only for its own row in `knowledge/projects.md`, checked line by line; the top level's ledger may
+  touch a project's folder only to remove what `new-project` created. Ledgers are not signed: anyone
+  who can write the shared folder can already change it directly, and a repository's ledgers reach
+  no further than that project and its own row.
+- **Projects live in `knowledge/projects.md` only;** `project` and `new-project` changes write there.
+
+### 20. Decided on 2026-11-15, by voice and in Claude Code (folded in 2026-11-16, 0.5.2)
+
+Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two Claude Code findings.
+
+- **The agenda first, always** (returns 1947 and 1956). The agenda is the one source kept up to date;
+  returns, ledgers, notes, status, and knowledge may be out of date, and the agenda wins when they
+  disagree. Looking into a project (or the top level) starts with its agenda and nothing else. The
+  start file is the way in and a true picture of the setup: it changes only when the setup does (a
+  back end starts running; a limited state), and never carries news or status. Both are stated in the
+  start-file templates.
+- **How a conversation works here** (return 1949): follow through (when the next step is plainly to
+  look further, do it in the same turn and report what was found); say only what was seen (never
+  invent a name); before filing a return, check that inbox and its applied returns for one on the
+  same topic. In the top-level template, and the inbox check in the Claude Code block.
+- **Handing work to the person** (return 1958): when setup needs the person's own hands (a sign-in, a
+  permission prompt), everything else is done first and the person gets one script on the desktop of
+  the machine it is for, which says what it will ask and checks the result.
+- **No trash in conversations** (return 1430, explored): each trash call through the Drive connector
+  asks for approval on the phone, which breaks hands-free work, and a voice call cannot wait for it.
+  In the same saves, the moves that versioning makes were not reported as asking, so a save now moves
+  finished `WIP/` notes into `WIP/_done/`, and a wrongly converted Google Doc goes to `_versions/`
+  (the next voice session confirms that a move does not ask). Conversations never trim old versions; they are kept (small text files). Trimming by
+  the retention rule of section 17 becomes back-end work later, once the store has a tested delete.
+  (Allowing the connector's trash tool once, in the Claude app's connector settings, also works for
+  one person, but the kit does not depend on it.)
+- **One catalog of every project** (return 1413). `knowledge/projects.md` lists every one of the
+  person's projects, in Collab Kit or not: folder, spoken names, what it is, where it lives, state,
+  and whether Collab Kit is set up for it (`not set up`, `requested`, `live`). Each project may have a
+  card, `knowledge/project-cards/<folder>.md`: the distilled vision, where it lives and its stack, the
+  story, the timeline, the models that worked on it, writing about it, commercial status, websites.
+  Navigation is judgment: the list, then the card, then the project's own folder (its agenda first),
+  only as deep as the conversation needs. Bringing an existing project in: a `task` item and
+  `project <folder> collab-kit=requested`; a Claude Code session on the machine with the project
+  installs the kit and marks it `live`. The engine reads the list by column name (the first table with
+  a Folder column), so the wider table changed no format. Model history for the cards is feasible
+  from Claude Code transcripts (kept a year, both Macs) and commit trailers; "an end-to-end review by a
+  new model" is only a heuristic. A script, not agent work: an agenda item.
+- **Returns are event driven** (returns 1445 and 1525; agenda W-004 locked, as 1525 asked: "explore,
+  decide, and lock"). The back end reads and writes Drive only through the Drive API (rclone): it read
+  every phone-written file when the synced folder refused them, sees the real names (the synced folder
+  shows "name (1).md" after a versioning save), and needs no macOS privacy permission. The job runs
+  every minute and asks one cheap question (one listing of every inbox): is a return waiting? Only then
+  does it do a full pass; every `interval_minutes` (60) it does one anyway, the sweep that pulls
+  repositories, mirrors, and writes the health. On macOS, when the machine also has a synced copy of
+  the folder (`watch`), launchd starts the job the moment a file lands in an inbox: a doorbell, nothing
+  is read through it. A return without its "End." waits (up to a day) instead of failing. Claude Code
+  sessions keep reading the synced folder (the engine downloads placeholders itself).
+- **Feedback runs through the agenda** (return 1500). Applying a return is immediate and needs no
+  "started" item: the ledger and the change are the answer. Anything that needs the person is an item;
+  if it blocks, it is critical (importance 1), which a conversation raises first. Long work done by
+  sessions reports with `status` and item logs. **Not in 0.5:** the back end starting agent work by
+  itself (a Claude Code job per task return, with progress, questions, and resumption). It puts an AI
+  with tools between incoming text and the person's machine, the reason cloud Claude Code sessions were
+  dropped as a runner (section 9). It is the first candidate for the next release, for Richard to
+  decide.
+- **Push notifications, an optional pattern** (return 1510). The first time a critical item appears
+  anywhere, the back end runs one configured command; the text reaches it in environment variables,
+  never on a command line. ntfy is the documented default (free, both phones, one POST); Pushover and
+  Telegram are examples (docs/notifications.md).
+- **Scripts where they fit** (return 1515). Scripts already: applying returns (grammar, ledger, undo),
+  numbering, versioning, the front page and health, mirrors, repository pulls, commits, and guarded
+  pushes, folder skeletons for new projects, detecting a complete return. Added now: the minute check
+  and the doorbell, the push, the catalog's Collab Kit status as a field a return sets. Scripts later:
+  trimming versions, model history for cards, refreshing the catalog's facts (where, visibility, last
+  activity) from the repositories. Agents keep the judgment: what a conversation decides and writes, a
+  card's vision and story, answers, reviews. The person keeps approvals (pushes) and their own sign-ins
+  (one script).
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, notifications outside a conversation.
+project, the back end starting agent work by itself (section 20).
 
 ## Delivery (Decided 2026-11-14)
 
 | When | What |
 |---|---|
-| **Tonight** | The architecture is final for 0.5 (this record), so the article can be written against it and dogfooding starts on a stable base. |
 | **Sunday night** | Working: the layout; the top-level inbox, agenda, and knowledge; versioning by name; starting a project by voice; the owner's projects moved over; the Studio as the back end; GitHub Actions if it holds; a healthy public repository with an install script. |
-| **Next (named in the article)** | OneDrive; the own app for an on-device folder (Android first); ChatGPT and Gemini, as the research allows. |
 
 ## Open
 

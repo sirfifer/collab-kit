@@ -21,8 +21,6 @@ Tested 2026-11-14 evening in Claude voice mode, Google Drive connector on the ow
 Findings: a per-reply cap on tool calls (about seven worked; more refused); some calls paused for approval or ran in the background before returning; in-place content edit still impossible (W-013).
 
 ## Done when
-Each step is known to work or not by voice, and the article says so.
 
 ## Log
 - 2026-11-14: item created when Collab Kit 0.5 was set up.
-- 2026-11-14: settled; every step works by voice. The article should say so.

@@ -1,98 +1,64 @@
-# Collab Kit 0.5: going live (Sunday 2026-11-15)
+# Collab Kit 0.5: going live
 
-State at 13:30 Pacific: `main` of the local `collab-kit` repository is 0.5.0 (merged; not pushed).
-Three sceptical reviews ran overnight and every finding is fixed with a test (84 unit and end-to-end
-tests; the 0.4 suite passes; the real Claude Code test passes). This Mac has the user-level hooks.
+Rewritten 2026-11-16 by the Claude Code session that finished 0.5.2. The kit's local `main` is 0.5.2
+(merged; not pushed). Steps marked **You** need Richard (a decision, a sign-in, a screen prompt, or a
+publish); the rest are done or a session does them.
 
-Written by the overnight build session. Each step says who does it. Steps marked **You** need you
-(a decision, a password, a screen prompt, or a publish); the rest a session can do.
+## Done
 
-## 1. Review and merge the project branches (You decide; a session merges)
+- **The project branches** (2026-11-15): Collab Kit merged into the local main of model-fit,
+  dialogue-video-pipeline, the framework, and the owner's private instructions repository; upgraded to 0.5.2 on 2026-11-16.
+- **The top-level start file** (2026-11-16): replaced with the 0.5.2 template (the agenda first; how a
+  conversation works here; no state; one setup line, which says no back end runs yet). The old one is
+  in `_versions/`. The step that added a health block is gone: health is on the agenda's front page.
+- **The agenda's front page**, `agenda/00-PRESSING.md` (2026-11-16): written; without a back end,
+  sessions and conversations keep it current.
+- **The catalog of every project**, `knowledge/projects.md` (2026-11-16): 61 projects.
+- **The project start files** (collab-kit, model-fit, video pipeline; 2026-11-16): the 0.5.2 template,
+  without the old "state as of" lines.
+- **Every waiting return applied** (2026-11-16): the eight top-level and six collab-kit returns of
+  2026-11-15 (two of them had been refused by the grammar; it now accepts a note after the changes).
+- **The framework's old 0.4 job files**: archived (`~/archive/agentic/2026-11-16-kdf-04-launchagents/`).
+- **The Studio, prepared** (2026-11-16): the kit is at `~/dev/collab-kit` there, and
+  `~/.config/collab-kit/backend.toml` is written (account, local roots, the deny list). A script on
+  its desktop does the rest.
 
-Each is an unmerged branch `wt/collab-kit-05` in its repository, in a worktree under
-`~/dev/.worktrees/`:
+## 1. The Studio as the back end (You, at the Studio or by screen sharing)
 
-| Project | What the branch does | Home |
-|---|---|---|
-| model-fit | installs the kit (CLAUDE.md and AGENTS.md section, hooks, skills, `tools/collab-kit/`) | its Drive folder |
-| dialogue-video-pipeline | the same | its Drive folder |
-| knowledge-distillation-framework | migrates 0.4 to 0.5 (`knowledge/` to `collab-kit/`), upgrades the knowledge build, installs the kit; `CLAUDE.md` now imports `AGENT.md` | the repository |
+Run **`Collab Kit back end setup.command`** on the Studio's desktop. It asks for one Google sign-in in
+the browser (as owner@example.com) and, optionally, your Pushover keys. It installs rclone v1.76.0
+(checked against the kit's hash and GitHub's), connects it to the Collab Kit folder only, checks the
+account, installs the schedule, runs the first pass, and shows the front page's health line. The back
+end reads Drive only through the API (W-004), so no macOS permission prompt is needed.
 
-Until a branch is merged, sessions in that repository's main checkout do not get the brief (hooks
-come from the main checkout).
+Then tell a session "the Studio back end is running": it checks the first pass, and the start file's
+setup line will already say a back end runs (the back end sets it once).
 
-## 2. Mark the top-level start file for the back end (a session)
+## 2. The framework (You: one push)
 
-```bash
-python3 ~/dev/collab-kit/install.py top "~/Library/CloudStorage/GoogleDrive-owner@example.com/My Drive/Collab Kit" --human Richard
-```
+The framework's local main is 20 commits ahead of GitHub: the kit's own early history (it grew inside
+the framework) and the move to Collab Kit 0.5. The back end serves the framework from GitHub, so it
+needs that push. On your yes, a session pushes main and uncomments the framework's `[[project]]` table
+in the Studio's `backend.toml`. The first pass then mirrors its Drive folder into the 0.5 layout
+(anything unrecognised goes to `_versions/before-first-mirror/`, never deleted). Until then, its Drive
+copy is the 0.4 one and its items are not on the front page.
 
-Adds the health and due-soon blocks the back end keeps current (the older start file goes to
-`_versions/`). Nothing else in the folder changes (it only creates channel READMEs that are missing).
-
-Once the back end runs (step 3), also edit the start file's hand-written "What is true right now"
-section: it still says "No back end is running yet" and that the framework is read-only. The health
-block above it says what is true; the prose should stop contradicting it.
-
-## 3. The Studio as the back end (You, at the Studio or by screen sharing, for step 3d)
-
-a. Get the kit onto the Studio. The repository has no remote yet: either publish it (step 6) and
-   clone, or clone from the MacBook: `git clone <macbook>:dev/collab-kit ~/dev/collab-kit` (`main`).
-b. `python3 ~/dev/collab-kit/install.py machine --cloud-root "<the Collab Kit folder on the Studio>" --human Richard`
-c. `python3 ~/dev/collab-kit/install.py backend --cloud "<the same folder>" --human Richard` (dry run),
-   then edit `~/.config/collab-kit/backend.toml`:
-   - `account = "owner@example.com"` (every run refuses a folder that is not this account's)
-   - `local_roots = ["~/dev", "~/projects"]`
-   - `deny = [...]`: the private words that must never reach a public repository (names from a private project, for one)
-   - one `[[project]]` table for the framework: `name = "knowledge-distillation-framework"`,
-     `repo = "https://github.com/owner/knowledge-distillation-framework.git"`, `branch = "main"`,
-     `push = true` (private repository; `allow_public` stays false)
-d. `python3 ~/dev/collab-kit/install.py backend --apply`. On a Drive for desktop folder the job runs
-   through `collab-kit-runner`; macOS may ask whether it may access files managed by Google Drive:
-   **Allow**. If nothing asks and `~/Library/Logs/collab-kit/backend.log` says "Operation not
-   permitted", give the runner Full Disk Access (the log names its path), never `/bin/bash`.
-e. Check: `launchctl print gui/$(id -u)/org.collab-kit.backend | grep -E 'state|last exit'`, the log,
-   and the top-level start file's health block ("A back end runs for this folder ... healthy on").
-
-Using the Drive for desktop folder is the quick start; the design's target is rclone (the API sees the
-real names). rclone needs its intake review accepted (`docs/rclone-intake.md`), `brew install rclone`,
-and `rclone config` (your Google sign-in, **You**); then set `cloud = "rclone:<remote>:Collab Kit"`.
-
-Rehearsed overnight against a full copy of the live folder (not the live one): one pass wrote the
-health and due-soon blocks into the real start file, built `agenda/00-PRESSING.md` across all five
-units, mirrored the framework (from its migrated branch) in the 0.5 layout with the old layout kept
-in `_versions/before-first-mirror/`; a dictated decision for the framework was applied in its
-repository, pushed, and mirrored back; and an idea on the top-level agenda became a new project.
-
-## 4. The framework's cloud copy (a session, after step 3 runs once)
-
-The framework's folder in Drive still has the 0.4 layout (`collab-kit/knowledge/agenda/` and the
-rest). The back end's first mirror writes the 0.5 layout and moves anything it does not recognise to
-`_versions/` (never deletes). Check the folder after the first run.
-
-## 4b. Your own workflow (You decide; a session merges)
-
-Branch `wt/collab-kit-05` in `the owner's private instructions repository` adds one step to the worktree skill (run a Collab Kit
-project's brief) and one line to the `~/dev` instructions. The user-level hooks are already installed
-on this Mac (`~/.claude/settings.json`; the previous file is `settings.json.before-collab-kit`); install
-them on the Studio with `install.py machine --user-hooks`.
-
-## 5. Your phone and the old folder (You)
+## 3. Your phone and the old folder (You)
 
 - Claude app, Settings, Profile preferences: point the line at `Collab Kit/00-START-HERE.md` (the
-  README has the wording).
-- Archive the old `Project Knowledge` folder in Drive and the framework's two 0.4 LaunchAgent files
-  (`~/Library/LaunchAgents/com.example.kdf-kb-*.plist`; neither is loaded) per the archive-first
-  policy.
+  kit's README has the wording).
+- Archive the old `Project Knowledge` folder in Drive (into `Collab Kit/_archive/`).
 
-## 6. Publish the repository (You: the go-ahead and the GitHub settings)
+## 4. Publish the repository (You: the go-ahead and the GitHub settings)
 
 Create `collab-kit` on GitHub, push `main`, enable private vulnerability reporting, the dependency
-graph, Dependabot, and branch protection; tag `v0.5.0` (the release workflow attaches the SBOMs and
-attestations). The kit repository's own Collab Kit install is a separate commit you may keep or drop
-(it puts a Collab Kit section in the public `CLAUDE.md`).
+graph, Dependabot, and branch protection; tag `v0.5.2` (the release workflow attaches the SBOMs and
+attestations). Before that: refresh the public example (`tests/public_example.py refresh`), and decide
+whether the kit's own install (branch `wt/v05-dogfood`, a Collab Kit section in the public
+`CLAUDE.md`) goes in.
 
-## Not in 0.5.0 (named for the article as next)
+## Next, after 0.5
 
-GitHub Actions as a runner (W-007: needs the bot Google account and an OAuth app), OneDrive, ChatGPT
-and Gemini.
+The back end starting agent work by itself (top-level decision item), approved pushes of project work
+(W-015), GitHub Actions as a runner (W-007), OneDrive (W-009), ChatGPT and Gemini (W-008), trimming
+old versions by the retention rule.

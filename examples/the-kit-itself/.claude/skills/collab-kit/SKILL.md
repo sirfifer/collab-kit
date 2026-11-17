@@ -2,7 +2,7 @@
 name: collab-kit
 description: See where collab-kit stands in Collab Kit (its agenda, inbox, status, and knowledge) and keep it current while working. Use before starting any substantial task in this repository, when asked "what's on the agenda", "what's pressing", "what's going on", "where were we", "has this been decided", "is anyone working on this", and when wrapping up work, to record what it changed.
 ---
-<!-- managed by Collab Kit 0.5.0: replaced on upgrade; delete this line to make the file your own -->
+<!-- managed by Collab Kit 0.5.2: replaced on upgrade; delete this line to make the file your own -->
 
 # Work with the project's Collab Kit folder
 
