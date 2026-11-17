@@ -18,6 +18,7 @@ In a project (from anywhere inside the repository, or by its full path from any 
 
 For a back end:
     ck backend run [--config FILE]     one pass: apply returns, mirror, health, the generated views
+                   [--if-waiting]      only if a return waits or the last pass is older than the interval
     ck apply <folder-or-rclone:remote> --unit NAME [--top]   apply one unit's inbox (testing, level 1)
 
 Everything printed from the project's files is fenced as data (see text.FENCE_NOTE).
@@ -275,7 +276,7 @@ def cmd_apply(a):
 
 def cmd_backend(a):
     from .backend import run
-    return run(a.config, once=True, dry_run=a.dry_run)
+    return run(a.config, once=True, dry_run=a.dry_run, if_waiting=a.if_waiting)
 
 
 def main(argv=None) -> int:
@@ -341,6 +342,8 @@ def main(argv=None) -> int:
     s.add_argument("action", choices=["run"])
     s.add_argument("--config")
     s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--if-waiting", action="store_true",
+                   help="a full pass only if a return is waiting or the last pass is older than interval_minutes")
     s.set_defaults(fn=cmd_backend)
     a = ap.parse_args(argv)
     return a.fn(a) or 0

@@ -128,6 +128,19 @@ class Store:
         """{name: md5 of its bytes} for the files in a folder (None when the store cannot say)."""
         return {e.name: None for e in self.files(rel)}
 
+    INBOXES = ("_returns", "projects/*/collab-kit/_returns")
+
+    def inbox_files(self) -> list[str]:
+        """Every file waiting in any inbox of a Collab Kit folder (the top level's and each project's),
+        as paths, README and `_`/`.` names left out: what the back end's cheap check asks."""
+        out = []
+        for e in self.files("_returns"):
+            out.append(f"_returns/{e.name}")
+        for d in self.dirs("projects"):
+            for e in self.files(f"projects/{d.name}/collab-kit/_returns"):
+                out.append(f"projects/{d.name}/collab-kit/_returns/{e.name}")
+        return [r for r in out if not _base(r).startswith(("_", ".")) and _base(r).lower() != "readme.md"]
+
     # ---- shared helpers
     def entry(self, rel: str) -> Entry | None:
         name = _base(rel)
@@ -321,6 +334,20 @@ class RcloneStore(Store):
             err.code = res.returncode          # 3: directory not found, 4: file not found (rclone docs)
             raise err
         return res.stdout.decode("utf-8", errors="replace")
+
+    def inbox_files(self) -> list[str]:
+        """One rclone call for every inbox (rather than one per folder): this runs every minute."""
+        args = ["lsjson", "-R", "--files-only"]
+        for pat in self.INBOXES:
+            args += ["--include", f"/{pat}/*"]
+        try:
+            items = json.loads(self._run([*args, self._r("")]) or "[]")
+        except StoreError as e:
+            if getattr(e, "code", None) == 3:
+                return []
+            raise
+        out = [it.get("Path", "") for it in items]
+        return [r for r in out if r and not _base(r).startswith(("_", ".")) and _base(r).lower() != "readme.md"]
 
     def list(self, rel: str = "") -> list[Entry]:
         try:

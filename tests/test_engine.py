@@ -44,6 +44,33 @@ def apply_all(unit: Unit, top: Unit | None = None):
     return [A.apply_file(unit, e, top=top) for e in unit.pending_returns()]
 
 
+class StartFiles(unittest.TestCase):
+    """What every conversation is told (DESIGN-0.5.md sections 19 and 20)."""
+
+    def test_the_agenda_comes_first(self):
+        from collab_kit.templates import project_start_file
+        top = top_start_file()
+        steps = top.split("## Every conversation starts the same way")[1].split("## How you work here")[0]
+        self.assertLess(steps.index("The agenda, before anything else"), steps.index("`WIP/`"))
+        self.assertIn("The agenda first, always.", top)
+        self.assertIn("Follow through.", top)
+        self.assertIn("Say only what you saw.", top)
+        self.assertIn("Before filing a return,", top)
+        self.assertIn("one script to run", top)
+        self.assertIn("knowledge/project-cards/<folder>.md", top)
+        self.assertIn("collab-kit=requested", top)
+        proj = project_start_file("garden", "a garden", "the garden", home="cloud")
+        self.assertLess(proj.index("`agenda/`"), proj.index("`WIP/`"))
+        self.assertIn("Read it first", proj)
+
+    def test_conversations_never_trash(self):
+        top = top_start_file()
+        self.assertNotIn("to Drive trash", top)
+        self.assertNotIn("trash it", top)
+        self.assertNotIn("trash older", top)
+        self.assertIn("WIP/_done/", top)
+
+
 class Grammar(unittest.TestCase):
     def test_parse_full(self):
         text = ("Project: garden\nFrom: Sam\nType: decision\nTopic: shade\nWhat was worked out: it moves\n"

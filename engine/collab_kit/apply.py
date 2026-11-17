@@ -30,6 +30,7 @@ MAX_RETURN_BYTES = 256 * 1024
 MAX_CHANGES = 200
 SETTLE_SECONDS = 120              # a return younger than this may still be syncing
 NEW_PROJECTS_PER_DAY = 3
+KIT_STATES = ("not set up", "requested", "live")      # the projects list's Collab Kit column
 STATUS_FILE = f"{KNOWLEDGE}/status.md"
 
 
@@ -219,20 +220,23 @@ class Planner:
         self.ov.write(f"{KNOWLEDGE}/{rel}", ch.body.rstrip("\n") + "\n")
 
     def op_project(self, ch: R.Change):
-        if self.top is None:
+        where = "self" if self.unit.top else "top"       # filed at the top level, the list is its own
+        if where == "top" and self.top is None:
             raise Reject(f"line {ch.line}: 'project' changes the top level's project list, which is not reachable here")
         name = ch.ref or ("" if self.unit.top else self.unit.name)
         if not self.unit.top and name != self.unit.name:
             raise Reject(f"line {ch.line}: a project's inbox can only change its own entry")
         if not name:
             raise Reject(f"line {ch.line}: 'project' from the top-level inbox names the project")
+        if "collab-kit" in ch.args and ch.args["collab-kit"].strip().lower() not in KIT_STATES:
+            raise Reject(f"line {ch.line}: collab-kit= is one of {', '.join(repr(s) for s in KIT_STATES)}")
         path = f"{KNOWLEDGE}/projects.md"              # the one list of projects (the start file has none)
-        text = self.ov.read(path, "top")
+        text = self.ov.read(path, where)
         if text is None or not has_project_row(text, name):
             raise Reject(f"line {ch.line}: no row for '{name}' in the top level's knowledge/projects.md")
         new = edit_project_row(text, name, ch.args)   # already as asked is fine (a pass redone after a failed push)
         if new != text:
-            self.ov.write(path, new, "top")
+            self.ov.write(path, new, where)
 
     def op_new_project(self, ch: R.Change):
         if not self.unit.top:
@@ -265,7 +269,8 @@ class Planner:
         self.ov.write(f"{base}/{AGENDA}/W-001-{slug(idea.title, 40)}.md", first)
         self.ov.write(idea.path, edit_item_text(idea, {"status": "settled", "outcome": f"started as project {name}"},
                                                 f"settled: started as project {name} (its W-001) {self.tag()}"))
-        row = {"folder": name, "say": spoken, "what": about, "home": "cloud folder (no repository)"}
+        row = {"folder": name, "say": spoken, "what": about, "home": "its Collab Kit folder (no repository)",
+               "kit": "live", "status": f"active, started {self.now.strftime('%Y-%m-%d')}"}
         text = self.ov.read(f"{KNOWLEDGE}/projects.md")
         if text is not None:
             self.ov.write(f"{KNOWLEDGE}/projects.md", add_project_row(text, row))
@@ -413,6 +418,7 @@ def edit_project_row(text: str, name: str, args: dict) -> str:
     if hi is None:
         return text
     fcol, scol, wcol = _col(cells, "folder"), _col(cells, "say"), _col(cells, "what")
+    kcol = _col(cells, "collab kit", "collab-kit")
     for j in rows:
         row = _cells(lines[j])
         if fcol is None or fcol >= len(row) or row[fcol].strip("`") != name:
@@ -421,6 +427,8 @@ def edit_project_row(text: str, name: str, args: dict) -> str:
             row[scol] = ", ".join(f"\"{s.strip()}\"" for s in args["spoken"].split(",") if s.strip())
         if "about" in args and wcol is not None:
             row[wcol] = one_line(args["about"], 200)
+        if "collab-kit" in args and kcol is not None:
+            row[kcol] = args["collab-kit"].strip().lower()
         if "active" in args and wcol is not None:
             row[wcol] = row[wcol].replace(" (inactive)", "") + ("" if args["active"] else " (inactive)")
         lines[j] = "| " + " | ".join(row) + " |"
@@ -439,8 +447,12 @@ def add_project_row(text: str, row: dict) -> str:
             vals.append(", ".join(f"\"{s.strip()}\"" for s in row["say"].split(",") if s.strip()))
         elif c.startswith("what"):
             vals.append(one_line(row["what"], 200))
-        elif c.startswith("home") or c.startswith("here"):
+        elif c.startswith("home") or c.startswith("here") or c.startswith("where"):
             vals.append(row["home"])
+        elif c.startswith("collab kit") or c.startswith("collab-kit"):
+            vals.append(row.get("kit", "live"))
+        elif c.startswith("status"):
+            vals.append(row.get("status", "active"))
         else:
             vals.append("")
     at = (rows[-1] if rows else hi + 1) + 1

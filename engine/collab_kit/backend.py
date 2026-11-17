@@ -188,6 +188,8 @@ class Pass:
         self.deny = [re.compile(x, re.I) for x in b.get("deny", [])]
         self.settle = float(b.get("lease_settle_seconds", 20 if self.cloud_spec.startswith("rclone:") else 2))
         self.repos = {p["name"]: p for p in cfg.get("project", [])}
+        cmd = cfg.get("notify", {}).get("command") or []
+        self.notify = [C.expand(a) if i == 0 else a for i, a in enumerate(cmd)] if isinstance(cmd, list) else []
         self.me = f"{socket.gethostname()}:{os.getpid()}"
         self.dry = dry_run
         self.problems: list[str] = []
@@ -535,13 +537,45 @@ class Pass:
         return cloud_units(self.cloud, set(self.repos))
 
     def views(self) -> None:
-        """The agenda's front page (views.py), the back end's health first."""
+        """The agenda's front page (views.py), the back end's health first; then the optional push."""
         self.step("the top-level start file", self.start_file_setup)
         today = utcnow().date()
-        text = front_page(self.all_units(), today=today, human=self.human, inactive=inactive_projects(self.cloud),
+        units = self.all_units()
+        text = front_page(units, today=today, human=self.human, inactive=inactive_projects(self.cloud),
                           interval=self.interval, problems=self.problems, unreadable=self.problem)
         if not self.dry and write_front_page(self.cloud, text):
             self.note("the agenda's front page was rebuilt")
+        if self.notify and not self.dry:
+            self.step("the push notification", self.notify_critical, units)
+
+    def notify_critical(self, units) -> None:
+        """Optional ([notify] command): tell the person the moment a critical item (importance 1) first
+        appears, wherever it came from, the back end's own failures included. The command gets the text
+        in environment variables (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a
+        command line: titles are outside text. docs/notifications.md has examples (ntfy, Pushover)."""
+        state = self.work / "notified.json"
+        try:
+            seen = set(json.loads(state.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            seen = None                                  # first run: remember what is there, send nothing
+        now = {}
+        for name, unit in units:
+            for it in unit.items():
+                if it.is_open and it.importance <= 1:
+                    where = "top level" if name == "top" else name
+                    now[f"{name}:{it.id}"] = (where, it)
+        if seen is not None:
+            for key in sorted(set(now) - seen)[:5]:      # at most five at once: a flood is one bad pass
+                where, it = now[key]
+                env = {**os.environ, "COLLAB_KIT_TITLE": f"Collab Kit: critical in {where}",
+                       "COLLAB_KIT_MESSAGE": one_line(it.title, 200), "COLLAB_KIT_ITEM": f"{where} {it.id}"}
+                res = subprocess.run(self.notify, env=env, capture_output=True, timeout=20)
+                if res.returncode != 0:
+                    raise RuntimeError(f"the notify command failed ({res.returncode}): "
+                                       f"{res.stderr.decode('utf-8', 'replace').strip()[:200]}")
+                self.note(f"pushed: {where} {it.id}")
+        self.work.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps(sorted(now)), encoding="utf-8")
 
     def write_if_changed(self, unit: Unit, rel: str, text: str) -> None:
         if unit.store.read(rel) != text:
@@ -679,5 +713,34 @@ def load_config(path: str | None) -> dict:
     return cfg
 
 
-def run(path: str | None, once: bool = True, dry_run: bool = False) -> int:
-    return Pass(load_config(path), dry_run=dry_run).run()
+LAST_PASS = "last-pass"                               # in the work folder: when the last full pass ended
+
+
+def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: bool = False) -> int:
+    """One pass. With if_waiting (what the schedule runs, every minute and on a file event), first ask
+    one cheap question, whether any inbox holds a return, and do the full pass only if one does or the
+    last full pass is older than interval_minutes (the sweep, which also pulls and mirrors)."""
+    cfg = load_config(path)
+    b = cfg["backend"]
+    work = Path(C.expand(b.get("work", str(C.state_dir().parent / "backend"))))
+    stamp_file = work / LAST_PASS
+    if if_waiting and not dry_run:
+        interval = int(b.get("interval_minutes", 60))
+        try:
+            fresh = time.time() - stamp_file.stat().st_mtime < interval * 60 - 30
+        except OSError:
+            fresh = False
+        if fresh:
+            try:
+                if not open_store(C.expand(b["cloud"])).inbox_files():
+                    return 0
+            except (StoreError, OSError):
+                pass                                 # the full pass says what is wrong, on the agenda
+    rc = Pass(cfg, dry_run=dry_run).run()
+    if not dry_run:
+        try:
+            work.mkdir(parents=True, exist_ok=True)
+            stamp_file.write_text(utcnow().isoformat() + "\n", encoding="utf-8")
+        except OSError:
+            pass
+    return rc

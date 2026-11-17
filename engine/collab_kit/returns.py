@@ -55,7 +55,7 @@ OPS: dict[str, tuple[set[str], set[str]]] = {
     "reopen": ({"reason"}, set()),
     "status": ({"text"}, set()),
     "knowledge": (set(), set()),
-    "project": ({"spoken", "about", "active"}, set()),
+    "project": ({"spoken", "about", "active", "collab-kit"}, set()),
     "new-project": ({"name", "from", "about", "spoken"}, {"name", "from"}),
     "undo": (set(), set()),
     "push-request": ({"repo", "branch", "approval"}, {"repo", "approval"}),

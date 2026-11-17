@@ -38,8 +38,8 @@ def kit_series() -> str:
 SETUP_TEXT = {
     "none": ("**No back end runs for this folder.** You apply changes yourself, as described below (\"Changing "
              "anything\"): what you write is what exists."),
-    "backend": ("**A back end runs for this folder.** File returns and stop: it applies them, usually within the "
-                "hour, and reports on the agenda anything it could not file. Never edit an agenda or knowledge "
+    "backend": ("**A back end runs for this folder.** File returns and stop: it applies them within a minute or two "
+                "of arriving, and reports on the agenda anything it could not file. Never edit an agenda or knowledge "
                 "yourself. Its health is at the top of `agenda/00-PRESSING.md`."),
 }
 

@@ -405,9 +405,10 @@ conversation reads is the agenda, so that is where anything urgent or critical b
 projects belongs in the top-level knowledge.
 
 - **Every conversation starts the same way** (the top-level start file says so, in about five tool
-  calls; a reply that runs out finishes them in the next): the start file; then `WIP/`; then the
-  agenda's front page `agenda/00-PRESSING.md`; then `knowledge/projects.md`, only when the talk turns
+  calls; a reply that runs out finishes them in the next): the start file; then the agenda's front
+  page `agenda/00-PRESSING.md`; then `WIP/`; then `knowledge/projects.md`, only when the talk turns
   to a project. Anything overdue, due within a week, or critical is raised first, unprompted.
+  (Revised 2026-11-16: the agenda now comes before `WIP/`, section 20.)
 - **The front page exists at every level** (generated, written in place, never versioned). With a
   back end, the back end writes it every pass, leading with its health: "up to date as of" a UTC date
   (a date, not a time, so the page changes at most daily when nothing else does; two or more days
@@ -437,10 +438,78 @@ projects belongs in the top-level knowledge.
   no further than that project and its own row.
 - **Projects live in `knowledge/projects.md` only;** `project` and `new-project` changes write there.
 
+### 20. Decided on 2026-11-15, by voice and in Claude Code (folded in 2026-11-16, 0.5.2)
+
+Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two Claude Code findings.
+
+- **The agenda first, always** (returns 1947 and 1956). The agenda is the one source kept up to date;
+  returns, ledgers, notes, status, and knowledge may be out of date, and the agenda wins when they
+  disagree. Looking into a project (or the top level) starts with its agenda and nothing else. The
+  start file is the way in and a true picture of the setup: it changes only when the setup does (a
+  back end starts running; a limited state), and never carries news or status. Both are stated in the
+  start-file templates.
+- **How a conversation works here** (return 1949): follow through (when the next step is plainly to
+  look further, do it in the same turn and report what was found); say only what was seen (never
+  invent a name); before filing a return, check that inbox and its applied returns for one on the
+  same topic. In the top-level template, and the inbox check in the Claude Code block.
+- **Handing work to the person** (return 1958): when setup needs the person's own hands (a sign-in, a
+  permission prompt), everything else is done first and the person gets one script on the desktop of
+  the machine it is for, which says what it will ask and checks the result.
+- **No trash in conversations** (return 1430, explored): each trash call through the Drive connector
+  asks for approval on the phone, which breaks hands-free work, and a voice call cannot wait for it.
+  In the same saves, the moves that versioning makes were not reported as asking, so a save now moves
+  finished `WIP/` notes into `WIP/_done/`, and a wrongly converted Google Doc goes to `_versions/`
+  (the next voice session confirms that a move does not ask). Conversations never trim old versions; they are kept (small text files). Trimming by
+  the retention rule of section 17 becomes back-end work later, once the store has a tested delete.
+  (Allowing the connector's trash tool once, in the Claude app's connector settings, also works for
+  one person, but the kit does not depend on it.)
+- **One catalog of every project** (return 1413). `knowledge/projects.md` lists every one of the
+  person's projects, in Collab Kit or not: folder, spoken names, what it is, where it lives, state,
+  and whether Collab Kit is set up for it (`not set up`, `requested`, `live`). Each project may have a
+  card, `knowledge/project-cards/<folder>.md`: the distilled vision, where it lives and its stack, the
+  story, the timeline, the models that worked on it, writing about it, commercial status, websites.
+  Navigation is judgment: the list, then the card, then the project's own folder (its agenda first),
+  only as deep as the conversation needs. Bringing an existing project in: a `task` item and
+  `project <folder> collab-kit=requested`; a Claude Code session on the machine with the project
+  installs the kit and marks it `live`. The engine reads the list by column name (the first table with
+  a Folder column), so the wider table changed no format. Model history for the cards is feasible
+  from Claude Code transcripts (kept a year, both Macs) and commit trailers; "an end-to-end review by a
+  new model" is only a heuristic. A script, not agent work: an agenda item.
+- **Returns are event driven** (returns 1445 and 1525; agenda W-004 locked, as 1525 asked: "explore,
+  decide, and lock"). The back end reads and writes Drive only through the Drive API (rclone): it read
+  every phone-written file when the synced folder refused them, sees the real names (the synced folder
+  shows "name (1).md" after a versioning save), and needs no macOS privacy permission. The job runs
+  every minute and asks one cheap question (one listing of every inbox): is a return waiting? Only then
+  does it do a full pass; every `interval_minutes` (60) it does one anyway, the sweep that pulls
+  repositories, mirrors, and writes the health. On macOS, when the machine also has a synced copy of
+  the folder (`watch`), launchd starts the job the moment a file lands in an inbox: a doorbell, nothing
+  is read through it. A return without its "End." waits (up to a day) instead of failing. Claude Code
+  sessions keep reading the synced folder (the engine downloads placeholders itself).
+- **Feedback runs through the agenda** (return 1500). Applying a return is immediate and needs no
+  "started" item: the ledger and the change are the answer. Anything that needs the person is an item;
+  if it blocks, it is critical (importance 1), which a conversation raises first. Long work done by
+  sessions reports with `status` and item logs. **Not in 0.5:** the back end starting agent work by
+  itself (a Claude Code job per task return, with progress, questions, and resumption). It puts an AI
+  with tools between incoming text and the person's machine, the reason cloud Claude Code sessions were
+  dropped as a runner (section 9). It is the first candidate for the next release, for Richard to
+  decide.
+- **Push notifications, an optional pattern** (return 1510). The first time a critical item appears
+  anywhere, the back end runs one configured command; the text reaches it in environment variables,
+  never on a command line. ntfy is the documented default (free, both phones, one POST); Pushover and
+  Telegram are examples (docs/notifications.md).
+- **Scripts where they fit** (return 1515). Scripts already: applying returns (grammar, ledger, undo),
+  numbering, versioning, the front page and health, mirrors, repository pulls, commits, and guarded
+  pushes, folder skeletons for new projects, detecting a complete return. Added now: the minute check
+  and the doorbell, the push, the catalog's Collab Kit status as a field a return sets. Scripts later:
+  trimming versions, model history for cards, refreshing the catalog's facts (where, visibility, last
+  activity) from the repositories. Agents keep the judgment: what a conversation decides and writes, a
+  card's vision and story, answers, reviews. The person keeps approvals (pushes) and their own sign-ins
+  (one script).
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, notifications outside a conversation.
+project, the back end starting agent work by itself (section 20).
 
 ## Delivery (Decided 2026-11-14)
 

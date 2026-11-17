@@ -269,6 +269,15 @@ def install_machine(*, cloud_root: str | None, human: str | None, kit_source: st
 
 # -------------------------------------------------------------------------------- top --
 
+PROJECTS_SEED = (
+    "# Projects\n\n"
+    "Every project, in Collab Kit or not: what it is, what it is called aloud, where it lives, its state, and\n"
+    "whether Collab Kit is set up for it (`not set up`, `requested`, `live`). Each project may have a card in\n"
+    "`project-cards/<folder>.md` (its vision, story, and timeline). Read this before starting a project: is it\n"
+    "new, and is the name taken?\n\n"
+    "| Folder | Say | What it is | Where | Status | Collab Kit |\n|---|---|---|---|---|---|\n")
+
+
 def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: bool = False,
                 setup: str | None = None) -> Plan:
     """A new Collab Kit folder's top level (never overwrites), or, for an existing one: replace a start
@@ -281,8 +290,7 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
              "_returns/README.md": returns_readme("the top level").replace("`Project: the top level`", "`Project: top`"),
              "agenda/README.md": "# Agenda\n\nOne file per item (`W-NNN-...`); see the start file.\n",
              "WIP/README.md": "# WIP\n\nCheckpoint notes between saves; see the start file.\n",
-             "knowledge/projects.md": ("# Projects\n\nRead this before starting a project (is it new? is the name taken?).\n\n"
-                                       "| Folder | Say | What it is | Home |\n|---|---|---|---|\n"),
+             "knowledge/projects.md": PROJECTS_SEED,
              "knowledge/status.md": ("# What is going on (the top level)\n\nWritten by work running outside "
                                      "conversations. Newest first.\n")}
     for rel, text in seeds.items():
@@ -325,11 +333,17 @@ BACKEND_TEMPLATE = """# Collab Kit back end (see the kit's engine/collab_kit/bac
 [backend]
 cloud = {cloud}          # the Collab Kit folder: a path, or "rclone:<remote>:<path>"
 work = {work}            # the back end's own clones: never inside ~/dev or the Collab Kit folder
-interval_minutes = 60
+interval_minutes = 60     # the sweep (pull, mirror, health); returns are applied within a minute of arriving
 human = {human}
+watch = ""               # optional, macOS: a synced copy of the folder (Drive for desktop); its inboxes ring the doorbell
 local_roots = []         # e.g. ["~/dev", "~/projects"]: folder names there count as taken
 deny = []                # regexes a pushed change may never contain
 account = ""             # the Google account the folder must belong to, e.g. "you@example.com" (checked every run)
+
+# Optional: a push notification the moment a critical item (importance 1) appears. The command gets
+# COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE and COLLAB_KIT_ITEM in its environment (docs/notifications.md):
+# [notify]
+# command = ["sh", "-c", "curl -s -H \"Title: $COLLAB_KIT_TITLE\" -d \"$COLLAB_KIT_MESSAGE\" https://ntfy.sh/<your-long-random-topic>"]
 
 # One table per project whose home is a repository:
 # [[project]]
@@ -378,8 +392,11 @@ def install_backend(config: Path | None, *, cloud: str | None, human: str | None
         print(f"the Collab Kit folder is a Drive for desktop folder: launchd starts the back end through {runner}")
         if apply:
             build_runner(runner.parent)
-    p = schedule.plan(KIT, config, minutes, runner=runner)
-    print(f"schedule on {p['platform']}, every {minutes} minutes:")
+    watch = schedule.watch_paths(C.expand(cfg.get("backend", {}).get("watch", "")) or None)
+    p = schedule.plan(KIT, config, minutes, runner=runner, watch=watch)
+    print(f"schedule on {p['platform']}: every minute a cheap check for waiting returns, a full pass when one "
+          f"waits or every {minutes} minutes" + (f"; also the moment a file lands in {len(watch)} watched inboxes"
+                                                 if watch else ""))
     for path, text in p["files"].items():
         print(f"  write {path}")
         if apply:
