@@ -225,15 +225,19 @@ def data_dir() -> Path:
 
 def install_machine(*, cloud_root: str | None, human: str | None, kit_source: str | None,
                     user_hooks: bool, python: str = "python3", dry: bool = False,
-                    claude_settings: Path | None = None) -> Plan:
+                    claude_settings: Path | None = None, rclone: str | None = None,
+                    rclone_config: str | None = None) -> Plan:
     cfgp = C.machine_file()
     plan = Plan(cfgp.parent, dry)
     cfg = C.load_toml(cfgp)
     human = human or cfg.get("human") or "the owner"
     cloud_root = cloud_root or cfg.get("cloud", {}).get("root", "")
     kit_source = kit_source or cfg.get("kit", {}).get("source", "") or str(KIT)
+    rclone = rclone if rclone is not None else cfg.get("cloud", {}).get("rclone", "")
+    rclone_config = rclone_config if rclone_config is not None else cfg.get("cloud", {}).get("rclone_config", "")
+    extra = "".join(f"{k} = {json.dumps(v)}\n" for k, v in (("rclone", rclone), ("rclone_config", rclone_config)) if v)
     text = ("# Collab Kit, this machine (see the kit's engine/collab_kit/config.py)\n"
-            f"human = {json.dumps(human)}\n\n[cloud]\nroot = {json.dumps(cloud_root)}\n\n"
+            f"human = {json.dumps(human)}\n\n[cloud]\nroot = {json.dumps(cloud_root)}\n{extra}\n"
             f"[kit]\nsource = {json.dumps(kit_source)}\n")
     plan.write(cfgp.name, text, "this machine's settings")
     if user_hooks:

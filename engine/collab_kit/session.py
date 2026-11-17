@@ -94,7 +94,11 @@ class Project:
     def cloud(self) -> Store | None:
         """The Collab Kit folder, if this machine is set up to reach it and it is there."""
         if self._cloud is False:
-            spec = C.expand(self.machine.get("cloud", {}).get("root", ""))
+            cloud = self.machine.get("cloud", {})
+            spec = C.expand(cloud.get("root", ""))
+            for key, env in (("rclone", "COLLAB_KIT_RCLONE"), ("rclone_config", "COLLAB_KIT_RCLONE_CONFIG")):
+                if cloud.get(key) and not os.environ.get(env):
+                    os.environ[env] = C.expand(cloud[key])   # a machine that reaches the folder through rclone
             store = None
             if spec:
                 try:

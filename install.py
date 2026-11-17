@@ -474,7 +474,8 @@ def cmd_project(a):
 def cmd_machine(a):
     inst = _v05()
     plan = inst.install_machine(cloud_root=a.cloud_root, human=a.human, kit_source=a.kit_source,
-                                user_hooks=a.user_hooks, python=a.python, dry=a.dry_run)
+                                user_hooks=a.user_hooks, python=a.python, dry=a.dry_run,
+                                rclone=a.rclone, rclone_config=a.rclone_config)
     print(f"machine{' (dry run)' if a.dry_run else ''}:")
     plan.show()
     return 0
@@ -540,6 +541,8 @@ def main(argv=None):
     m.add_argument("--user-hooks", action="store_true",
                    help="add user-level hooks to ~/.claude/settings.json for sessions started in a parent folder")
     m.add_argument("--python", default="python3")
+    m.add_argument("--rclone", help="with an rclone cloud root: the pinned rclone binary (if not on PATH)")
+    m.add_argument("--rclone-config", help="with an rclone cloud root: its own rclone config file")
     m.add_argument("--dry-run", action="store_true")
     m.set_defaults(fn=cmd_machine)
     t = sub.add_parser("top", help="0.5: create the top level in a new Collab Kit folder (never overwrites)")
