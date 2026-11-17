@@ -79,9 +79,9 @@ print("\n".join(bad)); sys.exit(1 if bad else 0)' "$KIT"
 # domains and GitHub's noreply addresses). A maintainer's own names, accounts and private project
 # names are checked too, but the list of them is private, so it is not in the kit: point
 # KIT_PRIVATE_WORDS at a file of extended regexes, one per line.
-expect "no home-directory paths in the kit" bash -c "! grep -rnE '/Users/[A-Za-z]|/home/[a-z]' '$KIT' --exclude-dir=.git --exclude=.git --exclude=.git"
+expect "no home-directory paths in the kit" bash -c "! grep -rnE '/Users/[A-Za-z]|/home/[a-z]' '$KIT' --exclude-dir=.git --exclude-dir=__pycache__ --exclude=.git"
 expect "no real email addresses in the kit (example domains and noreply only)" bash -c \
-  "! grep -rnoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}' '$KIT' --exclude-dir=.git --exclude=.git | grep -vE '@([A-Za-z0-9-]+\\.)*(example|invalid)(\\.[a-z]+)?$|@example\\.(com|org|net)$|@users\\.noreply\\.github\\.com$|@anthropic\\.com$|:git@github\\.com$|@AGENTS\\.md$'"
+  "! grep -rnoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}' '$KIT' --exclude-dir=.git --exclude-dir=__pycache__ --exclude=.git | grep -vE '@([A-Za-z0-9-]+\\.)*(example|invalid)(\\.[a-z]+)?$|@example\\.(com|org|net)$|@users\\.noreply\\.github\\.com$|@anthropic\\.com$|:git@github\\.com$|@AGENTS\\.md$'"
 if [ -n "${KIT_PRIVATE_WORDS:-}" ]; then
   expect "none of the maintainer's private words ($KIT_PRIVATE_WORDS) in the kit (LICENSE names the author)" \
     bash -c "! grep -rniE -f '$KIT_PRIVATE_WORDS' '$KIT' --exclude-dir=.git --exclude=.git --exclude=LICENSE"

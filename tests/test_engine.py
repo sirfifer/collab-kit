@@ -90,11 +90,48 @@ class Grammar(unittest.TestCase):
         self.assertFalse(r.has_block)
         self.assertEqual(r.changes, [])
 
+    def test_kind_word_starts_a_new_item(self):
+        # as a voice conversation wrote it on 2026-11-15
+        r = R.parse('Project: g\nChanges v1:\ntask "Public example snapshot" importance=3 "Build what W-014 settled."\n'
+                    'Question "Which venue?"\nEnd.\n', "abc.md")
+        a, b = r.changes
+        self.assertEqual((a.op, a.args["kind"], a.args["title"], a.args["importance"]),
+                         ("new-item", "task", "Public example snapshot", 3))
+        self.assertEqual(a.body, "## What's needed\nBuild what W-014 settled.")
+        self.assertEqual((b.op, b.args["kind"], b.body), ("new-item", "question", None))
+        for line in ['task kind=question title="x"', 'task', 'task "a" "b" "c"']:
+            with self.subTest(line=line), self.assertRaises(R.ReturnError):
+                R.parse(f"Project: g\nChanges v1:\n{line}\nEnd.\n", "abc.md")
+        with self.assertRaises(R.ReturnError):     # "project" stays its own change, never a new item
+            R.parse('Project: g\nChanges v1:\nproject "x"\nEnd.\n', "abc.md")
+
     def test_render_round_trip(self):
         ch = R.render_change("log", "W-003", "venue", text='He said "no" twice', body=None)
         text = R.render_return("g", "2026-11-15-x", "Claude Code", "note", "t", [ch])
         r = R.parse(text, "ignored.md")
         self.assertEqual(r.changes[0].text, 'He said "no" twice')
+
+
+class Placeholders(unittest.TestCase):
+    def test_a_read_refused_for_a_placeholder_is_retried_once_downloads_are_allowed(self):
+        import errno
+        from unittest import mock
+        from collab_kit import store as S
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) == 1:
+                raise OSError(errno.EDEADLK, "Resource deadlock avoided")
+            return "text"
+        with mock.patch.object(S, "allow_downloads", return_value=True):
+            self.assertEqual(S._placeholder_retry(flaky), "text")
+        self.assertEqual(len(calls), 2)
+        with mock.patch.object(S, "allow_downloads", return_value=False), self.assertRaises(OSError):
+            S._placeholder_retry(lambda: (_ for _ in ()).throw(OSError(errno.EDEADLK, "x")))
+        with mock.patch.object(S, "allow_downloads") as allow, self.assertRaises(FileNotFoundError):
+            S._placeholder_retry(lambda: (_ for _ in ()).throw(FileNotFoundError(errno.ENOENT, "x")))
+        allow.assert_not_called()
 
 
 class Applying(unittest.TestCase):

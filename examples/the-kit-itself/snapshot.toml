@@ -1,0 +1,15 @@
+# How examples/the-kit-itself is made (tests/public_example.py). Public: no private words here.
+
+# The generated part: what `install.py project --home repo` writes for this project.
+name = "collab-kit"
+human = "Richard"
+about = "This system itself: the open-source Collab Kit"
+spoken = "collab kit, the kit"
+
+# The snapshot part: the live unit's agenda, applied returns, and knowledge, less these files
+# (paths inside the unit). A return that wrote one of them is left out with it.
+exclude = [
+  "knowledge/article-draft-01.md",            # unpublished writing; the article lives in its own folder
+  "knowledge/article-outline.md",
+  "knowledge/article-deltas-2026-11-15.md",
+]
