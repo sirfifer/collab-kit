@@ -300,18 +300,30 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
     if start.is_file():
         cur = start.read_text(encoding="utf-8")
         new = cur
-        if get_block(cur, "setup") is None:
+        have = get_block(cur.replace("\r\n", "\n"), "setup")
+        if have is None:
             if replace_start:
                 new = top_start_file(setup or "none")
-                plan.note("replace 00-START-HERE.md with the 0.5.1 template (the old one is kept in _versions/: carry "
-                          "over anything you added to it by hand)")
+                plan.note("replace 00-START-HERE.md with the current template (the old one is kept in _versions/: "
+                          "carry over anything you added to it by hand)")
             else:
                 plan.note("00-START-HERE.md predates Collab Kit 0.5.1 (it has no setup line, and may hold state such "
                           "as due dates or a projects table, which now live on the agenda and in knowledge/projects.md). "
                           "Left as it is; run again with --replace-start to replace it with the template")
-        elif setup and get_block(cur, "setup").strip() != SETUP_TEXT[setup]:
-            new = replace_block(cur, "setup", SETUP_TEXT[setup])
-            plan.note(f"set 00-START-HERE.md's setup line to '{setup}'")
+        else:
+            line = SETUP_TEXT[setup] if setup else have.strip()      # a hand-edited setup line is kept
+            fresh = replace_block(top_start_file(), "setup", line)
+            if fresh != cur:
+                if replace_start:
+                    new = fresh
+                    plan.note("replace 00-START-HERE.md with the current template, keeping its setup line (the old "
+                              "one is kept in _versions/: carry over anything you added to it by hand)")
+                elif setup and have.strip() != SETUP_TEXT[setup]:
+                    new = replace_block(cur, "setup", SETUP_TEXT[setup])
+                    plan.note(f"set 00-START-HERE.md's setup line to '{setup}'")
+                else:
+                    plan.note("00-START-HERE.md is not this kit's template (an older kit's rules, or edits by hand). "
+                              "Left as it is; run again with --replace-start to replace it (the old one is kept)")
         if new != cur and not dry:
             from .store import FolderStore
             from .unit import Unit, write_versioned

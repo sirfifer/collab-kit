@@ -60,8 +60,8 @@ Google Drive through its API uses rclone ([docs/rclone-intake.md](docs/rclone-in
 python3 install.py top "<your cloud drive>/Collab Kit" --human "Sam"
 ```
 
-(An existing folder from before 0.5.1: add `--replace-start` to replace its start file with the
-template; the old one is kept in `_versions/`.)
+(An existing folder whose start file came with an older kit: add `--replace-start` to replace it with
+this kit's template, keeping its setup line; the old one is kept in `_versions/`.)
 
 In the Claude app, turn on the Google Drive connector and add one line to your preferences:
 *"When I talk about my work or a project, first open 00-START-HERE.md in my Google Drive folder
@@ -87,6 +87,13 @@ python3 install.py project <repo>                # --home repo if the repository
 python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sam"          # dry run
 python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sam" --apply
 ```
+
+Returns are applied within a minute or two of arriving: the job runs every minute, asks one cheap
+question (is any return waiting?), and does a full pass only then, or hourly for the sweep (pulls,
+mirrors, health). Prefer an rclone remote: it reads every file the moment a phone writes it and needs
+no macOS permission. On a Mac that also syncs the folder, `watch = "<that folder>"` in `backend.toml`
+rings the job the moment a file lands. A push to your phone when something critical appears is
+optional ([docs/notifications.md](docs/notifications.md)).
 
 **No machine:** `templates/actions/collab-kit-backend.yml` runs the back end hourly on GitHub Actions
 from a private repository of your own (needs a bot Google account and your own OAuth client; see

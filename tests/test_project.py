@@ -409,3 +409,13 @@ class MachineAndTop(unittest.TestCase):
         self.assertEqual((top / "00-START-HERE.md").read_text(), text, "a current start file is left alone")
         installer.install_top(top, human="Sam", setup="backend")
         self.assertIn("**A back end runs for this folder.**", (top / "00-START-HERE.md").read_text())
+        # an older kit's start file (it has a setup line): reported, replaced only when asked, setup kept
+        older = (top / "00-START-HERE.md").read_text().replace("## How you work here", "## How it was")
+        (top / "00-START-HERE.md").write_text(older)
+        plan = installer.install_top(top, human="Sam")
+        self.assertEqual((top / "00-START-HERE.md").read_text(), older)
+        self.assertTrue(any("not this kit's template" in s[0] for s in plan.steps), plan.steps)
+        installer.install_top(top, human="Sam", replace_start=True)
+        now = (top / "00-START-HERE.md").read_text()
+        self.assertIn("## How you work here", now)
+        self.assertIn("**A back end runs for this folder.**", now)

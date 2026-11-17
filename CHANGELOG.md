@@ -1,6 +1,32 @@
 # Changelog
 
-## 0.5.2 (unreleased)
+## 0.5.2 (2026-11-16)
+
+Richard's decisions of 2026-11-15, from his phone and voice sessions (DESIGN-0.5.md section 20).
+
+**The agenda first, always.** Every conversation reads the start file, then the agenda (before `WIP/`
+and before anything else in a project): it is the one source kept up to date. The start files now say
+how a conversation works here: follow through instead of offering to look; say only what you saw;
+check the inbox before filing, so nothing is filed twice; and when setup needs the person's own hands,
+everything else is done first and they get one script to run. Conversations never trash anything (each
+trash asks for approval on the phone and stops hands-free work): finished notes move to `WIP/_done/`,
+and old versions are kept. `install.py top --replace-start` now replaces any start file that is not
+this kit's template, keeping its setup line and the old file in `_versions/`.
+
+**One catalog of every project.** `knowledge/projects.md` lists every project, in Collab Kit or not,
+with where it lives, its state, and a Collab Kit column (`not set up`, `requested`, `live`); a card per
+project goes in `knowledge/project-cards/`. `project <folder> collab-kit=requested` asks for an
+existing project to be brought in. Fixed: a `project` change filed in the top-level inbox was always
+refused.
+
+**Returns are event driven.** The back end runs every minute and does a full pass only when a return
+waits (`ck backend run --if-waiting`: one listing of every inbox) or the hourly sweep is due; on macOS,
+`watch` lets a synced copy's inboxes start it the moment a file lands. Its read path is the Drive API
+(rclone). Upgrade: run `install.py backend --apply` again to rewrite the schedule.
+
+**Optional push notifications.** The first time a critical item appears, the back end runs one
+command of yours (`[notify]` in `backend.toml`; ntfy, Pushover, and Telegram examples in
+docs/notifications.md). Item text reaches it in environment variables, never on a command line.
 
 **New: the kit itself, as an example.** `examples/the-kit-itself/` is a sanitized snapshot of Collab
 Kit's own project (its agenda, applied returns with ledgers, and knowledge), laid out as
@@ -18,6 +44,7 @@ process and reads again.
 **Returns: a kind word starts a new item.** `task "Order the drip line" importance=2 "What's needed"`
 means `new-item kind=task`; so do `question`, `decision`, `work-out`, and `hole`. A second quoted text on
 a new item is its What's needed. Voice conversations write these unprompted.
+The example leaves out whole topics (`leave_out` in its snapshot.toml): the article stays out of it.
 
 ## 0.5.1 (2026-11-15)
 

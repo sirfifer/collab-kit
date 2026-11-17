@@ -1,4 +1,4 @@
-<!-- managed by Collab Kit 0.5.1: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
+<!-- managed by Collab Kit 0.5.2: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
 # The agenda: how items are kept
 
 **What this folder is.** Everything that needs the author and Claude to work it out together. It is not knowledge (that is the rest of this folder), and not a to-do list for agents. It is the third of three channels (see `tools/kb/COLLABORATION-PATTERN.md` in the repository):

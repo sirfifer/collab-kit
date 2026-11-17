@@ -1,4 +1,4 @@
-<!-- managed by Collab Kit 0.5.1: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
+<!-- managed by Collab Kit 0.5.2: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
 # captures/
 
 This project commits returns to git (`[returns].captures_in_git = true`): the integration job (`tools/kb/nightly.sh`) copies each one here exactly as it arrived. Never edited.
