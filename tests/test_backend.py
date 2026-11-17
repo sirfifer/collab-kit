@@ -428,26 +428,51 @@ class BackEnd(unittest.TestCase):
         self.s.write("_returns/README.md", "x")
         self.s.write("projects/garden/collab-kit/_returns/b.md", "x")
         self.s.write("projects/garden/collab-kit/_returns/_set-aside/c.md", "x")
-        self.assertEqual(sorted(self.s.inbox_files()),
+        self.assertEqual(sorted(p for p, _, _ in self.s.inbox_entries()),
                          ["_returns/a.md", "projects/garden/collab-kit/_returns/b.md"])
 
-    def test_if_waiting_skips_a_quiet_minute_and_runs_when_a_return_waits(self):
+    def _cfgfile(self):
         cfgfile = self.t / "backend.toml"
         b = self.cfg["backend"]
-        cfgfile.write_text(
-            "[backend]\n" + "".join(f"{k} = {json.dumps(v)}\n" for k, v in b.items()) + "interval_minutes = 60\n",
-            encoding="utf-8")
-        self.assertEqual(BE.run(str(cfgfile), if_waiting=True), 0)          # no stamp yet: a full pass
+        cfgfile.write_text("[backend]\n" + "".join(f"{k} = {json.dumps(v)}\n" for k, v in b.items())
+                           + "interval_minutes = 60\n", encoding="utf-8")
+        return str(cfgfile)
+
+    def test_if_waiting_skips_a_quiet_minute_and_runs_when_a_return_waits(self):
+        cfg = self._cfgfile()
+        self.assertEqual(BE.run(cfg, if_waiting=True), 0)                   # no stamp yet: a full pass
         hb1 = self.s.read("_backend/heartbeat.json")
         self.assertTrue((self.t / "work" / BE.LAST_PASS).is_file())
         time.sleep(1.1)
-        self.assertEqual(BE.run(str(cfgfile), if_waiting=True), 0)          # nothing waits, fresh: no pass
+        self.assertEqual(BE.run(cfg, if_waiting=True), 0)                   # nothing new: no pass
         self.assertEqual(self.s.read("_backend/heartbeat.json"), hb1)
-        self.drop("_returns/t9.md", "Project: top\nChanges v1:\nnew-item title=\"Rang the bell\"\nEnd.\n")
-        BE.run(str(cfgfile), if_waiting=True)                               # a return waits: a full pass
+        self.s.write("_returns/t9.md", "Project: top\nChanges v1:\nnew-item title=\"Rang the bell\"\nEnd.\n")
+        BE.run(cfg, if_waiting=True)                                        # still settling: not counted yet
+        self.assertEqual(self.s.read("_backend/heartbeat.json"), hb1)
+        old(self.cloud / "_returns/t9.md")
+        BE.run(cfg, if_waiting=True)                                        # settled and new: a full pass
         self.assertNotEqual(self.s.read("_backend/heartbeat.json"), hb1)
         self.assertTrue(any("Rang the bell" in (self.s.read(f"agenda/{e.name}") or "")
                             for e in self.s.files("agenda")))
+
+    def test_a_stuck_return_does_not_cost_a_pass_a_minute(self):
+        cfg = self._cfgfile()
+        self.drop("_returns/half.md", "Project: top\nChanges v1:\nnew-item title=\"Half written\"\n")   # no End.
+        BE.run(cfg, if_waiting=True)
+        hb1 = self.s.read("_backend/heartbeat.json")
+        self.assertTrue(self.s.exists("_returns/half.md"))                  # left to wait for its End.
+        time.sleep(1.1)
+        BE.run(cfg, if_waiting=True)
+        self.assertEqual(self.s.read("_backend/heartbeat.json"), hb1, "the same stuck return started a pass")
+        self.drop("_returns/half.md", "Project: top\nChanges v1:\nnew-item title=\"Half written\"\nEnd.\n")
+        BE.run(cfg, if_waiting=True)                                        # it changed: a pass applies it
+        self.assertFalse(self.s.exists("_returns/half.md"))
+
+    def test_the_stamp_needs_the_lease(self):
+        from collab_kit.backend import write_lease
+        write_lease(self.s, "elsewhere:1", 60)
+        BE.run(self._cfgfile(), if_waiting=True)
+        self.assertFalse((self.t / "work" / BE.LAST_PASS).exists(), "a refused pass must not count as a pass")
 
     def test_schedule_ticks_every_minute_and_watches_inboxes(self):
         from collab_kit import schedule
@@ -461,26 +486,60 @@ class BackEnd(unittest.TestCase):
         self.assertNotIn("WatchPaths", schedule.launchd_plist(KIT, self.t / "b.toml", self.t / "logs", 60, None))
         self.assertIn("--if-waiting", (KIT / "engine" / "backend.sh").read_text())
 
+    def _critical(self, n, title):
+        self.s.write(f"agenda/W-{n:03d}-x.md", f'+++\nid = "W-{n:03d}"\ntitle = "{title}"\nkind = "task"\n'
+                                               'importance = 1\nstatus = "open"\n+++\n')
+
     def test_push_once_per_new_critical_item_text_in_the_environment(self):
         out = self.t / "pushed.txt"
         self.cfg["notify"] = {"command": [sys.executable, "-c",
                                           "import os,sys; open(sys.argv[1],'a').write(os.environ['COLLAB_KIT_MESSAGE']"
                                           "+'|'+os.environ['COLLAB_KIT_ITEM']+'\\n')", str(out)]}
-        self.s.write("agenda/W-001-x.md", '+++\nid = "W-001"\ntitle = "Already critical"\nkind = "task"\n'
-                                          'importance = 1\nstatus = "open"\n+++\n')
+        self._critical(1, "Already critical")
         self.run_pass()
         self.assertFalse(out.exists())                     # the first run remembers, sends nothing
         self.drop("projects/garden/collab-kit/_returns/r5.md", "Project: garden\nChanges v1:\n"
-                  "new-item title=\"$(touch /tmp/nope) Water main burst\" importance=1\nEnd.\n")
+                  "new-item title=\"@/etc/passwd $(touch /tmp/nope) Water main burst\" importance=1\nEnd.\n")
         p, rc = self.run_pass()
         self.assertEqual(rc, 0, p.problems)
-        self.assertEqual(out.read_text().splitlines(), ["$(touch /tmp/nope) Water main burst|garden W-001"])
+        self.assertEqual(out.read_text().splitlines(), ["/etc/passwd $(touch /tmp/nope) Water main burst|garden W-001"])
         self.run_pass()
         self.assertEqual(len(out.read_text().splitlines()), 1)   # never twice
-        self.cfg["notify"] = {"command": [sys.executable, "-c", "import sys; sys.exit(3)"]}
-        self.drop("_returns/t7.md", "Project: top\nChanges v1:\nnew-item title=\"Another\" importance=1\nEnd.\n")
-        p, rc = self.run_pass()
+
+    def test_push_failures_and_caps_lose_nothing(self):
+        out = self.t / "pushed.txt"
+        flag = self.t / "fail-on-W-003"
+        self.cfg["notify"] = {"command": [sys.executable, "-c",
+                                          "import os,sys; i=os.environ['COLLAB_KIT_ITEM']\n"
+                                          "if i.endswith('W-003') and os.path.exists(sys.argv[2]): sys.exit(3)\n"
+                                          "open(sys.argv[1],'a').write(i+'\\n')", str(out), str(flag)]}
+        self.run_pass()                                    # first run: nothing critical yet
+        for n in range(1, 8):
+            self._critical(n, f"Thing {n}")
+        flag.write_text("x")
+        p, _ = self.run_pass()
         self.assertTrue(any("notify command failed" in x for x in p.problems), p.problems)
+        self.assertIn("failed", self.s.read("agenda/00-PRESSING.md"))              # on the page, this pass
+        self.assertEqual(out.read_text().splitlines(), ["top level W-001", "top level W-002"])
+        flag.unlink()
+        self.run_pass()                                    # the rest go out; the first two are not sent again
+        self.run_pass()
+        sent = out.read_text().split("\n")
+        self.assertEqual(sorted(x for x in sent if x), sorted(f"top level W-{n:03d}" for n in range(1, 8)))
+        self.cfg["notify"] = {"command": "curl https://example.invalid"}           # a string, not a list
+        self._critical(9, "Nine")
+        p, _ = self.run_pass()
+        self.assertTrue(any("must be a list" in x for x in p.problems), p.problems)
+
+    def test_template_notify_example_is_valid_toml(self):
+        import tomllib
+        from collab_kit.installer import BACKEND_TEMPLATE
+        text = BACKEND_TEMPLATE.format(cloud='"x"', work='"y"', human='"Sam"')
+        lines = [ln[2:] if ln.startswith("# [notify]") or ln.startswith("# command =") else ln for ln in text.splitlines()]
+        cfg = tomllib.loads("\n".join(lines))
+        cmd = cfg["notify"]["command"]
+        self.assertIn("--data-raw", cmd[-1])
+        self.assertNotIn(" -d ", cmd[-1])
 
     def test_catalog_collab_kit_status(self):
         self.s.write("knowledge/projects.md", "| Folder | Say | What it is | Where | Status | Collab Kit |\n"
@@ -493,8 +552,17 @@ class BackEnd(unittest.TestCase):
                       self.s.read("knowledge/projects.md"))
         self.drop("_returns/t3.md", "Project: top\nChanges v1:\nproject shed collab-kit=maybe\nEnd.\n")
         self.run_pass()
+        self.drop("_returns/t4.md", "Project: top\nChanges v1:\nproject shed about=\"a | b\"\nEnd.\n")
+        self.run_pass()
+        self.assertIn("| a / b |", self.s.read("knowledge/projects.md"))   # a | never shifts the columns
         from collab_kit.unit import FAILED
         self.assertTrue(self.s.files(FAILED))                    # refused: not one of the three states
+
+
+    def test_collab_kit_status_needs_the_column(self):
+        self.drop("_returns/t5.md", "Project: top\nChanges v1:\nproject garden collab-kit=live\nEnd.\n")
+        p, _ = self.run_pass()                             # setUp's table has no Collab Kit column
+        self.assertTrue(any("no Collab Kit column" in x for x in p.problems), p.problems)
 
 
 if __name__ == "__main__":

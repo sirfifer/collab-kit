@@ -451,7 +451,8 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
 - **How a conversation works here** (return 1949): follow through (when the next step is plainly to
   look further, do it in the same turn and report what was found); say only what was seen (never
   invent a name); before filing a return, check that inbox and its applied returns for one on the
-  same topic. In the top-level template, and the inbox check in the Claude Code block.
+  same topic, and never change a filed return (it may already be applied): file only what is new and
+  name the earlier one. In the top-level template, and the inbox check in the Claude Code block.
 - **Handing work to the person** (return 1958): when setup needs the person's own hands (a sign-in, a
   permission prompt), everything else is done first and the person gets one script on the desktop of
   the machine it is for, which says what it will ask and checks the result.
@@ -483,7 +484,10 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   does it do a full pass; every `interval_minutes` (60) it does one anyway, the sweep that pulls
   repositories, mirrors, and writes the health. On macOS, when the machine also has a synced copy of
   the folder (`watch`), launchd starts the job the moment a file lands in an inbox: a doorbell, nothing
-  is read through it. A return without its "End." waits (up to a day) instead of failing. Claude Code
+  is read through it. The question is "has anything settled in an inbox since the last pass?": a
+  return still settling (two minutes) is not counted yet, and one a pass leaves in place (a failed
+  push, no "End." yet) starts no further pass until the sweep, so a stuck return never costs a pass a
+  minute. A return without its "End." waits (up to a day) instead of failing. Claude Code
   sessions keep reading the synced folder (the engine downloads placeholders itself).
 - **Feedback runs through the agenda** (return 1500). Applying a return is immediate and needs no
   "started" item: the ledger and the change are the answer. Anything that needs the person is an item;
@@ -495,7 +499,8 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   decide.
 - **Push notifications, an optional pattern** (return 1510). The first time a critical item appears
   anywhere, the back end runs one configured command; the text reaches it in environment variables,
-  never on a command line. ntfy is the documented default (free, both phones, one POST); Pushover and
+  never on a command line (with a leading `@` or `<` stripped, which curl would read as a file). Each
+  item once; at most five a pass and twenty an hour. ntfy is the documented default (free, both phones, one POST); Pushover and
   Telegram are examples (docs/notifications.md).
 - **Scripts where they fit** (return 1515). Scripts already: applying returns (grammar, ledger, undo),
   numbering, versioning, the front page and health, mirrors, repository pulls, commits, and guarded
@@ -509,7 +514,9 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, the back end starting agent work by itself (section 20).
+project, the back end starting agent work by itself (section 20), refreshing the start file of a
+project whose home is the cloud folder when the template changes (a session does it by hand;
+`install.py top --replace-start` covers the top level, `install.py project` a repository's).
 
 ## Delivery (Decided 2026-11-14)
 

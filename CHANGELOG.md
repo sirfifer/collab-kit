@@ -24,6 +24,16 @@ waits (`ck backend run --if-waiting`: one listing of every inbox) or the hourly 
 `watch` lets a synced copy's inboxes start it the moment a file lands. Its read path is the Drive API
 (rclone). Upgrade: run `install.py backend --apply` again to rewrite the schedule.
 
+**Fixed before release** (a sceptical review of this version): the minute check counted returns a pass
+leaves in place, so one stuck return cost a full pass every minute (it now looks for settled changes
+since the last pass); the push example in `backend.toml` was not valid TOML and its `-d` would have let a
+title name a local file to send; push bookkeeping resent or dropped items after a failure or a cap; a
+`collab-kit=` change on a list without that column did nothing (now refused); the "add to an earlier
+return" advice could lose changes (now: never change a filed return; file what is new and name it);
+the setup line kept the kit's older wording on `--replace-start`; a Google Doc in an inbox was set aside
+before a conversation could move it; a refused pass counted as a pass; Windows opened a console window
+every minute (now `pyw`); the example's filter could empty a front-matter block or a return's header.
+
 **Returns: a note after the changes is fine.** Voice conversations add "Verbatim: ..." or a sentence
 after the last change, before `End.`; two of Richard's returns of 2026-11-15 were refused for it. A line
 that starts with a capital and is not a change now ends the changes when it follows a blank line or

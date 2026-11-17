@@ -131,6 +131,7 @@ HEADING = re.compile(r"^(#{1,6})\s")
 LIST_ITEM = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s")
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 CHANGES_START = re.compile(r"^Changes v\d+:\s*$")
+FIELD_LINE = re.compile(r"^([A-Z][A-Za-z' /-]{0,40}:\s|[a-z_]+\s*=\s)")   # a return's header field, or front matter
 
 
 def topics(m: dict) -> list[re.Pattern]:
@@ -211,7 +212,7 @@ def drop_topics(text: str, tops: list[re.Pattern], ids: frozenset[str] = frozens
                 out += lines[i:j]
             i = j
             continue
-        if not ln.strip() or ln.lstrip().startswith("|") or ln.startswith("+++"):
+        if not ln.strip() or ln.lstrip().startswith("|") or ln.startswith("+++") or FIELD_LINE.match(ln):
             if not (ln.strip() and hit(ln)):
                 out.append(ln)
             i += 1
@@ -219,7 +220,8 @@ def drop_topics(text: str, tops: list[re.Pattern], ids: frozenset[str] = frozens
         j = i + 1                                           # a paragraph
         while j < len(lines) and lines[j].strip() and not (
                 HEADING.match(lines[j]) or LIST_ITEM.match(lines[j]) or lines[j].lstrip().startswith("|")
-                or FENCE.match(lines[j]) or CHANGES_START.match(lines[j])):
+                or FENCE.match(lines[j]) or CHANGES_START.match(lines[j]) or FIELD_LINE.match(lines[j])
+                or lines[j].startswith("+++")):
             j += 1
         if not hit("\n".join(lines[i:j])):
             out += lines[i:j]
@@ -319,7 +321,7 @@ def check(example: Path = EXAMPLE) -> list[str]:
         for hit in leaks(text, deny):
             problems.append(f"{rel}: private material ({hit!r})")
         if rel not in HAND_WRITTEN:
-            for hit in sorted(set(mentions(text, tops))):
+            for hit in sorted(set(mentions(text, tops)) | set(mentions(rel, tops))):
                 problems.append(f"{rel}: mentions {hit!r}, a topic the example leaves out")
     return problems
 
@@ -421,6 +423,7 @@ def refresh(src: Path, fill: Path | None = None, example: Path = EXAMPLE, requir
         text = (json.dumps(clean_json(json.loads(text), replace), indent=1, ensure_ascii=False) + "\n"
                 if rel.endswith(".json") else clean(text, replace))
         found += [f"{rel}: {h!r}" for h in leaks(text, deny)]
+        found += [f"{rel}: {h!r} (a topic in leave_out)" for h in set(mentions(text, topics(m)) + mentions(rel, topics(m)))]
         out[f"{UNIT}/{rel}"] = text
     if found:
         raise SystemExit("public_example: private material remains after the rules (add a [[replace]] rule):\n  "

@@ -80,6 +80,8 @@ it can do only what the grammar describes, inside the unit it was filed in. Conc
 | A change to an existing item repeats part of its title | a misheard or invented number changing the wrong item |
 | The back end commits only inside `collab-kit/`, pushes only with a standing authorization per project, never to a public repository unless the project allows it, and never a change matching the deny-list; a `push-request` only creates an agenda task | a return publishing anything |
 | The back end never deletes in the cloud: anything unexpected moves to `_returns/strays/` or `_versions/` and becomes an agenda item | a return destroying data |
+| The optional push gets item text only in environment variables (no shell builds it), with a leading `@` or `<` stripped, and the documented examples pass it with `--data-raw` or `--form-string`; each item is sent once, at most five a pass and twenty an hour | a title making the notify command read and send a local file (an rclone token), or a flood of pushes (found by review, 2026-11-16, before release) |
+| The back end's minute check counts only returns that have settled and changed since the last pass | a return that cannot be applied costing a full pass (Drive and GitHub calls) every minute |
 
 **Agents read it with an AI.** A Claude Code session sees Collab Kit text in its session brief and
 in `ck` output. Every such piece is fenced: listings are reduced to single plain lines (control and

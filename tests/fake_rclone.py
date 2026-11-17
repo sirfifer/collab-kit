@@ -25,7 +25,7 @@ for a in args[1:]:
     if skip:
         skip = False
         continue
-    if a in ("--config", "--drive-import-formats", "--hash-type"):
+    if a in ("--config", "--drive-import-formats", "--hash-type", "--include"):
         skip = True
         continue
     if a.startswith("--"):
@@ -41,7 +41,22 @@ def local(p):
 
 
 try:
-    if cmd == "lsjson":
+    if cmd == "lsjson" and "-R" in args:
+        import re as _re
+        d = local(clean[-1])
+        inc = [args[i + 1] for i, a in enumerate(args) if a == "--include"]
+        rx = [_re.compile("^" + _re.escape(g.lstrip("/")).replace(r"\*", "[^/]*") + "$") for g in inc]
+        out = []
+        for c in sorted(d.rglob("*")) if d.is_dir() else []:
+            rel = c.relative_to(d).as_posix()
+            if ("--files-only" in args and c.is_dir()) or (rx and not any(r.match(rel) for r in rx)):
+                continue
+            st = c.stat()
+            out.append({"Path": rel, "Name": c.name, "Size": st.st_size, "IsDir": c.is_dir(),
+                        "ModTime": datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc)
+                        .strftime("%Y-%m-%dT%H:%M:%S.123456789Z")})
+        print(json.dumps(out))
+    elif cmd == "lsjson":
         d = local(clean[0])
         if not d.is_dir():
             print("ERROR : error listing: directory not found", file=sys.stderr)

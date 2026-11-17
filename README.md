@@ -88,7 +88,7 @@ python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sa
 python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sam" --apply
 ```
 
-Returns are applied within a minute or two of arriving: the job runs every minute, asks one cheap
+Returns are applied within a few minutes of arriving: the job runs every minute, asks one cheap
 question (is any return waiting?), and does a full pass only then, or hourly for the sweep (pulls,
 mirrors, health). Prefer an rclone remote: it reads every file the moment a phone writes it and needs
 no macOS permission. On a Mac that also syncs the folder, `watch = "<that folder>"` in `backend.toml`

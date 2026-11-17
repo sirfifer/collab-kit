@@ -419,3 +419,13 @@ class MachineAndTop(unittest.TestCase):
         now = (top / "00-START-HERE.md").read_text()
         self.assertIn("## How you work here", now)
         self.assertIn("**A back end runs for this folder.**", now)
+        # the kit's older wording of the setup line is brought current; a line edited by hand is kept
+        from collab_kit.templates import SETUP_TEXT, replace_block
+        aged = replace_block(now, "setup", "**A back end runs for this folder.** It applies them usually within the hour.")
+        (top / "00-START-HERE.md").write_text(aged)
+        installer.install_top(top, human="Sam", replace_start=True)
+        self.assertIn(SETUP_TEXT["backend"], (top / "00-START-HERE.md").read_text())
+        mine = replace_block(now, "setup", "Sam's own words about the setup.")
+        (top / "00-START-HERE.md").write_text(mine.replace("## How you work here", "## How it was"))
+        installer.install_top(top, human="Sam", replace_start=True)
+        self.assertIn("Sam's own words about the setup.", (top / "00-START-HERE.md").read_text())

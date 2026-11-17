@@ -94,7 +94,7 @@ def systemd_units(kit: Path, config: Path, minutes: int) -> dict[str, str]:
 
 
 def windows_command(kit: Path, config: Path, minutes: int) -> str:
-    tr = f'"py -3 \\"{kit / "engine" / "ck.py"}\\" backend run --if-waiting --config \\"{config}\\""'
+    tr = f'"pyw -3 \\"{kit / "engine" / "ck.py"}\\" backend run --if-waiting --config \\"{config}\\""'
     return f'schtasks /Create /SC MINUTE /MO 1 /TN "Collab Kit back end" /TR {tr} /F'
 
 

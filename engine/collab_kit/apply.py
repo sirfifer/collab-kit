@@ -234,6 +234,9 @@ class Planner:
         text = self.ov.read(path, where)
         if text is None or not has_project_row(text, name):
             raise Reject(f"line {ch.line}: no row for '{name}' in the top level's knowledge/projects.md")
+        if "collab-kit" in ch.args and _col(_table_rows(text)[2], "collab kit", "collab-kit") is None:
+            raise Reject(f"line {ch.line}: the projects list has no Collab Kit column to set "
+                         "(add one: | Folder | Say | What it is | Where | Status | Collab Kit |)")
         new = edit_project_row(text, name, ch.args)   # already as asked is fine (a pass redone after a failed push)
         if new != text:
             self.ov.write(path, new, where)
@@ -394,6 +397,11 @@ def _table_rows(text: str):
     return lines, None, [], []
 
 
+def _cell(text: str) -> str:
+    """A value for a table cell: one line, and no | (which would shift the columns)."""
+    return one_line(str(text), 200).replace("|", "/")
+
+
 def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
@@ -424,9 +432,9 @@ def edit_project_row(text: str, name: str, args: dict) -> str:
         if fcol is None or fcol >= len(row) or row[fcol].strip("`") != name:
             continue
         if "spoken" in args and scol is not None:
-            row[scol] = ", ".join(f"\"{s.strip()}\"" for s in args["spoken"].split(",") if s.strip())
+            row[scol] = _cell(", ".join(f"\"{s.strip()}\"" for s in args["spoken"].split(",") if s.strip()))
         if "about" in args and wcol is not None:
-            row[wcol] = one_line(args["about"], 200)
+            row[wcol] = _cell(args["about"])
         if "collab-kit" in args and kcol is not None:
             row[kcol] = args["collab-kit"].strip().lower()
         if "active" in args and wcol is not None:
@@ -444,9 +452,9 @@ def add_project_row(text: str, row: dict) -> str:
         if c.startswith("folder"):
             vals.append(f"`{row['folder']}`")
         elif c.startswith("say"):
-            vals.append(", ".join(f"\"{s.strip()}\"" for s in row["say"].split(",") if s.strip()))
+            vals.append(_cell(", ".join(f"\"{s.strip()}\"" for s in row["say"].split(",") if s.strip())))
         elif c.startswith("what"):
-            vals.append(one_line(row["what"], 200))
+            vals.append(_cell(row["what"]))
         elif c.startswith("home") or c.startswith("here") or c.startswith("where"):
             vals.append(row["home"])
         elif c.startswith("collab kit") or c.startswith("collab-kit"):
@@ -553,6 +561,8 @@ def apply_file(unit: Unit, entry: Entry, *, top: Unit | None = None, now=None, f
     deletes), and raises an agenda item for anything that needs a person."""
     now = now or utcnow()
     name = entry.name
+    if not force_settled and entry.mtime and now.timestamp() - entry.mtime < SETTLE_SECONDS:
+        return Outcome("waiting", name, "still settling")          # first: a conversation may still move it
     if entry.native:
         return _set_aside(unit, entry, STRAYS, "saved in a Google format, which Collab Kit never processes; "
                           "save it again as a plain .md file", now, top)
@@ -560,8 +570,6 @@ def apply_file(unit: Unit, entry: Entry, *, top: Unit | None = None, now=None, f
         return _set_aside(unit, entry, STRAYS, "not a plain .md or .txt file", now, top)
     if entry.size > MAX_RETURN_BYTES:
         return _set_aside(unit, entry, FAILED, f"larger than {MAX_RETURN_BYTES // 1024} KB", now, top)
-    if not force_settled and entry.mtime and now.timestamp() - entry.mtime < SETTLE_SECONDS:
-        return Outcome("waiting", name, "still settling")
     text = unit.store.read(f"{RETURNS}/{name}") or ""
     try:
         ret = R.parse(text, name)

@@ -55,5 +55,5 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 `ck` prints where the return went: applied at once (no back end runs, so it applies it
 itself; in a repository-homed project, commit `collab-kit/` with your work), or filed for the back
-end, which applies it within a minute or two. A refused return says exactly why (a failed title check,
+end, which applies it within a few minutes. A refused return says exactly why (a failed title check,
 an unknown item, a bad date): fix it and file again. Never edit the agenda's files by hand instead.

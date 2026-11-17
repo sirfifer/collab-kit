@@ -33,6 +33,11 @@ class PublicExample(unittest.TestCase):
             self.assertIn(kept, out)
         for gone in ("All about it.", "### Detail", "with a second line", "W-001", "W-009"):
             self.assertNotIn(gone, out)
+        # front matter and a return's header go line by line, never as one paragraph
+        item = '+++\nid = "W-003"\ntitle = "Venues"\noutcome = "after the launch"\nstatus = "settled"\n+++\n\n## Log\n'
+        self.assertEqual(PE.drop_topics(item, tops), item.replace('outcome = "after the launch"\n', ""))
+        ret = 'Project: x\nFrom: Sam\nTopic: venues\nVerbatim: "the launch is near"\n\nChanges v1:\nlog W-1 "a" "b"\nEnd.\n'
+        self.assertEqual(PE.drop_topics(ret, tops), ret.replace('Verbatim: "the launch is near"\n', ""))
 
     def test_the_example_never_mentions_the_article(self):
         self.assertTrue(PE.topics(PE.manifest()), "snapshot.toml must keep leave_out")

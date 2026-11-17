@@ -50,6 +50,16 @@ class Rclone(unittest.TestCase):
         self.assertIsNone(self.store.read("knowledge/missing.md"))
         self.assertEqual(self.store.list("nope"), [])
 
+    def test_inbox_entries_in_one_call(self):
+        import time
+        for rel in ("_returns/a.md", "_returns/README.md", "_returns/applied/old.md",
+                    "projects/garden/collab-kit/_returns/b.md", "projects/garden/collab-kit/agenda/W-001-x.md",
+                    "projects/garden/notes/_returns/c.md"):
+            self.store.write(rel, "x\n")
+        got = self.store.inbox_entries()
+        self.assertEqual(sorted(p for p, _, _ in got), ["_returns/a.md", "projects/garden/collab-kit/_returns/b.md"])
+        self.assertTrue(all(abs(m - time.time()) < 120 and s == 2 for _, m, s in got), got)
+
     def test_pinned_version_only(self):
         os.environ["FAKE_RCLONE_VERSION"] = "v1.70.0"
         with self.assertRaises(StoreError):
@@ -77,12 +87,15 @@ class Rclone(unittest.TestCase):
         self.assertEqual(self.store.md5s("knowledge")["a.md"], hashlib.md5(b"hello\n").hexdigest())
 
     def test_native_files_are_never_read_and_are_set_aside(self):
-        (self.t / "drive" / "Collab Kit" / "_returns" / "notes.gdoc-native").write_text("binary")
+        f = self.t / "drive" / "Collab Kit" / "_returns" / "notes.gdoc-native"
+        f.write_text("binary")
         unit = Unit(self.store, "top", home="cloud", top=True)
         e = [e for e in unit.pending_returns() if e.name.endswith("native")][0]
         self.assertTrue(e.native)
-        out = A.apply_file(unit, e)
-        self.assertEqual(out.status, "stray")
+        self.assertEqual(A.apply_file(unit, e).status, "waiting")      # a conversation may still be moving it
+        os.utime(f, (time.time() - 3600, time.time() - 3600))
+        e = [e for e in unit.pending_returns() if e.name.endswith("native")][0]
+        self.assertEqual(A.apply_file(unit, e).status, "stray")
 
     def test_engine_applies_over_rclone(self):
         unit = Unit(self.store, "top", home="cloud", top=True)

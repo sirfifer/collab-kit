@@ -123,7 +123,8 @@ def take_lease(cloud: Store, me: str, minutes: int, settle: float = 0) -> bool:
     if raw:
         try:
             cur = json.loads(raw)
-            if cur.get("holder") != me and dt.datetime.fromisoformat(cur["expires"]) > now:
+            if cur.get("holder") != me and dt.datetime.fromisoformat(cur["expires"]) > now \
+                    and not _dead_here(cur.get("holder", "")):
                 return False
         except (ValueError, KeyError, TypeError):
             pass
@@ -134,6 +135,21 @@ def take_lease(cloud: Store, me: str, minutes: int, settle: float = 0) -> bool:
         return json.loads(cloud.read(LEASE) or "{}").get("holder") == me
     except ValueError:
         return False
+
+
+def _dead_here(holder: str) -> bool:
+    """A lease left by a process of this machine that no longer exists (a pass stopped by a reinstall):
+    free at once rather than at its expiry. POSIX only (Windows has no harmless liveness check)."""
+    host, _, pid = holder.rpartition(":")
+    if os.name == "nt" or host != socket.gethostname() or not pid.isdigit():
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return False
 
 
 def write_lease(cloud: Store, me: str, minutes: int) -> None:
@@ -188,10 +204,13 @@ class Pass:
         self.deny = [re.compile(x, re.I) for x in b.get("deny", [])]
         self.settle = float(b.get("lease_settle_seconds", 20 if self.cloud_spec.startswith("rclone:") else 2))
         self.repos = {p["name"]: p for p in cfg.get("project", [])}
-        cmd = cfg.get("notify", {}).get("command") or []
-        self.notify = [C.expand(a) if i == 0 else a for i, a in enumerate(cmd)] if isinstance(cmd, list) else []
+        cmd = cfg.get("notify", {}).get("command")      # None: off; a list: on; anything else: reported
+        self.notify_cmd = (None if cmd is None else
+                           [C.expand(a) if i == 0 else a for i, a in enumerate(cmd)]
+                           if isinstance(cmd, list) and cmd and all(isinstance(a, str) for a in cmd) else [])
         self.me = f"{socket.gethostname()}:{os.getpid()}"
         self.dry = dry_run
+        self.held_lease = False
         self.problems: list[str] = []
         self.log: list[str] = []
         self.top = Unit(self.cloud, "top", home="cloud", top=True)
@@ -537,45 +556,60 @@ class Pass:
         return cloud_units(self.cloud, set(self.repos))
 
     def views(self) -> None:
-        """The agenda's front page (views.py), the back end's health first; then the optional push."""
+        """The optional push first (so a failure reaches the page), then the agenda's front page
+        (views.py), the back end's health first."""
         self.step("the top-level start file", self.start_file_setup)
         today = utcnow().date()
         units = self.all_units()
+        if self.notify_cmd is not None and not self.dry:
+            self.step("the push notification", self.notify_critical, units)
         text = front_page(units, today=today, human=self.human, inactive=inactive_projects(self.cloud),
                           interval=self.interval, problems=self.problems, unreadable=self.problem)
         if not self.dry and write_front_page(self.cloud, text):
             self.note("the agenda's front page was rebuilt")
-        if self.notify and not self.dry:
-            self.step("the push notification", self.notify_critical, units)
+
+    NOTIFY_PER_PASS, NOTIFY_PER_HOUR = 5, 20
 
     def notify_critical(self, units) -> None:
         """Optional ([notify] command): tell the person the moment a critical item (importance 1) first
-        appears, wherever it came from, the back end's own failures included. The command gets the text
-        in environment variables (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a
-        command line: titles are outside text. docs/notifications.md has examples (ntfy, Pushover)."""
+        appears, wherever it came from. The command gets the text in environment variables
+        (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a command line: titles are
+        outside text. Each item is sent once; what a pass could not send (a cap, a failure) is sent by
+        a later one; at most five a pass and twenty an hour. docs/notifications.md has examples."""
+        if not self.notify_cmd:
+            raise ValueError("[notify] command must be a list of strings, e.g. [\"sh\", \"-c\", \"...\"]")
         state = self.work / "notified.json"
         try:
-            seen = set(json.loads(state.read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            seen = None                                  # first run: remember what is there, send nothing
+            st = json.loads(state.read_text(encoding="utf-8"))
+            seen, times = set(st["seen"]), [float(x) for x in st.get("times", [])]
+        except (OSError, ValueError, KeyError, TypeError):
+            seen, times = None, []                       # first run: remember what is there, send nothing
         now = {}
         for name, unit in units:
             for it in unit.items():
                 if it.is_open and it.importance <= 1:
-                    where = "top level" if name == "top" else name
-                    now[f"{name}:{it.id}"] = (where, it)
-        if seen is not None:
-            for key in sorted(set(now) - seen)[:5]:      # at most five at once: a flood is one bad pass
+                    now[f"{name}:{it.id}"] = ("top level" if name == "top" else name, it)
+        seen = set(now) if seen is None else seen & set(now)   # an item settled and raised again is new again
+        times = [x for x in times if x > time.time() - 3600]
+        try:
+            for key in sorted(set(now) - seen)[: self.NOTIFY_PER_PASS]:
+                if len(times) >= self.NOTIFY_PER_HOUR:
+                    self.note("push: the hourly limit is reached; the rest wait for a later pass")
+                    break
                 where, it = now[key]
+                message = one_line(it.title, 200).lstrip("@<")    # never a curl file reference
                 env = {**os.environ, "COLLAB_KIT_TITLE": f"Collab Kit: critical in {where}",
-                       "COLLAB_KIT_MESSAGE": one_line(it.title, 200), "COLLAB_KIT_ITEM": f"{where} {it.id}"}
-                res = subprocess.run(self.notify, env=env, capture_output=True, timeout=20)
+                       "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": f"{where} {it.id}"}
+                res = subprocess.run(self.notify_cmd, env=env, capture_output=True, timeout=20)
                 if res.returncode != 0:
                     raise RuntimeError(f"the notify command failed ({res.returncode}): "
                                        f"{res.stderr.decode('utf-8', 'replace').strip()[:200]}")
+                seen.add(key)
+                times.append(time.time())
                 self.note(f"pushed: {where} {it.id}")
-        self.work.mkdir(parents=True, exist_ok=True)
-        state.write_text(json.dumps(sorted(now)), encoding="utf-8")
+        finally:
+            self.work.mkdir(parents=True, exist_ok=True)
+            state.write_text(json.dumps({"seen": sorted(seen), "times": times}), encoding="utf-8")
 
     def write_if_changed(self, unit: Unit, rel: str, text: str) -> None:
         if unit.store.read(rel) != text:
@@ -675,6 +709,7 @@ class Pass:
             if not self.dry and not take_lease(self.cloud, self.me, max(self.interval - 5, 10), self.settle):
                 print("collab-kit back end: another runner holds the lease; exiting")
                 return 0
+            self.held_lease = not self.dry
         except (StoreError, OSError) as ex:
             print(f"PROBLEM: the Collab Kit folder is not reachable: {ex}")
             return 2
@@ -718,16 +753,27 @@ def load_config(path: str | None) -> dict:
 
 
 LAST_PASS = "last-pass"                               # in the work folder: when the last full pass ended
+INBOX_PRINT = "inbox-fingerprint.json"                # what the inboxes held, settled, after that pass
+
+
+def settled_inbox(store: Store) -> list:
+    """The inboxes' settled files as [path, mtime, size]: a return still settling is left out until it
+    has settled, so it starts exactly one pass; a return a pass leaves in place (a failed push, no End.
+    yet) is in it and starts no more."""
+    from .apply import SETTLE_SECONDS
+    now = time.time()
+    return sorted([p, int(m), s] for p, m, s in store.inbox_entries() if not m or now - m >= SETTLE_SECONDS)
 
 
 def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: bool = False) -> int:
     """One pass. With if_waiting (what the schedule runs, every minute and on a file event), first ask
-    one cheap question, whether any inbox holds a return, and do the full pass only if one does or the
-    last full pass is older than interval_minutes (the sweep, which also pulls and mirrors)."""
+    one cheap question, whether the inboxes hold anything new since the last pass (one listing), and do
+    the full pass only if they do or the last full pass is older than interval_minutes (the sweep,
+    which also pulls and mirrors)."""
     cfg = load_config(path)
     b = cfg["backend"]
     work = Path(C.expand(b.get("work", str(C.state_dir().parent / "backend"))))
-    stamp_file = work / LAST_PASS
+    stamp_file, print_file = work / LAST_PASS, work / INBOX_PRINT
     if if_waiting and not dry_run:
         interval = int(b.get("interval_minutes", 60))
         try:
@@ -736,15 +782,21 @@ def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: 
             fresh = False
         if fresh:
             try:
-                if not open_store(C.expand(b["cloud"])).inbox_files():
+                last = json.loads(print_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                last = None
+            try:
+                if settled_inbox(open_store(C.expand(b["cloud"]))) == last:
                     return 0
             except (StoreError, OSError):
                 pass                                 # the full pass says what is wrong, on the agenda
-    rc = Pass(cfg, dry_run=dry_run).run()
-    if not dry_run:
+    p = Pass(cfg, dry_run=dry_run)
+    rc = p.run()
+    if not dry_run and p.held_lease:
         try:
             work.mkdir(parents=True, exist_ok=True)
             stamp_file.write_text(utcnow().isoformat() + "\n", encoding="utf-8")
-        except OSError:
+            print_file.write_text(json.dumps(settled_inbox(p.cloud)), encoding="utf-8")
+        except (OSError, StoreError):
             pass
     return rc

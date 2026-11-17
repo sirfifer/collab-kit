@@ -96,6 +96,25 @@ def _base(rel: str) -> str:
     return rel.rsplit("/", 1)[-1]
 
 
+def _inbox_name_ok(path: str) -> bool:
+    base = path.rsplit("/", 1)[-1]
+    return bool(base) and not base.startswith(("_", ".")) and base.lower() != "readme.md"
+
+
+def _rclone_time(s: str) -> float:
+    """rclone's ModTime (RFC 3339, up to nanoseconds) as epoch seconds; 0 when it cannot be read."""
+    m = re.match(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|[+-]\d\d:\d\d)?$", s or "")
+    if not m:
+        return 0.0
+    frac = (m.group(2) or "")[:7]
+    tz = m.group(3) or "+00:00"
+    try:
+        import datetime as _dt
+        return _dt.datetime.fromisoformat(m.group(1) + frac + ("+00:00" if tz == "Z" else tz)).timestamp()
+    except ValueError:
+        return 0.0
+
+
 class Store:
     """The interface. Subclasses implement the _primitives."""
 
@@ -130,16 +149,16 @@ class Store:
 
     INBOXES = ("_returns", "projects/*/collab-kit/_returns")
 
-    def inbox_files(self) -> list[str]:
-        """Every file waiting in any inbox of a Collab Kit folder (the top level's and each project's),
-        as paths, README and `_`/`.` names left out: what the back end's cheap check asks."""
+    def inbox_entries(self) -> list[tuple[str, float, int]]:
+        """Every file waiting in any inbox of a Collab Kit folder (the top level's and each project's), as
+        (path, mtime, size), README and `_`/`.` names left out: what the back end's minute check asks."""
         out = []
         for e in self.files("_returns"):
-            out.append(f"_returns/{e.name}")
+            out.append((f"_returns/{e.name}", e.mtime, e.size))
         for d in self.dirs("projects"):
             for e in self.files(f"projects/{d.name}/collab-kit/_returns"):
-                out.append(f"projects/{d.name}/collab-kit/_returns/{e.name}")
-        return [r for r in out if not _base(r).startswith(("_", ".")) and _base(r).lower() != "readme.md"]
+                out.append((f"projects/{d.name}/collab-kit/_returns/{e.name}", e.mtime, e.size))
+        return [x for x in out if _inbox_name_ok(x[0])]
 
     # ---- shared helpers
     def entry(self, rel: str) -> Entry | None:
@@ -335,7 +354,7 @@ class RcloneStore(Store):
             raise err
         return res.stdout.decode("utf-8", errors="replace")
 
-    def inbox_files(self) -> list[str]:
+    def inbox_entries(self) -> list[tuple[str, float, int]]:
         """One rclone call for every inbox (rather than one per folder): this runs every minute."""
         args = ["lsjson", "-R", "--files-only"]
         for pat in self.INBOXES:
@@ -346,8 +365,12 @@ class RcloneStore(Store):
             if getattr(e, "code", None) == 3:
                 return []
             raise
-        out = [it.get("Path", "") for it in items]
-        return [r for r in out if r and not _base(r).startswith(("_", ".")) and _base(r).lower() != "readme.md"]
+        out = []
+        for it in items:
+            path = it.get("Path", "")
+            if path and _inbox_name_ok(path):
+                out.append((path, _rclone_time(it.get("ModTime", "")), int(it.get("Size") or 0)))
+        return out
 
     def list(self, rel: str = "") -> list[Entry]:
         try:

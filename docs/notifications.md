@@ -2,9 +2,10 @@
 
 A conversation hears what is critical the moment it starts (the agenda's front page). Between
 conversations, the back end can tell you on your phone: the first time a critical item (importance 1)
-appears anywhere in the folder, it runs one command you configure. That covers the back end's own
-failures, a question an agent is blocked on, and anything a conversation or session marked critical.
-Routine work never notifies.
+appears anywhere in the folder, it runs one command you configure. That covers a return it could not
+file (it raises those at importance 1), a question an agent is blocked on, and anything a conversation
+or session marked critical. Routine work never notifies. A back end that has stopped cannot notify:
+the agenda's front page says so at the start of the next conversation.
 
 Off by default. Add to `backend.toml`:
 
@@ -22,9 +23,11 @@ The command gets three environment variables, and nothing on its command line:
 | `COLLAB_KIT_ITEM` | `garden-planner W-012` |
 
 Always use them inside double quotes (`"$COLLAB_KIT_MESSAGE"`), never pasted into a command line by
-string building: a title is text from a file, and quoting keeps it from ever being run. The back end
-sends at most five notifications per pass, remembers what it has sent (`notified.json` in its work
-folder), sends nothing on its first run, and reports a failing command on the agenda's front page.
+string building: a title is text from a file, and quoting keeps it from ever being run. With curl,
+pass them with `--data-raw` or `--form-string`, never `-d` or `-F`: those read a file when the text
+starts with `@` (the back end also strips a leading `@` or `<`). The back end sends each item once,
+at most five a pass and twenty an hour (what waits goes out with a later pass), sends nothing on its
+first run, and reports a failing command on the agenda's front page.
 
 ## Which service
 
@@ -45,7 +48,7 @@ Disturb. Facts as of November 2026.
 
 ```toml
 [notify]
-command = ["sh", "-c", "curl -s --max-time 10 -H \"Title: $COLLAB_KIT_TITLE\" -H 'Priority: 5' -d \"$COLLAB_KIT_ITEM\" https://ntfy.sh/<your-long-random-topic>"]
+command = ["sh", "-c", "curl -s --max-time 10 -H \"Title: $COLLAB_KIT_TITLE\" -H 'Priority: 5' --data-raw \"$COLLAB_KIT_ITEM\" https://ntfy.sh/<your-long-random-topic>"]
 ```
 
 **Pushover**:

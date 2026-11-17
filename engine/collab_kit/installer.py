@@ -315,7 +315,11 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
                           "as due dates or a projects table, which now live on the agenda and in knowledge/projects.md). "
                           "Left as it is; run again with --replace-start to replace it with the template")
         else:
-            line = SETUP_TEXT[setup] if setup else have.strip()      # a hand-edited setup line is kept
+            from .templates import SETUP_BACKEND_MARK, SETUP_NONE_MARK
+            line = (SETUP_TEXT[setup] if setup else            # the kit's own wording is brought current;
+                    SETUP_TEXT["backend"] if have.strip().startswith(SETUP_BACKEND_MARK) else
+                    SETUP_TEXT["none"] if have.strip().startswith(SETUP_NONE_MARK) else
+                    have.strip())                              # a line edited by hand is kept
             fresh = replace_block(top_start_file(), "setup", line)
             if fresh != cur:
                 if replace_start:
@@ -361,7 +365,7 @@ rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/r
 # Optional: a push notification the moment a critical item (importance 1) appears. The command gets
 # COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE and COLLAB_KIT_ITEM in its environment (docs/notifications.md):
 # [notify]
-# command = ["sh", "-c", "curl -s -H \"Title: $COLLAB_KIT_TITLE\" -d \"$COLLAB_KIT_MESSAGE\" https://ntfy.sh/<your-long-random-topic>"]
+# command = ["sh", "-c", "curl -s --max-time 10 -H \\"Title: $COLLAB_KIT_TITLE\\" --data-raw \\"$COLLAB_KIT_ITEM\\" https://ntfy.sh/<your-long-random-topic>"]
 
 # One table per project whose home is a repository:
 # [[project]]
@@ -414,7 +418,7 @@ def install_backend(config: Path | None, *, cloud: str | None, human: str | None
     p = schedule.plan(KIT, config, minutes, runner=runner, watch=watch)
     print(f"schedule on {p['platform']}: every minute a cheap check for waiting returns, a full pass when one "
           f"waits or every {minutes} minutes" + (f"; also the moment a file lands in {len(watch)} watched inboxes"
-                                                 if watch else ""))
+                                                 if watch and sys.platform == "darwin" else ""))
     for path, text in p["files"].items():
         print(f"  write {path}")
         if apply:
