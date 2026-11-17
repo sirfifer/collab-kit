@@ -96,6 +96,15 @@ def _base(rel: str) -> str:
     return rel.rsplit("/", 1)[-1]
 
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)     # Windows: a scheduled run opens no console window
+
+
+def run_quiet(*args, **kwargs):
+    """subprocess.run, without a console window for each program on Windows (the back end runs every
+    minute under pythonw); the same as subprocess.run elsewhere."""
+    return subprocess.run(*args, creationflags=NO_WINDOW, **kwargs)
+
+
 def _inbox_name_ok(path: str) -> bool:
     base = path.rsplit("/", 1)[-1]
     return bool(base) and not base.startswith(("_", ".")) and base.lower() != "readme.md"
@@ -328,7 +337,7 @@ class RcloneStore(Store):
         import tomllib
         want = tomllib.loads((Path(__file__).with_name("rclone.lock")).read_text(encoding="utf-8"))["version"]
         try:
-            res = subprocess.run([self.rclone, "version"], capture_output=True, text=True, timeout=60, env=self._env())
+            res = run_quiet([self.rclone, "version"], capture_output=True, text=True, timeout=60, env=self._env())
         except FileNotFoundError:
             raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
         first = (res.stdout.splitlines() or [""])[0].strip()
@@ -342,7 +351,7 @@ class RcloneStore(Store):
         self._check_version()
         cmd = [self.rclone, *args, *self.flags]
         try:
-            res = subprocess.run(cmd, input=data.encode("utf-8") if data is not None else None,
+            res = run_quiet(cmd, input=data.encode("utf-8") if data is not None else None,
                                  capture_output=True, timeout=300, env=self._env())
         except FileNotFoundError:
             raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
@@ -408,7 +417,7 @@ class RcloneStore(Store):
         """The email of the Google account behind the remote (read-only; the pinned rclone)."""
         remote = self.remote.split(":", 1)[0] + ":"
         self._check_version()
-        res = subprocess.run([self.rclone, *(self.flags[:2] if self.config else []), "config", "userinfo", remote],
+        res = run_quiet([self.rclone, *(self.flags[:2] if self.config else []), "config", "userinfo", remote],
                              capture_output=True, timeout=60, env=self._env())
         m = re.search(r"^\s*EmailAddress:\s*(\S+)", res.stdout.decode("utf-8", "replace"), re.M)
         return m.group(1) if m else ""

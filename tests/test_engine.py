@@ -122,6 +122,19 @@ class Grammar(unittest.TestCase):
             with self.assertRaises(R.ReturnError):
                 R.parse(bad, "d")
 
+    def test_a_change_is_never_dropped_as_a_note(self):
+        # found by the verification review (2026-11-16): each of these must be refused, never applied short
+        base = 'Project: x\nChanges v1:\nlog W-1 "a" "b"\n'
+        for tail in ('\nNew item title="B"\n', '\nNew project name=b from=W-2 "x"\n', '\nSettled W-3 "x"\n',
+                     '\nDropped W-3\n', '\nMark W-3 settled\n', '\nW-3 settle outcome="x"\n',
+                     '\nVerbatim: x\nsettle W-3 "a" outcome="b"\n', 'Note: later\nlog W-2 "c" "d"\n',
+                     'New item: "B"\nlog W-2 "c" "d"\n'):
+            with self.assertRaises(R.ReturnError, msg=tail):
+                R.parse(base + tail + "End.\n", "t")
+        for tail in ('\nVerbatim: "This settles W-019 for now; set it aside."\n',
+                     '\nStandard (applies beyond W-006): one script.\n\nVerbatim: "go"\n'):
+            self.assertEqual(len(R.parse(base + tail + "End.\n", "t").changes), 1, tail)
+
     def test_incomplete_and_second_block(self):
         r = R.parse("Project: g\nChanges v1:\nnew-item title=\"x\"\n", "abc.md")
         self.assertFalse(r.complete)

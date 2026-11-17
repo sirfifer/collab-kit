@@ -61,8 +61,8 @@ import time
 from pathlib import Path
 
 from . import config as C
-from .apply import Outcome, apply_file, heal_duplicates, raise_item
-from .store import FolderStore, Store, StoreError, SubStore, open_store
+from .apply import SETTLE_SECONDS, Outcome, apply_file, heal_duplicates, raise_item
+from .store import FolderStore, Store, StoreError, SubStore, open_store, run_quiet
 from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
 from .views import PRESSING, cloud_units, front_page, inactive_projects, write_front_page  # noqa: F401
 from .text import one_line, sha, stamp, utcnow
@@ -102,7 +102,7 @@ def local_name(name: str) -> str:
 
 
 def git(cwd: Path, *args, check=True, timeout=300) -> str:
-    res = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, encoding="utf-8",
+    res = run_quiet(["git", "-C", str(cwd), *args], capture_output=True, text=True, encoding="utf-8",
                          errors="replace", timeout=timeout, env={**os.environ, **GIT_ENV})
     if check and res.returncode != 0:
         raise Problem(f"git {' '.join(args[:2])} failed in {cwd.name}: {res.stderr.strip()[:300]}")
@@ -123,8 +123,9 @@ def take_lease(cloud: Store, me: str, minutes: int, settle: float = 0) -> bool:
     if raw:
         try:
             cur = json.loads(raw)
+            stale = (now - dt.datetime.fromisoformat(cur.get("renewed", cur["expires"]))).total_seconds() > 300
             if cur.get("holder") != me and dt.datetime.fromisoformat(cur["expires"]) > now \
-                    and not _dead_here(cur.get("holder", "")):
+                    and not (stale and _dead_here(cur.get("holder", ""))):
                 return False
         except (ValueError, KeyError, TypeError):
             pass
@@ -266,7 +267,7 @@ class Pass:
         branch = spec.get("branch", "main")
         if not (d / ".git").is_dir():
             self.work.mkdir(parents=True, exist_ok=True)
-            res = subprocess.run(["git", "clone", "-q", "-c", "core.symlinks=false", "--branch", branch,
+            res = run_quiet(["git", "clone", "-q", "-c", "core.symlinks=false", "--branch", branch,
                                   C.expand(spec["repo"]), str(d)],
                                  capture_output=True, text=True, timeout=600, env={**os.environ, **GIT_ENV})
             if res.returncode != 0:
@@ -279,7 +280,7 @@ class Pass:
             git(d, "reset", "-q", "--hard", f"origin/{branch}")
         else:
             git(d, "reset", "-q", "--hard", "HEAD")
-            res = subprocess.run(["git", "-C", str(d), "-c", "user.name=Collab Kit back end",
+            res = run_quiet(["git", "-C", str(d), "-c", "user.name=Collab Kit back end",
                                   "-c", "user.email=collab-kit@users.noreply.github.com", "rebase", "-q", f"origin/{branch}"],
                                  capture_output=True, text=True, env={**os.environ, **GIT_ENV})
             if res.returncode != 0:
@@ -290,7 +291,7 @@ class Pass:
         return d
 
     def is_ancestor(self, d: Path, commit: str) -> bool:
-        return subprocess.run(["git", "-C", str(d), "merge-base", "--is-ancestor", commit, "HEAD"],
+        return run_quiet(["git", "-C", str(d), "merge-base", "--is-ancestor", commit, "HEAD"],
                               capture_output=True).returncode == 0
 
     def commit(self, d: Path, message: str) -> str | None:
@@ -313,6 +314,8 @@ class Pass:
         cloud_unit = Unit(SubStore(self.cloud, f"projects/{name}/collab-kit"), name, home="repo")
         moves: list[tuple[str, str, str | None]] = []       # (cloud file, where it goes, the commit that applied it)
         for e in cloud_unit.pending_returns():
+            if e.mtime and time.time() - e.mtime < SETTLE_SECONDS:
+                continue                                   # still settling: a conversation may still move it
             if e.native or not e.name.lower().endswith((".md", ".txt")):
                 out = raise_item(repo_unit, "A file in the inbox was set aside",
                                  f"`{one_line(e.name, 120)}` arrived in the inbox but is not a plain .md or .txt return "
@@ -357,7 +360,7 @@ class Pass:
         for out in self.apply_inbox(repo_unit, self.top):   # returns that came in through the repository
             self.commit(d, f"collab-kit: {out.status} return {out.rid}")
         if (d / "tools" / "kb" / "kb.py").is_file():
-            res = subprocess.run([sys.executable, "tools/kb/kb.py", "build"], cwd=d, capture_output=True, text=True,
+            res = run_quiet([sys.executable, "tools/kb/kb.py", "build"], cwd=d, capture_output=True, text=True,
                                  timeout=600)
             if res.returncode != 0:
                 self.problem(f"{name}: the knowledge build failed: {res.stderr.strip()[:200]}")
@@ -392,7 +395,7 @@ class Pass:
         self.mirror(name, d / "collab-kit", cloud_unit)
 
     def push(self, name: str, d: Path, branch: str) -> bool:
-        res = subprocess.run(["git", "-C", str(d), "push", "-q", "origin", f"HEAD:{branch}"], capture_output=True,
+        res = run_quiet(["git", "-C", str(d), "push", "-q", "origin", f"HEAD:{branch}"], capture_output=True,
                              text=True, timeout=300, env={**os.environ, **GIT_ENV})
         if res.returncode != 0:
             self.problem(f"{name}: the push failed; the returns stay in the inbox and are applied again next pass "
@@ -422,7 +425,7 @@ class Pass:
         if not m:
             return True                                # an unknown host: treat as public
         try:
-            res = subprocess.run(["gh", "repo", "view", f"{m.group(1)}/{m.group(2)}", "--json", "visibility",
+            res = run_quiet(["gh", "repo", "view", f"{m.group(1)}/{m.group(2)}", "--json", "visibility",
                                   "-q", ".visibility"], capture_output=True, text=True, timeout=60)
         except (OSError, subprocess.TimeoutExpired):
             return True
@@ -581,18 +584,24 @@ class Pass:
         state = self.work / "notified.json"
         try:
             st = json.loads(state.read_text(encoding="utf-8"))
-            seen, times = set(st["seen"]), [float(x) for x in st.get("times", [])]
-        except (OSError, ValueError, KeyError, TypeError):
+            seen = {k: float(v) for k, v in st["seen"].items()} if isinstance(st["seen"], dict) \
+                else {k: time.time() for k in st["seen"]}
+            times = [float(x) for x in st.get("times", [])]
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
             seen, times = None, []                       # first run: remember what is there, send nothing
         now = {}
         for name, unit in units:
             for it in unit.items():
                 if it.is_open and it.importance <= 1:
                     now[f"{name}:{it.id}"] = ("top level" if name == "top" else name, it)
-        seen = set(now) if seen is None else seen & set(now)   # an item settled and raised again is new again
+        clock = time.time()
+        if seen is None:
+            seen = {k: clock for k in now}
+        else:                                            # forgotten a week after it was last seen critical
+            seen = {k: (clock if k in now else v) for k, v in seen.items() if k in now or clock - v < 7 * 86400}
         times = [x for x in times if x > time.time() - 3600]
         try:
-            for key in sorted(set(now) - seen)[: self.NOTIFY_PER_PASS]:
+            for key in sorted(set(now) - set(seen))[: self.NOTIFY_PER_PASS]:
                 if len(times) >= self.NOTIFY_PER_HOUR:
                     self.note("push: the hourly limit is reached; the rest wait for a later pass")
                     break
@@ -600,16 +609,16 @@ class Pass:
                 message = one_line(it.title, 200).lstrip("@<")    # never a curl file reference
                 env = {**os.environ, "COLLAB_KIT_TITLE": f"Collab Kit: critical in {where}",
                        "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": f"{where} {it.id}"}
-                res = subprocess.run(self.notify_cmd, env=env, capture_output=True, timeout=20)
+                res = run_quiet(self.notify_cmd, env=env, capture_output=True, timeout=20)
                 if res.returncode != 0:
                     raise RuntimeError(f"the notify command failed ({res.returncode}): "
                                        f"{res.stderr.decode('utf-8', 'replace').strip()[:200]}")
-                seen.add(key)
+                seen[key] = time.time()
                 times.append(time.time())
                 self.note(f"pushed: {where} {it.id}")
         finally:
             self.work.mkdir(parents=True, exist_ok=True)
-            state.write_text(json.dumps({"seen": sorted(seen), "times": times}), encoding="utf-8")
+            state.write_text(json.dumps({"seen": dict(sorted(seen.items())), "times": times}), encoding="utf-8")
 
     def write_if_changed(self, unit: Unit, rel: str, text: str) -> None:
         if unit.store.read(rel) != text:
@@ -642,7 +651,7 @@ class Pass:
         """knowledge/repositories.md: every name already taken (GitHub, and local project folders)."""
         names: dict[str, str] = {}
         try:
-            res = subprocess.run(["gh", "repo", "list", "--limit", "500", "--json", "name,visibility"],
+            res = run_quiet(["gh", "repo", "list", "--limit", "500", "--json", "name,visibility"],
                                  capture_output=True, text=True, timeout=60)
             if res.returncode == 0:
                 for r in json.loads(res.stdout):
@@ -774,29 +783,33 @@ def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: 
     b = cfg["backend"]
     work = Path(C.expand(b.get("work", str(C.state_dir().parent / "backend"))))
     stamp_file, print_file = work / LAST_PASS, work / INBOX_PRINT
-    if if_waiting and not dry_run:
+    before = None                                    # the inboxes as this pass starts (settled files)
+    if not dry_run:
+        try:
+            before = settled_inbox(open_store(C.expand(b["cloud"])))
+        except (StoreError, OSError):
+            before = None                            # the full pass says what is wrong, on the agenda
+    if if_waiting and not dry_run and before is not None:
         interval = int(b.get("interval_minutes", 60))
         try:
             fresh = time.time() - stamp_file.stat().st_mtime < interval * 60 - 30
         except OSError:
             fresh = False
-        if fresh:
-            try:
-                last = json.loads(print_file.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                last = None
-            try:
-                if settled_inbox(open_store(C.expand(b["cloud"]))) == last:
-                    return 0
-            except (StoreError, OSError):
-                pass                                 # the full pass says what is wrong, on the agenda
+        try:
+            last = json.loads(print_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            last = None
+        if fresh and before == last:
+            return 0
     p = Pass(cfg, dry_run=dry_run)
     rc = p.run()
     if not dry_run and p.held_lease:
         try:
             work.mkdir(parents=True, exist_ok=True)
             stamp_file.write_text(utcnow().isoformat() + "\n", encoding="utf-8")
-            print_file.write_text(json.dumps(settled_inbox(p.cloud)), encoding="utf-8")
+            after = settled_inbox(p.cloud)           # what this pass saw settled and left: nothing that
+            seen = [e for e in after if before is None or e in before]   # settled or arrived meanwhile
+            print_file.write_text(json.dumps(seen), encoding="utf-8")
         except (OSError, StoreError):
             pass
     return rc

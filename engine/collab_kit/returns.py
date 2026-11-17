@@ -222,18 +222,43 @@ def parse(text: str, name: str = "") -> Return:
     return Return(rid, project, fields, changes, block_at is not None, complete, text)
 
 
-def _first_word(line: str) -> str:
-    m = re.match(r"\s*([A-Za-z][\w\u2013\u2014-]*)", line)
-    return (m.group(1) if m else "").lower().replace("\u2013", "-").replace("\u2014", "-")
+_ITEM_AT = re.compile(r"^\W*W-?\d{1,5}\b", re.I)
+_KEY_ARG = re.compile(r"(?:^|\s)[A-Za-z][\w-]*=\S")
+
+
+def _words(line: str) -> list[str]:
+    return re.findall(r"[a-z][\w-]*", line.lower().replace("\u2013", "-").replace("\u2014", "-"))
+
+
+def _names() -> set[str]:
+    return set(OPS) | set(OP_ALIASES) | set(KIND_OPS)
+
+
+def _reads_as_change(line: str) -> bool:
+    """A line written as a change: it starts with a change's name (one word, or two, "new item"), or
+    with an item number, or it carries key=value arguments."""
+    w = _words(line)
+    return bool(w) and (w[0] in _names() or "-".join(w[:2]) in _names() or bool(_ITEM_AT.match(line))
+                        or bool(_KEY_ARG.search(line)))
+
+
+def _could_be_change(line: str) -> bool:
+    """Wider than _reads_as_change, for the line that would start a note: also a word that begins like
+    a change ("Settled", "Dropped", "Logged") or an item number among its first three words ("Mark W-3
+    settled"). Such a line is parsed as a change, so a mistake in it is refused, never ignored."""
+    if _reads_as_change(line):
+        return True
+    w = _words(line)
+    return (bool(w) and any(w[0].startswith(n) for n in _names() if len(n) >= 3)) or \
+        bool(re.search(r"\bW-?\d{1,5}\b", " ".join(line.split()[:3]), re.I))
 
 
 def _is_commentary(line: str) -> bool:
-    """After the changes and a blank line, a voice conversation often adds a note before End.
-    ("Verbatim: ...", "Standard (applies beyond W-006): ..."). A line that starts with a capital and is
-    not a change ends the changes; the rest is kept in the return as text. A lowercase word that is not
-    a change still fails, so a misspelled change is never dropped quietly."""
-    w = _first_word(line)
-    return bool(line.lstrip()[:1].isupper()) and w not in OPS and w not in OP_ALIASES and w not in KIND_OPS
+    """After the changes, a voice conversation often adds a note before End. ("Verbatim: ...",
+    "Standard (applies beyond W-006): ..."). A line that starts with a capital and could not be a change
+    starts that note; _parse_block then refuses the return if anything in the note reads as a change,
+    so a change is never dropped quietly."""
+    return bool(line.lstrip()[:1].isupper()) and not _could_be_change(line)
 
 
 def _parse_block(lines: list[str], start: int) -> tuple[list[Change], int | None]:
@@ -246,8 +271,12 @@ def _parse_block(lines: list[str], start: int) -> tuple[list[Change], int | None
             return changes, i
         if changes and raw.strip() and _is_commentary(normalise_line(raw)) and (
                 blank_before or FIELD_RE.match(normalise_line(raw).strip())):
+            note_at = i + 1
             while i < len(lines) and straighten(lines[i]).strip() != "End.":
-                i += 1                                   # commentary to the end: kept in the file, not parsed
+                if i + 1 > note_at and _reads_as_change(normalise_line(lines[i]).strip()):
+                    raise ReturnError(f"this looks like a change, after the note that starts on line {note_at}: "
+                                      "put every change before the note (or remove the note)", i + 1)
+                i += 1                                   # the note, to End.: kept in the file, not parsed
             return changes, (i if i < len(lines) else None)
         blank_before = not raw.strip()
         if FENCE_RE.match(raw):

@@ -564,6 +564,34 @@ class BackEnd(unittest.TestCase):
         p, _ = self.run_pass()                             # setUp's table has no Collab Kit column
         self.assertTrue(any("no Collab Kit column" in x for x in p.problems), p.problems)
 
+    def test_a_return_that_settles_during_a_pass_is_not_missed(self):
+        cfg = self._cfgfile()
+        self.s.write("_returns/t8.md", "Project: top\nChanges v1:\nnew-item title=\"Filed mid-pass\"\nEnd.\n")
+        BE.run(cfg, if_waiting=True)                       # a pass runs; the return is still settling
+        self.assertTrue(self.s.exists("_returns/t8.md"))
+        old(self.cloud / "_returns/t8.md")                 # it settles after that pass
+        BE.run(cfg, if_waiting=True)                       # the next minute must pick it up
+        self.assertFalse(self.s.exists("_returns/t8.md"))
+
+    def test_a_dead_local_lease_frees_only_once_stale(self):
+        import socket
+        from collab_kit.backend import take_lease
+        from collab_kit.text import utcnow
+        import datetime as dt
+        dead = 999999
+        while True:
+            try:
+                os.kill(dead, 0)
+                dead += 1
+            except ProcessLookupError:
+                break
+        holder = f"{socket.gethostname()}:{dead}"
+        exp = (utcnow() + dt.timedelta(minutes=50)).isoformat()
+        self.s.write("_backend/lease.json", json.dumps({"holder": holder, "expires": exp, "renewed": utcnow().isoformat()}))
+        self.assertFalse(take_lease(self.s, "me:1", 10), "freshly renewed: maybe a same-named machine")
+        old_renew = (utcnow() - dt.timedelta(minutes=10)).isoformat()
+        self.s.write("_backend/lease.json", json.dumps({"holder": holder, "expires": exp, "renewed": old_renew}))
+        self.assertTrue(take_lease(self.s, "me:1", 10), "a dead process of this machine, not renewed: free")
 
 if __name__ == "__main__":
     unittest.main()

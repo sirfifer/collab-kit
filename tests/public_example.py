@@ -215,6 +215,9 @@ def drop_topics(text: str, tops: list[re.Pattern], ids: frozenset[str] = frozens
         if not ln.strip() or ln.lstrip().startswith("|") or ln.startswith("+++") or FIELD_LINE.match(ln):
             if not (ln.strip() and hit(ln)):
                 out.append(ln)
+            elif FIELD_LINE.match(ln):                      # a dropped field takes its indented continuation
+                while i + 1 < len(lines) and lines[i + 1].strip() and lines[i + 1][:1] in (" ", "\t"):
+                    i += 1
             i += 1
             continue
         j = i + 1                                           # a paragraph

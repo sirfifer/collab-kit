@@ -448,6 +448,10 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   start file is the way in and a true picture of the setup: it changes only when the setup does (a
   back end starts running; a limited state), and never carries news or status. Both are stated in the
   start-file templates.
+- **A note after the changes** (two of Richard's returns of 2026-11-15): voice conversations add
+  "Verbatim: ..." or a sentence after the last change. It ends the changes and stays in the return as
+  text, but only when nothing in it could be a change; otherwise the return is refused and raised on
+  the agenda. A change is never dropped quietly.
 - **How a conversation works here** (return 1949): follow through (when the next step is plainly to
   look further, do it in the same turn and report what was found); say only what was seen (never
   invent a name); before filing a return, check that inbox and its applied returns for one on the

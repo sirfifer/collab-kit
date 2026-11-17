@@ -32,12 +32,20 @@ title name a local file to send; push bookkeeping resent or dropped items after 
 return" advice could lose changes (now: never change a filed return; file what is new and name it);
 the setup line kept the kit's older wording on `--replace-start`; a Google Doc in an inbox was set aside
 before a conversation could move it; a refused pass counted as a pass; Windows opened a console window
-every minute (now `pyw`); the example's filter could empty a front-matter block or a return's header.
+every minute (now `pyw`, and no window for the programs it starts); the example's filter could empty a
+front-matter block or a return's header. A check of those fixes then found: the first version of the
+note rule could drop a change that came after a note (now refused); a return that settled while a pass
+ran waited for the hourly sweep (only what was settled when the pass began counts as seen); a
+repository-homed inbox set a fresh Google Doc aside without the settle wait; a dead pass's lease on the
+same machine could be taken from a same-named machine (now only once it is five minutes stale); an item
+briefly unreadable was pushed again (the back end now remembers an item for a week).
 
 **Returns: a note after the changes is fine.** Voice conversations add "Verbatim: ..." or a sentence
 after the last change, before `End.`; two of Richard's returns of 2026-11-15 were refused for it. A line
-that starts with a capital and is not a change now ends the changes when it follows a blank line or
-reads as a field ("Verbatim: ..."); the note stays in the return. A misspelled change still fails.
+that starts with a capital and could not be a change now ends the changes when it follows a blank line
+or reads as a field ("Verbatim: ..."); the note stays in the return. Nothing is ever dropped quietly: a
+line that could be meant as a change ("Settled W-3", "New item ...", "Mark W-3 settled") is parsed as one
+and refused if it is not, and a return with a change after its note is refused.
 
 **Optional push notifications.** The first time a critical item appears, the back end runs one
 command of yours (`[notify]` in `backend.toml`; ntfy, Pushover, and Telegram examples in
