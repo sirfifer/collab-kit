@@ -125,6 +125,118 @@ def leaks(text: str, deny: list[re.Pattern]) -> list[str]:
     return [m.group(0)[:60] for rx in GENERIC_DENY + deny for m in rx.finditer(text)]
 
 
+# ---------------------------------------------------------------- topics left out --
+
+HEADING = re.compile(r"^(#{1,6})\s")
+LIST_ITEM = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s")
+FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
+CHANGES_START = re.compile(r"^Changes v\d+:\s*$")
+
+
+def topics(m: dict) -> list[re.Pattern]:
+    """The topics the example leaves out entirely (snapshot.toml `leave_out`, case-insensitive regexes)."""
+    return [re.compile(x, re.I) for x in m.get("leave_out", [])]
+
+
+def mentions(text: str, tops: list[re.Pattern]) -> list[str]:
+    return [m.group(0) for rx in tops for m in rx.finditer(text)]
+
+
+def _fence_end(lines: list[str], i: int) -> int:
+    """Index after the fenced block opening at i (closed by the same character, at least as long)."""
+    mark = FENCE.match(lines[i]).group(1)
+    j = i + 1
+    while j < len(lines):
+        m = FENCE.match(lines[j])
+        if m and m.group(1)[0] == mark[0] and len(m.group(1)) >= len(mark) and not lines[j].strip()[len(m.group(1)):]:
+            return j + 1
+        j += 1
+    return len(lines)
+
+
+def drop_topics(text: str, tops: list[re.Pattern], ids: frozenset[str] = frozenset()) -> str:
+    """Text less every part that mentions a topic, or names an item left out (`ids`).
+
+    Markdown: a heading takes its section with it; a list item its indented continuation; a table row or a
+    paragraph goes alone; inside a fence the same rules apply. A return's `Changes v1:` block goes change
+    by change: a change line takes its fenced body with it, and a kept change keeps its body filtered."""
+    idrx = re.compile(r"\b(?:" + "|".join(map(re.escape, sorted(ids))) + r")\b") if ids else None
+
+    def hit(s: str) -> bool:
+        return bool(mentions(s, tops)) or bool(idrx and idrx.search(s))
+
+    def fenced(block: list[str]) -> list[str]:
+        inner = drop_topics("\n".join(block[1:-1]), tops, ids) if len(block) > 2 else ""
+        return [block[0]] + (inner.split("\n") if inner else []) + block[-1:]
+
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        ln = lines[i]
+        if CHANGES_START.match(ln):                         # a return's changes: one change at a time
+            out.append(ln)
+            i += 1
+            while i < len(lines) and lines[i].strip() != "End.":
+                j = i + 1
+                body = None
+                if j < len(lines) and FENCE.match(lines[j]):
+                    k = _fence_end(lines, j)
+                    body, j = lines[j:k], k
+                if not hit(lines[i]):
+                    out.append(lines[i])
+                    if body:
+                        out += fenced(body)
+                i = j
+            continue
+        h = HEADING.match(ln)
+        if h:
+            if hit(ln):                                     # to the next heading at this level or above
+                lvl, i = len(h.group(1)), i + 1
+                while i < len(lines) and not ((m := HEADING.match(lines[i])) and len(m.group(1)) <= lvl):
+                    i += 1
+            else:
+                out.append(ln)
+                i += 1
+            continue
+        if FENCE.match(ln):
+            j = _fence_end(lines, i)
+            out += fenced(lines[i:j])
+            i = j
+            continue
+        item = LIST_ITEM.match(ln)
+        if item:
+            ind, j = len(item.group(1)), i + 1
+            while j < len(lines) and lines[j].strip() and (len(lines[j]) - len(lines[j].lstrip())) > ind:
+                j += 1
+            if not hit("\n".join(lines[i:j])):
+                out += lines[i:j]
+            i = j
+            continue
+        if not ln.strip() or ln.lstrip().startswith("|") or ln.startswith("+++"):
+            if not (ln.strip() and hit(ln)):
+                out.append(ln)
+            i += 1
+            continue
+        j = i + 1                                           # a paragraph
+        while j < len(lines) and lines[j].strip() and not (
+                HEADING.match(lines[j]) or LIST_ITEM.match(lines[j]) or lines[j].lstrip().startswith("|")
+                or FENCE.match(lines[j]) or CHANGES_START.match(lines[j])):
+            j += 1
+        if not hit("\n".join(lines[i:j])):
+            out += lines[i:j]
+        i = j
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+
+
+def _item_title(text: str) -> str:
+    m = re.search(r'^title\s*=\s*"(.*)"', text, re.M)
+    return m.group(1) if m else ""
+
+
+def _return_topic(text: str) -> str:
+    m = re.search(r"^Topic:\s*(.*)$", text, re.M)
+    return m.group(1) if m else ""
+
+
 # ------------------------------------------------------------------------- the example --
 
 def manifest(example: Path = EXAMPLE) -> dict:
@@ -196,8 +308,9 @@ def check(example: Path = EXAMPLE) -> list[str]:
         for e in d.get("effects", []):
             if e.get("after") is not None and e.get("after_sha") != sha(e["after"]):
                 problems.append(f"{APPLIED}/{led.name}: an effect's after_sha does not match its text")
-    # nothing private
+    # nothing private, and nothing about a topic the example leaves out
     _, deny, _ = private_rules()
+    tops = topics(m)
     for rel, p in sorted(have.items()):
         try:
             text = p.read_text(encoding="utf-8")
@@ -205,7 +318,59 @@ def check(example: Path = EXAMPLE) -> list[str]:
             continue
         for hit in leaks(text, deny):
             problems.append(f"{rel}: private material ({hit!r})")
+        if rel not in HAND_WRITTEN:
+            for hit in sorted(set(mentions(text, tops))):
+                problems.append(f"{rel}: mentions {hit!r}, a topic the example leaves out")
     return problems
+
+
+def leave_out_topics(staged: dict[str, str], tops: list[re.Pattern]) -> list[str]:
+    """Take every topic in snapshot.toml's `leave_out` out of the staged snapshot, in place: an item whose
+    title is about one leaves whole, and so does a return whose topic is; every other file, and every
+    before and after text in a ledger, loses the parts that mention one (drop_topics). Returns notes."""
+    if not tops:
+        return []
+    gone_items, gone_paths, gone_returns = [], set(), []
+    for rel in [r for r in staged if r.startswith("agenda/") and r.endswith(".md")]:
+        if mentions(_item_title(staged[rel]), tops) and (mid := re.match(r"agenda/(W-\d+)", rel)):
+            gone_items.append(mid.group(1))
+            gone_paths.add(rel)
+            del staged[rel]
+    for rel in [r for r in staged if r.startswith(f"{APPLIED}/") and r.endswith(".md")]:
+        if mentions(_return_topic(staged[rel]), tops):
+            gone_returns.append(rel.rsplit("/", 1)[-1][:-3])
+            del staged[rel]
+            staged.pop(rel[:-3] + ".ledger.json", None)
+    def n_changes(rel):
+        try:
+            return len(R.parse(staged[rel], rel.rsplit("/", 1)[-1]).changes)
+        except R.ReturnError:
+            return 0
+    had = {rel: n_changes(rel) for rel in staged if rel.startswith(f"{APPLIED}/") and rel.endswith(".md")}
+    ids = frozenset(gone_items)
+    for rel in list(staged):
+        if rel.endswith(".ledger.json"):
+            led = json.loads(staged[rel])
+            led["effects"] = [e for e in led.get("effects", [])
+                              if DRIVE_DUPLICATE.sub("", e.get("path", "")) not in gone_paths]
+            for e in led["effects"]:
+                for side in ("before", "after"):
+                    if isinstance(e.get(side), str):
+                        e[side] = drop_topics(e[side], tops, ids)
+            staged[rel] = json.dumps(led, indent=1, ensure_ascii=False) + "\n"
+        elif rel.endswith(".md"):
+            staged[rel] = drop_topics(staged[rel], tops, ids)
+    for rel in [r for r in staged if r.startswith(f"{APPLIED}/") and r.endswith(".md")]:
+        if had.get(rel) and not n_changes(rel):               # every change it made was about a topic
+            gone_returns.append(rel.rsplit("/", 1)[-1][:-3])
+            del staged[rel]
+            staged.pop(rel[:-3] + ".ledger.json", None)
+    notes = []
+    if gone_items:
+        notes.append("items left out (a topic in leave_out): " + ", ".join(sorted(gone_items)))
+    if gone_returns:
+        notes.append("returns left out (a topic in leave_out): " + ", ".join(sorted(gone_returns)))
+    return notes
 
 
 def refresh(src: Path, fill: Path | None = None, example: Path = EXAMPLE, require_rules: bool = True) -> list[str]:
@@ -250,6 +415,7 @@ def refresh(src: Path, fill: Path | None = None, example: Path = EXAMPLE, requir
             dropped.append(stem.rsplit("/", 1)[-1])
     if dropped:
         notes.append("left out with the files they wrote: " + ", ".join(dropped))
+    notes += leave_out_topics(staged, topics(m))
     out, found = {}, []
     for rel, text in staged.items():
         text = (json.dumps(clean_json(json.loads(text), replace), indent=1, ensure_ascii=False) + "\n"

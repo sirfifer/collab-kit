@@ -12,4 +12,14 @@ exclude = [
   "knowledge/article-draft-01.md",            # unpublished writing; the article lives in its own folder
   "knowledge/article-outline.md",
   "knowledge/article-deltas-2026-11-15.md",
+  "knowledge/prior-art-2026-11-14.md",        # research written for the article (its credits, claims to avoid)
+]
+
+# Topics left out entirely (case-insensitive regexes; tests/public_example.py drop_topics): an item whose
+# title is about one, or a return whose topic is, leaves whole; everywhere else, the section, list item,
+# table row, paragraph, or change that mentions one goes. `check` fails if a mention remains.
+# The article stays out (Richard, 2026-11-15, W-019): unpublished writing is not part of the example.
+leave_out = [
+  '\barticles?\b',
+  'talking to my project',
 ]
