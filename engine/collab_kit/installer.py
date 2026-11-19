@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -37,7 +38,7 @@ BLOCK_NAME = "agents"
 
 class Plan:
     def __init__(self, root: Path, dry: bool):
-        self.root, self.dry, self.steps, self.info = root, dry, [], []
+        self.root, self.dry, self.steps, self.info, self.refused = root, dry, [], [], ""
 
     def write(self, rel: str, text: str, why: str) -> None:
         p = self.root / rel
@@ -146,7 +147,13 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
         unit = unit or cfg["project"]["unit"]
         home = home or cfg["project"]["home"]
     else:
-        name = name or root.name
+        name = name or _main_checkout(root).name           # a worktree's folder name is never the project's
+        from .text import check_project_name, slug
+        why = check_project_name(name)
+        if why:
+            plan.refused = f"'{name}' cannot be a project's name ({why}): give --name, e.g. --name {slug(name, 40)}"
+            plan.tell("nothing installed", plan.refused)
+            return plan
         unit = unit or f"projects/{name}/collab-kit"
         home = home or "cloud"
         plan.write(C.PROJECT_FILE.as_posix(),
@@ -226,6 +233,17 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
     return plan
 
 
+def _main_checkout(root: Path) -> Path:
+    """The repository's main checkout (for a worktree, the folder its .git belongs to); else root."""
+    try:
+        res = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                             capture_output=True, text=True, timeout=30)
+        common = Path(res.stdout.strip()) if res.returncode == 0 and res.stdout.strip() else None
+    except (OSError, subprocess.TimeoutExpired):
+        common = None
+    return common.parent if common and common.name == ".git" else root
+
+
 def keep_description(current: str, fresh: str) -> str:
     """The current template, keeping what the project wrote itself: its description (the paragraph that
     starts 'Project: **') and any paragraph of its own before the first heading (a pointer into its
@@ -234,99 +252,118 @@ def keep_description(current: str, fresh: str) -> str:
         lines = text.replace("\r\n", "\n").split("\n")
         end = next((i for i, ln in enumerate(lines) if i and ln.startswith("## ")), len(lines))
         body = "\n".join(lines[1:end]).strip("\n")
-        return lines[0], [q for q in re.split(r"\n[ \t]*\n", body) if q.strip()], lines[end:]
-    _, cur, _ = intro(current)
+        return lines[0], [q.strip() for q in re.split(r"\n[ \t]*\n", body) if q.strip()], lines[end:]
+    _, cur, cur_tail = intro(current)
     title, paras, tail = intro(fresh)
     mine = next((q for q in cur if q.startswith("Project: **")), None)
-    own = [q for q in cur if not q.startswith(("Project: **", "**Home:"))]
+    # without the template's headings the file's shape is unknown: keep only its description (the rest
+    # stays in the kept version), rather than carry whole sections over twice
+    own = [q for q in cur if not q.startswith(("Project: **", "**Home:"))] if cur_tail else []
     paras = [mine if mine and q.startswith("Project: **") else q for q in paras] + own
     return title + "\n\n" + "\n\n".join(paras) + "\n\n" + "\n".join(tail)
 
 
+def _q(value: str) -> str:
+    """A quoted value for a change line (the grammar reads \\" and \\\\ inside quotes)."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _cloud_side(root: Path, name: str, unit: str, home: str, about: str, spoken: str, human: str,
                 plan: Plan, dry: bool, replace_start: bool = False) -> None:
-    """A cloud-homed project gets its folder in the Collab Kit folder (new files only), and every project
-    is marked live in the top level's knowledge/projects.md through a return, so the one writer applies
-    it (the back end if one runs, else this machine at once). Without the folder in reach: the next step."""
-    from .session import Project, open_cloud
-    from .store import SubStore
+    """A cloud-homed project gets its folder in the Collab Kit folder (new files only, the start file
+    last, so an interrupted run is finished by the next one), and every project is marked live in the
+    top level's knowledge/projects.md through a return, so the one writer applies it (the back end if
+    one has run, else this machine at once). A dry run decides exactly as a real run would. Anything the
+    folder cannot do just now is said, never raised: the repository side is already installed."""
+    import re as _re
+    from .apply import Reject, _cells, _col, _table_rows, has_project_row
+    from .returns import ReturnError
+    from .session import Project, backend_state, open_cloud
+    from .store import StoreError, SubStore
     from .templates import project_start_file, returns_readme, set_human
+    from .text import check_project_name
+    from .unit import Unit, write_versioned
+    why = check_project_name(name)
+    if why:
+        plan.tell("skip the Collab Kit folder", f"{why}: give the project a name the kit accepts (--name)")
+        return
     machine = C.machine()
-    cloud = open_cloud(machine)
-    if cloud is None:
-        why = ("this machine has no Collab Kit config: run install.py machine first"
-               if not machine.get("cloud", {}).get("root") else
-               f"the Collab Kit folder ({machine['cloud']['root']}) is not reachable from here")
-        plan.tell("next: the project's folder and its catalog row", f"{why}, then run this again")
-        return
-    if home == "cloud":
-        sub = SubStore(cloud, unit)
-        cur = sub.read("00-START-HERE.md")
-        if cur is not None and replace_start:
-            set_human(human)
-            new = keep_description(cur, project_start_file(name, about, spoken or name, home="cloud"))
-            if new != cur:
-                plan.note(f"replace {unit}/00-START-HERE.md with the current template", "its 'Project:' line kept; "
-                          "the old one is kept in _versions/ (carry over anything else added by hand)")
-                if not dry:
-                    from .unit import Unit, write_versioned
-                    write_versioned(Unit(sub, name, home="cloud"), "00-START-HERE.md", new)
-        if cur is None:
-            set_human(human)
-            files = {"00-START-HERE.md": project_start_file(name, about, spoken or name, home="cloud"),
-                     "_returns/README.md": returns_readme(name),
-                     "agenda/README.md": "# Agenda\n\nOne file per item (`W-NNN-...`). Change items by filing a return.\n",
-                     "knowledge/README.md": f"# {name}\n\n{about or 'What this project knows.'}\n",
-                     "WIP/README.md": "# WIP\n\nCheckpoint notes between saves. See the top-level start file.\n"}
-            for rel, text in files.items():
-                if sub.read(rel) is None:
-                    plan.note(f"create {unit}/{rel}", "in the Collab Kit folder: the project's home")
-                    if not dry:
-                        sub.write(rel, text)
-    from .apply import has_project_row, _col, _table_rows, _cells
-    catalog = cloud.read("knowledge/projects.md") or ""
-    lines, hi, cells, rows = _table_rows(catalog)
-    kcol, fcol = _col(cells, "collab kit", "collab-kit"), _col(cells, "folder")
-    state = next((_cells(lines[j])[kcol] for j in rows if fcol is not None and kcol is not None
-                  and len(_cells(lines[j])) > max(fcol, kcol) and _cells(lines[j])[fcol].strip("`") == name), None)
-    listed = has_project_row(catalog, name)
-    if hi is None:
-        plan.tell("skip the catalog", "the Collab Kit folder has no knowledge/projects.md table (install.py top)")
-        return
-    if listed and (kcol is None or state == "live"):
-        return
-    if not listed and not about:
-        plan.tell("next: the catalog row", f"'{name}' is not in knowledge/projects.md: run again with "
-                  "--about \"what it is\" (and --spoken \"what you call it\") to add it")
-        return
-    where = ("a repository; its Collab Kit home is its folder here" if home == "cloud" else
-             "a repository; its Collab Kit home is the repository (`collab-kit/` there): the folder here is a copy")
-    args = ' collab-kit=live' if kcol is not None else ""
-    if not listed:
-        args += f' about="{about}" where="{where}"' + (f' spoken="{spoken}"' if spoken else "")
-    change = f"project {name}{args}"
-    if dry or not (root / C.PROJECT_FILE).is_file():
-        plan.note(f"file a return: {change}", "marks the project live in the catalog")
-        return
-    from .apply import Reject
     try:
-        proj = Project(root)
-        cu = proj.cloud_unit()
-        if proj.route()[0] != "cloud" or cu is None:  # only into the inbox that can reach the catalog
-            plan.tell(f"next: file `{change}` from the project's Collab Kit folder",
-                      "this repository's returns do not reach it yet (a back end mirrors a repository-homed "
-                      "project's folder once its backend.toml lists it)")
+        cloud = open_cloud(machine)
+        if cloud is None:
+            why = ("this machine has no Collab Kit config: run install.py machine first"
+                   if not machine.get("cloud", {}).get("root") else
+                   f"the Collab Kit folder ({machine['cloud']['root']}) is not reachable from here")
+            plan.tell("next: the project's folder and its catalog row", f"{why}, then run this again")
             return
-        if any(change in (cu.store.read(f"_returns/{e.name}") or "") for e in cu.pending_returns() if not e.native):
-            plan.tell(f"already filed: {change}", "waiting in the project's inbox")
+        sub = SubStore(cloud, unit)
+        has_folder = sub.read("00-START-HERE.md") is not None
+        if home == "cloud":
+            set_human(human)
+            if has_folder and replace_start:
+                cur = sub.read("00-START-HERE.md") or ""
+                new = keep_description(cur, project_start_file(name, about, spoken or name, home="cloud"))
+                if new != cur:
+                    plan.note(f"replace {unit}/00-START-HERE.md with the current template", "its own paragraphs "
+                              "kept; the old one is kept in _versions/")
+                    if not dry:
+                        write_versioned(Unit(sub, name, home="cloud"), "00-START-HERE.md", new)
+            if not has_folder:
+                files = {"_returns/README.md": returns_readme(name),
+                         "agenda/README.md": "# Agenda\n\nOne file per item (`W-NNN-...`). Change items by filing a return.\n",
+                         "knowledge/README.md": f"# {name}\n\n{about or 'What this project knows.'}\n",
+                         "WIP/README.md": "# WIP\n\nCheckpoint notes between saves. See the top-level start file.\n",
+                         "00-START-HERE.md": project_start_file(name, about, spoken or name, home="cloud")}  # last
+                for rel, text in files.items():
+                    if sub.read(rel) is None:
+                        plan.note(f"create {unit}/{rel}", "in the Collab Kit folder: the project's home")
+                        if not dry:
+                            sub.write(rel, text)
+        catalog = cloud.read("knowledge/projects.md") or ""
+        lines, hi, cells, rows = _table_rows(catalog)
+        if hi is None:
+            plan.tell("skip the catalog", "the Collab Kit folder has no knowledge/projects.md table (install.py top)")
             return
+        kcol, fcol = _col(cells, "collab kit", "collab-kit"), _col(cells, "folder")
+        state = next((_cells(lines[j])[kcol] for j in rows if fcol is not None and kcol is not None
+                      and len(_cells(lines[j])) > max(fcol, kcol) and _cells(lines[j])[fcol].strip("`") == name), None)
+        listed = has_project_row(catalog, name)
+        if listed and (kcol is None or state == "live"):
+            return
+        # the return goes to the project's inbox in the folder: there for a cloud-homed project (made
+        # above), and for a repository-homed one only while a back end keeps its copy there
+        if home == "repo" and not (has_folder and backend_state(cloud, human)["live"]):
+            plan.tell(f"next: mark '{name}' live in the catalog from its Collab Kit folder",
+                      "a repository-homed project's returns reach it once a back end lists it in backend.toml "
+                      "and runs; then run this again")
+            return
+        line = _re.compile(rf"(?m)^\s*project\s+{_re.escape(name)}\b")
+        if has_folder:
+            tu = Unit(sub, name, home="cloud")
+            if any(line.search(sub.read(f"_returns/{e.name}") or "") for e in tu.pending_returns() if not e.native):
+                plan.tell(f"already filed: the catalog change for '{name}'", "waiting in the project's inbox")
+                return
+        if not listed and not about:
+            plan.tell("next: the catalog row", f"'{name}' is not in knowledge/projects.md: run again with "
+                      "--about \"what it is\" (and --spoken \"what you call it\") to add it")
+            return
+        where = ("a repository; its Collab Kit home is its folder here" if home == "cloud" else
+                 "a repository; its Collab Kit home is the repository (`collab-kit/` there): the folder here is a copy")
+        change = f"project {name}" + (" collab-kit=live" if kcol is not None else "")
+        if not listed:
+            change += f" about={_q(about)} where={_q(where)}" + (f" spoken={_q(spoken)}" if spoken else "")
         plan.note(f"file a return: {change}", "marks the project live in the catalog")
-        text = proj.compose("note", f"{name} is set up in Collab Kit", [change],
-                            sender=f"the Collab Kit installer in {name}")
-        res = proj.file(text)
+        if dry:
+            return
+        proj = Project(root)
+        if proj.route()[0] != "cloud":                 # never: decided above; kept as a guard
+            plan.tell("  not filed", "this repository's returns do not reach the Collab Kit folder")
+            return
+        res = proj.file(proj.compose("note", f"{name} is set up in Collab Kit", [change],
+                                     sender=f"the Collab Kit installer in {name}"))
         plan.tell(f"  {'applied' if res.get('applied') else 'filed'} ({res['route']})", res.get("message", ""))
-    except (Reject, OSError) as e:
-        plan.tell("  not filed", str(e))
+    except (StoreError, OSError, ReturnError, Reject, subprocess.TimeoutExpired) as e:
+        plan.tell("stopped at the Collab Kit folder", f"{type(e).__name__}: {str(e)[:200]}; run this again")
 
 
 # ---------------------------------------------------------------------------- machine --
@@ -462,31 +499,35 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
             from .store import FolderStore
             from .unit import Unit, write_versioned
             write_versioned(Unit(FolderStore(folder), "top", home="cloud", top=True), "00-START-HERE.md", new)
-    if replace_start and start.is_file():                  # each project homed here: its start file too
-        from .templates import HOME_NOTES, project_start_file
-        set_human(human)
-        repo_note = HOME_NOTES["repo"].split(".")[0]
-        for ps in sorted(folder.glob("projects/*/collab-kit/00-START-HERE.md")):
-            cur = ps.read_text(encoding="utf-8")
-            if repo_note in cur:                           # a repository's copy: the back end mirrors it
-                continue
-            name = ps.parent.parent.name
-            new_p = keep_description(cur, project_start_file(name, "", name, home="cloud"))
-            if new_p != cur:
-                rel = ps.relative_to(folder).as_posix()
-                plan.note(f"replace {rel} with the current template", "its 'Project:' line kept; the old one is "
-                          "kept in _versions/ (carry over anything else added by hand)")
-                if not dry:
-                    from .store import FolderStore, SubStore
-                    from .unit import Unit, write_versioned
-                    write_versioned(Unit(SubStore(FolderStore(folder), ps.parent.relative_to(folder).as_posix()),
-                                         name, home="cloud"), "00-START-HERE.md", new_p)
     beat = folder / "_backend" / "heartbeat.json"
     if setup == "none" and beat.is_file():                 # a retired back end: sessions apply returns again
         from .text import stamp
         plan.note("retire _backend/heartbeat.json (renamed, kept)", "sessions apply returns themselves again")
         if not dry:
             beat.rename(beat.with_name(f"heartbeat.retired-{stamp()}.json"))
+    if replace_start and start.is_file():                  # each project homed here: its start file too
+        from .store import FolderStore, StoreError, SubStore
+        from .templates import HOME_NOTES, project_start_file
+        from .unit import Unit, write_versioned
+        set_human(human)
+        repo_note = HOME_NOTES["repo"].split(".")[0]
+        fs = FolderStore(folder)
+        for ps in sorted(folder.glob("projects/*/collab-kit/00-START-HERE.md")):
+            rel = ps.relative_to(folder).as_posix()
+            try:
+                cur = fs.read(rel)                         # the store retries a Drive placeholder
+                if cur is None or repo_note in cur:        # a repository's copy: the back end mirrors it
+                    continue
+                name = ps.parent.parent.name
+                new_p = keep_description(cur, project_start_file(name, "", name, home="cloud"))
+                if new_p != cur:
+                    plan.note(f"replace {rel} with the current template", "its own paragraphs kept; the old one "
+                              "is kept in _versions/")
+                    if not dry:
+                        write_versioned(Unit(SubStore(fs, ps.parent.relative_to(folder).as_posix()), name,
+                                             home="cloud"), "00-START-HERE.md", new_p)
+            except (StoreError, OSError) as e:
+                plan.tell(f"skipped {rel}", f"{type(e).__name__}: {e}; run this again")
     if not dry:
         from .store import FolderStore
         from .text import utcnow

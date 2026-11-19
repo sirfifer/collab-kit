@@ -21,11 +21,13 @@ def _damaged(err: BaseException) -> int:
             str(Path(os.environ.get("APPDATA", "")) / "collab-kit" / "config.toml") if os.name == "nt"
             else str(Path(base) / "collab-kit" / "config.toml"))
         with open(cfg, "rb") as f:
-            kit = tomllib.load(f).get("kit", {}).get("source") or kit
+            kit = os.path.expanduser(os.path.expandvars(tomllib.load(f).get("kit", {}).get("source") or kit))
     except Exception:                                    # noqa: BLE001 (best effort: the message matters)
         pass
     if HERE.name == "collab-kit":                       # a project's copy: tools/collab-kit/
         fix = f"python3 \"{kit}/install.py\" project \"{HERE.parent.parent}\", then tools/collab-kit/ck doctor"
+    elif (HERE.parent / "install.py").is_file():         # the kit's own checkout
+        fix = f"restore the checkout: git -C \"{HERE.parent}\" status, then git -C \"{HERE.parent}\" checkout -- engine"
     else:                                                # this machine's copy for the user-level hooks
         fix = f"python3 \"{kit}/install.py\" machine --user-hooks"
     msg = (f"Collab Kit: the engine in {HERE} is damaged or incomplete ({type(err).__name__}: {err}). "

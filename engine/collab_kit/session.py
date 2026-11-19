@@ -76,6 +76,42 @@ def open_cloud(machine: dict) -> Store | None:
         return None
 
 
+def backend_state(c: Store | None, human: str = "the owner") -> dict:
+    """What the folder's heartbeat says about its back end. `configured`: a back end has run for this
+    folder, so sessions file returns and never apply them (they wait for it and its lease). A heartbeat
+    that cannot be read just now counts as configured: when unsure, file, never apply."""
+    if not c:
+        return {"known": False, "live": False, "configured": False,
+                "say": "unknown (the Collab Kit folder is not reachable from here)"}
+    try:
+        raw = c.read(HEARTBEAT)
+    except (StoreError, OSError) as e:
+        return {"known": False, "live": False, "configured": True,
+                "say": f"unknown: its heartbeat cannot be read just now ({str(e)[:80]}); returns are filed, not applied"}
+    if not raw:
+        return {"known": True, "live": False, "configured": False, "say": "none is running"}
+    try:
+        hb = json.loads(raw)
+        last = parse_time(hb["last_run"])
+        every = int(hb.get("interval_minutes", 60))
+        age_min = (utcnow() - last).total_seconds() / 60
+    except (ValueError, KeyError, TypeError):
+        return {"known": True, "live": False, "configured": True, "stopped": True,
+                "say": "its heartbeat file is unreadable"}
+    live = age_min <= max(3 * every, 90)            # routing: file only while it is keeping up
+    stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
+    when = last.strftime("%Y-%m-%d %H:%M UTC")
+    problems = hb.get("problems") or []
+    say = (f"running (it checks the inboxes every minute; last full pass {when}, at least one every {every} minutes)"
+           if live else f"stopped: its last full pass was {when}" if stopped else
+           f"late: its last full pass was {when}, and one is due at least every {every} minutes")
+    if problems and isinstance(problems, list):
+        say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
+    if not live:
+        say += f"; returns wait in the inbox until it runs again: tell {human}"
+    return {"known": True, "live": live, "configured": True, "stopped": stopped, "say": say, "last": when}
+
+
 class Project:
     def __init__(self, root: Path, machine: dict | None = None):
         self.root = root
@@ -153,40 +189,8 @@ class Project:
 
     # ---------------------------------------------------------------------- back end --
     def backend(self) -> dict:
-        if self._backend is not None:
-            return self._backend
-        c = self.cloud()
-        if not c:
-            self._backend = {"known": False, "live": False, "say": "unknown (the Collab Kit folder is not reachable from here)"}
-            return self._backend
-        try:
-            raw = c.read(HEARTBEAT)
-        except (StoreError, OSError):
-            raw = None
-        if not raw:
-            self._backend = {"known": True, "live": False, "configured": False, "say": "none is running"}
-            return self._backend
-        try:
-            hb = json.loads(raw)
-            last = parse_time(hb["last_run"])
-            every = int(hb.get("interval_minutes", 60))
-            age_min = (utcnow() - last).total_seconds() / 60
-        except (ValueError, KeyError, TypeError):
-            self._backend = {"known": True, "live": False, "configured": True, "stopped": True,
-                             "say": "its heartbeat file is unreadable"}
-            return self._backend
-        live = age_min <= max(3 * every, 90)            # routing: file only while it is keeping up
-        stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
-        when = last.strftime("%Y-%m-%d %H:%M UTC")
-        problems = hb.get("problems") or []
-        say = (f"running (it checks the inboxes every minute; last full pass {when}, at least one every {every} minutes)"
-               if live else f"stopped: its last full pass was {when}" if stopped else
-               f"late: its last full pass was {when}, and one is due at least every {every} minutes")
-        if problems and isinstance(problems, list):
-            say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
-        if not live:
-            say += "; returns wait in the inbox until it runs again: tell " + (self.machine.get("human") or "the owner")
-        self._backend = {"known": True, "live": live, "configured": True, "stopped": stopped, "say": say, "last": when}
+        if self._backend is None:
+            self._backend = backend_state(self.cloud(), self.machine.get("human") or "the owner")
         return self._backend
 
     # ------------------------------------------------------------------------ kit version --

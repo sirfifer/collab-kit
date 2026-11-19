@@ -2,6 +2,10 @@
 apply path running over it unchanged."""
 from __future__ import annotations
 
+import os as _os, sys as _sys  # noqa: E401
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import isolation  # noqa: E402,F401  (first: never the machine's real Collab Kit)
+
 import os
 import stat
 import sys
@@ -72,6 +76,15 @@ class Rclone(unittest.TestCase):
         self.assertFalse(store.uses_shared_google_client(), "not Google Drive")
         conf.write_text("RCLONE_ENCRYPT_V0:\nabcdef\n")
         self.assertFalse(store.uses_shared_google_client(), "an encrypted config: cannot tell")
+        xdg = self.t / "xdg"                                    # no config given: rclone's own default places
+        (xdg / "rclone").mkdir(parents=True)
+        (xdg / "rclone" / "rclone.conf").write_text("[collabkit]\ntype = drive\n")
+        os.environ["XDG_CONFIG_HOME"] = str(xdg)
+        try:
+            self.assertTrue(RcloneStore("collabkit:", rclone=self.rclone).uses_shared_google_client())
+        finally:
+            import isolation
+            isolation.restore()
 
     def test_back_end_checks_the_account_over_rclone(self):
         from collab_kit.backend import Pass

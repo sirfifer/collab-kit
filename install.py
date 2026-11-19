@@ -470,6 +470,8 @@ def cmd_project(a):
                                 replace_start=a.replace_start)
     print(f"project {Path(a.project).resolve()}{' (dry run)' if a.dry_run else ''}:")
     plan.show()
+    if plan.refused:
+        return 2
     if a.check:
         return 1 if plan.steps and any(not w.startswith("keep ") for w, _ in plan.steps) else 0
     return 0

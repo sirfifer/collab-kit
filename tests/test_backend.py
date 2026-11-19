@@ -3,6 +3,10 @@
 """
 from __future__ import annotations
 
+import os as _os, sys as _sys  # noqa: E401
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import isolation  # noqa: E402,F401  (first: never the machine's real Collab Kit)
+
 import json
 import os
 import subprocess

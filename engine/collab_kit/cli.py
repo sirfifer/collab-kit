@@ -339,17 +339,23 @@ def cmd_apply(a):
             m = re.search(r"(?mi)^Project:\s*(.+?)\s*$", (unit.store.read(f"_returns/{e.name}") or "") if not e.native else "")
             if m:
                 named.add(fold(m.group(1)))
-        if named and fold("top" if a.top else name) not in named and not (a.top and named & {"top", "top level"}):
+        ok = {"top", "collab kit", ""} if a.top else {fold(name)}       # as apply_file accepts them
+        if named and not (named & ok):
             print(f"No waiting return here names '{name}' (they name: {', '.join(sorted(named))}); applying would "
                   "set them all aside. Check --unit (the name in their 'Project:' line).")
             return 2
     for old, new in heal_duplicates(unit):
         print(f"renumbered {old} -> {new}")
-    rc = 0
+    rc, changed = 0, False
     for e in unit.pending_returns():
         out = apply_file(unit, e, force_settled=a.now, top=top)
         print(f"{out.status:8} {out.rid}: {out.message}")
+        changed = changed or out.status not in ("waiting",)
         rc = rc or (1 if out.status in ("failed", "stray") else 0)
+    if changed and a.store is None:                   # level 1: nobody else keeps the agenda's front page
+        from .text import utcnow
+        from .views import rebuild_without_backend
+        rebuild_without_backend(p.cloud(), p.machine.get("human") or "the owner", utcnow().date())
     return rc
 
 

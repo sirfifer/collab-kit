@@ -4,6 +4,9 @@ Collab Kit is worked on in Collab Kit. Its install here (tools/collab-kit/, the 
 .claude/settings.json, the collab-kit skills, the Collab Kit section of CLAUDE.md and AGENTS.md) must
 be exactly what install.py writes from this checkout, so the kit is always tried on itself first.
 """
+import os as _os, sys as _sys  # noqa: E401
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import isolation  # noqa: E402,F401  (first: never the machine's real Collab Kit)
 import os
 import subprocess
 import sys

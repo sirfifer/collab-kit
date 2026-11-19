@@ -253,8 +253,18 @@ def generated(m: dict) -> dict[str, bytes]:
     with tempfile.TemporaryDirectory(prefix="ck-example-") as tmp:
         root = Path(tmp) / m["name"]
         root.mkdir()
-        install_project(root, name=m["name"], unit=f"projects/{m['name']}/collab-kit", home="repo",
-                        human=m["human"], about=m["about"], spoken=m["spoken"])
+        keep = {k: os.environ.get(k) for k in ("COLLAB_KIT_CONFIG", "COLLAB_KIT_STATE")}
+        os.environ["COLLAB_KIT_CONFIG"] = str(Path(tmp) / "no-machine-config.toml")   # never this machine's
+        os.environ["COLLAB_KIT_STATE"] = str(Path(tmp) / "state")                      # real Collab Kit folder
+        try:
+            install_project(root, name=m["name"], unit=f"projects/{m['name']}/collab-kit", home="repo",
+                            human=m["human"], about=m["about"], spoken=m["spoken"])
+        finally:
+            for k, v in keep.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
         out = {}
         for p in sorted(root.rglob("*")):
             rel = p.relative_to(root).as_posix()

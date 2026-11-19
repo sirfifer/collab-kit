@@ -4,6 +4,10 @@ check. Standard library and git only:  python3 -m unittest discover -s tests -v
 """
 from __future__ import annotations
 
+import os as _os, sys as _sys  # noqa: E401
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+import isolation  # noqa: E402,F401  (first: never the machine's real Collab Kit)
+
 import json
 import os
 import subprocess
@@ -64,8 +68,8 @@ class ProjectSide(unittest.TestCase):
         sh("git", "commit", "-qm", "start", cwd=self.repo)
 
     def tearDown(self):
-        for k in ("COLLAB_KIT_CONFIG", "COLLAB_KIT_STATE"):
-            os.environ.pop(k, None)
+        import isolation
+        isolation.restore()
         self.tmp.cleanup()
 
     def install(self, **kw):
@@ -463,7 +467,8 @@ class ProjectSide(unittest.TestCase):
     def test_top_replace_start_refreshes_the_folders_own_project_start_files(self):
         unit = self.cloud / "projects/garden/collab-kit"
         (unit / "00-START-HERE.md").write_text("# garden: start here (Collab Kit 0.5)\n\nProject: **garden**. Sam calls "
-                                                "it \"the plot\". Beds by the fence.\n\nOld rules.\n")
+                                                "it \"the plot\". Beds by the fence.\n\nOld rules.\n\n## In this "
+                                                "folder\n\nAn older list.\n")
         mirror = self.cloud / "projects/shed/collab-kit"
         mirror.mkdir(parents=True)
         from collab_kit.templates import HOME_NOTES
@@ -475,6 +480,97 @@ class ProjectSide(unittest.TestCase):
         self.assertIn("Old rules.", text.split("## In this folder")[0])         # the project's own words are kept
         self.assertTrue(list((unit / "_versions").glob("00-START-HERE*")))
         self.assertIn("# shed\n", (mirror / "00-START-HERE.md").read_text())   # a repository's copy: untouched
+
+    # ---- found by the review of 0.5.3 (2026-11-19)
+    def catalog_with_kit_column(self, row_state=None):
+        rows = f"| `orchard` | \"o\" | o | here | active | {row_state} |\n" if row_state else ""
+        (self.cloud / "knowledge/projects.md").write_text(
+            "| Folder | Say | What it is | Where | Status | Collab Kit |\n|---|---|---|---|---|---|\n"
+            "| `garden` | \"g\" | g | cloud | active | live |\n" + rows)
+
+    def test_quotes_in_about_reach_the_catalog_intact(self):
+        repo = self.new_repo("orchard")
+        plan = installer.install_project(repo, about='Apples, the "old" trees \\ by the barn', spoken="the orchard")
+        self.assertFalse(any(w.startswith("stopped") for w, _ in plan.info), plan.info)
+        self.assertIn('Apples, the "old" trees \\ by the barn', (self.cloud / "knowledge/projects.md").read_text())
+
+    def test_a_name_the_kit_refuses_installs_nothing(self):
+        repo = self.new_repo("Orchard")
+        plan = installer.install_project(repo, about="x")
+        self.assertIn("--name orchard", plan.refused)
+        self.assertFalse((repo / "tools").exists())
+        self.assertFalse((self.cloud / "projects/Orchard").exists())
+
+    def test_a_worktree_takes_its_main_checkouts_name(self):
+        repo = self.new_repo("orchard")
+        wt = Path(self.tmp.name) / "orchard--add-kit"
+        sh("git", "worktree", "add", "-q", str(wt), "-b", "wt/add-kit", cwd=repo)
+        installer.install_project(wt, about="Apples")
+        self.assertIn('name = "orchard"', (wt / "tools/collab-kit/project.toml").read_text())
+        self.assertTrue((self.cloud / "projects/orchard/collab-kit/00-START-HERE.md").is_file())
+        self.assertFalse((self.cloud / "projects/orchard--add-kit").exists())
+
+    def test_dry_run_check_agrees_with_a_real_run(self):
+        import datetime as dt
+        from collab_kit.text import utcnow
+        self.catalog_with_kit_column("requested")
+        late = (utcnow() - dt.timedelta(hours=5)).isoformat()                 # a back end, late: file, wait
+        FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": late, "interval_minutes": 60}))
+        repo = self.new_repo("orchard")
+        first = installer.install_project(repo)
+        self.assertTrue(any(w.startswith("file a return") for w, _ in first.steps))
+        again = installer.install_project(repo)
+        self.assertFalse(any(w.startswith("file a return") for w, _ in again.steps), again.steps)
+        dry = installer.install_project(repo, dry=True)
+        self.assertEqual([w for w, _ in dry.steps], [], "a dry run must not report what a real run would not do")
+        self.assertTrue(any("already filed" in w for w, _ in dry.info))
+        home_repo = self.new_repo("shed")
+        (self.cloud / "knowledge/projects.md").write_text(
+            (self.cloud / "knowledge/projects.md").read_text() + "| `shed` | \"s\" | s | here | active | requested |\n")
+        installer.install_project(home_repo, home="repo")
+        dry = installer.install_project(home_repo, dry=True)
+        self.assertFalse(any(w.startswith("file a return") for w, _ in dry.steps))   # no back end serves it
+
+    def test_an_unreadable_heartbeat_means_file_never_apply(self):
+        self.install()
+        beat = self.cloud / "_backend/heartbeat.json"
+        beat.parent.mkdir(parents=True, exist_ok=True)
+        beat.write_text("{}")
+        beat.chmod(0)                                                          # reading it fails (an OSError)
+        if os.access(beat, os.R_OK):
+            self.skipTest("this account can read a file with no permissions")
+        self.ck("ask", "Filed while unsure")
+        unit = self.cloud / "projects/garden/collab-kit"
+        self.assertFalse(any((unit / "agenda").glob("W-*-filed-while-unsure.md")))
+        self.assertEqual(len([f for f in (unit / "_returns").glob("2*.md")]), 1)
+
+    def test_an_interrupted_first_install_is_finished_by_the_next(self):
+        repo = self.new_repo("orchard")
+        unit = self.cloud / "projects/orchard/collab-kit"
+        (unit / "_returns").mkdir(parents=True)
+        (unit / "_returns/README.md").write_text("written before the interruption\n")
+        installer.install_project(repo, about="Apples")
+        for rel in ("00-START-HERE.md", "agenda/README.md", "knowledge/README.md", "WIP/README.md"):
+            self.assertTrue((unit / rel).is_file(), rel)
+        self.assertEqual((unit / "_returns/README.md").read_text(), "written before the interruption\n")
+
+    def test_keep_description_tolerates_blank_lines_and_unknown_shapes(self):
+        from collab_kit.templates import project_start_file
+        set_human("Sam")
+        fresh = project_start_file("garden", "Beds", "the plot", home="cloud")
+        spaced = fresh.replace("**Home: this folder.**", "\n**Home: this folder.**", 1)
+        self.assertEqual(installer.keep_description(spaced, fresh).count("**Home:"), 1)
+        shapeless = "# garden\n\nProject: **garden**. Mine.\n\nIn this folder: everything.\n"
+        out = installer.keep_description(shapeless, fresh)
+        self.assertIn("Project: **garden**. Mine.", out)
+        self.assertEqual(out.count("In this folder"), 1)
+
+    def test_ck_apply_top_accepts_the_top_levels_names(self):
+        self.install()
+        (self.cloud / "_returns/2026-11-19-0100-t.md").write_text(
+            "Project: Collab Kit\nFrom: Sam\nType: note\nTopic: t\n\nChanges v1:\nnew-item title=\"Top task\"\nEnd.\n")
+        res = self.ck("apply", str(self.cloud), "--top", "--now", check=False)
+        self.assertIn("applied", res.stdout, res.stdout)
 
     def test_items_order(self):
         self.install()
@@ -517,8 +613,8 @@ class MachineAndTop(unittest.TestCase):
         os.environ["COLLAB_KIT_DATA"] = str(self.t / "data")
 
     def tearDown(self):
-        os.environ.pop("COLLAB_KIT_CONFIG", None)
-        os.environ.pop("COLLAB_KIT_DATA", None)
+        import isolation
+        isolation.restore()
         self.tmp.cleanup()
 
     def test_user_hooks_merge_and_refresh(self):

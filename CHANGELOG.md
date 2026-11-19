@@ -47,6 +47,26 @@ each project homed in the folder current (keeping its `Project:` line), and `ins
 - The back end's dry run says which returns are still settling (they wait 120 seconds).
 - The brief says the back end checks the inboxes every minute; it used to say "every 60 minutes".
 
+**Fixed before release** (an independent review of the changes above):
+- The tests read this machine's real Collab Kit config, and the public example's generator could
+  reach the live folder. Every test module now imports `tests/isolation.py` first, which points the
+  kit at a machine config that does not exist and a throwaway state folder. (The suite also runs in
+  half the time.)
+- `install.py project` crashed on a quote in `--about`, and could raise on a folder error after the
+  repository side was written: values are now quoted for the grammar, and any folder error is reported
+  as "run this again". A name the kit refuses (capitals, `repo--task`) now installs nothing and
+  suggests one, and a worktree takes its main checkout's name, so no stray folder is made in the
+  Collab Kit folder. The start file is written last, so an interrupted first install is finished by
+  the next run. `--dry-run --check` decides the catalog step exactly as a real run does.
+- A heartbeat that cannot be read just now (an rclone timeout, a Drive placeholder) counts as a back
+  end that may be running: sessions file and never apply.
+- `top --replace-start` reads through the store (Drive placeholders retried), skips a file it cannot
+  read instead of stopping, and retires a heartbeat before the loop. `keep_description` tolerates
+  extra blank lines and keeps only the description of a start file whose shape it does not know.
+- `ck apply` rebuilds the front page at level 1 and accepts the top level's names (`Collab Kit`);
+  the shared-client check finds rclone's default config on Windows and with `XDG_CONFIG_HOME`; the
+  repair message expands `~` and gives the right advice for the kit's own checkout.
+
 **Fixed: a back end over rclone refused every run.** Its account check asked rclone for the signed-in
 account (`config userinfo`), which rclone does not support for Google Drive, so the answer was always
 empty. The check now reads who owns the folder's start file (`lsjson --metadata`) and compares that

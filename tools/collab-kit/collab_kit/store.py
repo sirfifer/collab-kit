@@ -336,10 +336,18 @@ class RcloneStore(Store):
         its own): Google retires that client during 2026, and it is rate-limited across every rclone
         user. Read from the config file itself, so no rclone command is added; False when unsure."""
         import configparser
-        path = Path(self.config).expanduser() if self.config else Path.home() / ".config" / "rclone" / "rclone.conf"
+        if self.config:
+            candidates = [Path(self.config).expanduser()]
+        else:                                         # rclone's own default places, in its order
+            candidates = ([Path(os.environ["APPDATA"]) / "rclone" / "rclone.conf"] if os.name == "nt" and
+                          os.environ.get("APPDATA") else [])
+            if os.environ.get("XDG_CONFIG_HOME"):
+                candidates.append(Path(os.environ["XDG_CONFIG_HOME"]) / "rclone" / "rclone.conf")
+            candidates += [Path.home() / ".config" / "rclone" / "rclone.conf", Path.home() / ".rclone.conf"]
+        path = next((c for c in candidates if c.is_file()), None)
         cp = configparser.ConfigParser(interpolation=None)
         try:
-            cp.read_string(path.read_text(encoding="utf-8"))
+            cp.read_string(path.read_text(encoding="utf-8") if path else "")
         except (OSError, UnicodeDecodeError, configparser.Error):
             return False                              # missing, or encrypted: cannot tell
         name = self.remote.split(":", 1)[0]

@@ -37,8 +37,10 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
    record, the README, `docs/for-agents.md`, the start-file templates and the skills that describe it,
    and the CHANGELOG (under "Not yet released"). People, voice conversations and agents act on these
    texts; one that is out of date leads them into a wrong action.
-3. **Test before you commit.** `python3 -m unittest discover -s tests` (about 90 seconds; needs no
-   network and touches nothing outside temporary folders). When `install.py` or the 0.4 build changes,
+3. **Test before you commit.** `python3 -m unittest discover -s tests` (about 35 seconds; needs no
+   network and touches nothing outside temporary folders). Every test module imports
+   `tests/isolation.py` first, so no test can read this machine's real Collab Kit config or folder;
+   a new test module must do the same. When `install.py` or the 0.4 build changes,
    also `bash tests/dry-run-install.sh`. The live tests (`tests/live-*.sh`) call the real Claude Code
    and cost money: run them before a release or when asked.
 4. **Never break what is already out there.** Returns written to grammar v1 stay readable. The
