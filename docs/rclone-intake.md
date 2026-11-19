@@ -70,8 +70,9 @@ license, third-party notices and a source pointer. Rule: never redistribute.
 1. Pin an exact version and per-platform SHA-256 (`engine/collab_kit/rclone.lock`). Every bump is a reviewed
    change that repeats this intake. The wrapper refuses any other `rclone version`.
 2. Only the six commands, through one wrapper that passes argument lists (no shell) and strips inherited
-   `RCLONE_*` variables; the one exception is the read-only `config userinfo`, run through the same
-   pinned wrapper so every back end run can check the remote's Google account (an exact match). Never
+   `RCLONE_*` variables. Every back end run checks the Google account the folder belongs to (an exact
+   match) with `lsjson --metadata`: the owner of the folder's start file. (`config userinfo` does not
+   work for Google Drive: found on the first real run, 2026-11-18.) Never
    `selfupdate`, `serve`, `rcd`, or any other `config` command in automation.
 3. Fail closed on a duplicate name in a listing.
 4. Where IDs matter, `rcat` or `copyto` from a local file; payloads over 100 KiB are spooled.

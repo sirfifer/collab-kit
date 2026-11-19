@@ -414,13 +414,17 @@ class RcloneStore(Store):
         return {e.name: getattr(e, "md5", None) for e in self.files(rel)}
 
     def account(self) -> str:
-        """The email of the Google account behind the remote (read-only; the pinned rclone)."""
-        remote = self.remote.split(":", 1)[0] + ":"
-        self._check_version()
-        res = run_quiet([self.rclone, *(self.flags[:2] if self.config else []), "config", "userinfo", remote],
-                             capture_output=True, timeout=60, env=self._env())
-        m = re.search(r"^\s*EmailAddress:\s*(\S+)", res.stdout.decode("utf-8", "replace"), re.M)
-        return m.group(1) if m else ""
+        """The Google account the folder belongs to: the owner of its start file, as Drive reports it
+        (`lsjson --metadata`, read-only, the pinned rclone). "" when it cannot be told: no start file,
+        no owner in the listing, or two files of that name with different owners. (rclone's
+        `config userinfo` does not work for Google Drive, so the signed-in account cannot be asked.)"""
+        try:
+            items = json.loads(self._run(["lsjson", "--metadata", "--files-only", self._r("")]) or "[]")
+        except (StoreError, ValueError):
+            return ""
+        owners = {str((it.get("Metadata") or {}).get("owner") or "") for it in items
+                  if isinstance(it, dict) and it.get("Name") == "00-START-HERE.md"}
+        return owners.pop() if len(owners) == 1 else ""
 
     def read(self, rel: str) -> str | None:
         self._guard(rel)

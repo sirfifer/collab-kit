@@ -673,16 +673,17 @@ class Pass:
 
     def check_account(self) -> str | None:
         """Why this folder may not be the configured account's, or None. A Drive for desktop path
-        names its account; an rclone remote is asked."""
+        names its account; through rclone, the owner of the folder's start file is read."""
         if not self.account:
             return None
         if self.cloud_spec.startswith("rclone:"):
             try:
                 who = self.cloud.account()
             except (StoreError, OSError, subprocess.TimeoutExpired) as e:
-                return f"cannot ask rclone which account the remote is: {e}"
+                return f"cannot ask rclone who owns the folder: {e}"
             if who.lower() != self.account.lower():
-                return f"the rclone remote is {who or 'an unknown account'}, not {self.account}"
+                return (f"the folder's start file is owned by {who or 'an account rclone cannot tell'}, "
+                        f"not {self.account}")
             return None
         if self.account.lower() not in self.cloud_spec.lower():
             return f"the folder {self.cloud_spec} does not name the account {self.account}"

@@ -1,5 +1,14 @@
 # Changelog
 
+## Not yet released
+
+**Fixed: a back end over rclone refused every run.** Its account check asked rclone for the signed-in
+account (`config userinfo`), which rclone does not support for Google Drive, so the answer was always
+empty. The check now reads who owns the folder's start file (`lsjson --metadata`) and compares that
+with `account` in `backend.toml`. This is the folder's owner, not the signed-in account: a folder
+shared from another account is refused, which is what the setting promises. Found on the first real
+run on a second machine (2026-11-18); the test stand-in for rclone had never been asked that question.
+
 ## 0.5.2 (2026-11-16)
 
 Richard's decisions of 2026-11-15, from his phone and voice sessions (DESIGN-0.5.md section 20).

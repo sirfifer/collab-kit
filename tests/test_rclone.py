@@ -34,7 +34,8 @@ class Rclone(unittest.TestCase):
         self.store = RcloneStore("drive:Collab Kit", rclone=self.rclone)
 
     def tearDown(self):
-        for k in ("FAKE_RCLONE_ROOT", "FAKE_RCLONE_VERSION", "FAKE_RCLONE_DUP", "RCLONE_CONFIG_PASS"):
+        for k in ("FAKE_RCLONE_ROOT", "FAKE_RCLONE_VERSION", "FAKE_RCLONE_DUP", "FAKE_RCLONE_OWNER",
+                  "COLLAB_KIT_RCLONE", "RCLONE_CONFIG_PASS"):
             os.environ.pop(k, None)
         self.tmp.cleanup()
 
@@ -49,6 +50,27 @@ class Rclone(unittest.TestCase):
         self.assertEqual(sorted(e.name for e in self.store.files("knowledge")), ["b.md", "big.md"])
         self.assertIsNone(self.store.read("knowledge/missing.md"))
         self.assertEqual(self.store.list("nope"), [])
+
+    def test_account_is_the_owner_of_the_start_file(self):
+        # found on the first real run (2026-11-18): rclone has no `config userinfo` for Google Drive
+        self.assertEqual(self.store.account(), "", "no start file: cannot be told")
+        self.store.write("00-START-HERE.md", "start\n")
+        self.assertEqual(self.store.account(), "", "no owner in the listing: cannot be told")
+        os.environ["FAKE_RCLONE_OWNER"] = "sam@example.com"
+        self.assertEqual(self.store.account(), "sam@example.com")
+
+    def test_back_end_checks_the_account_over_rclone(self):
+        from collab_kit.backend import Pass
+        self.store.write("00-START-HERE.md", "start\n")
+        os.environ["FAKE_RCLONE_OWNER"] = "sam@example.com"
+        cfg = {"backend": {"cloud": "rclone:drive:Collab Kit", "work": str(self.t / "work"),
+                           "account": "sam@example.com"}}
+        os.environ["COLLAB_KIT_RCLONE"] = self.rclone
+        self.assertIsNone(Pass(cfg).check_account())
+        cfg["backend"]["account"] = "someone@example.com"
+        self.assertIn("owned by sam@example.com", Pass(cfg).check_account())
+        os.environ.pop("FAKE_RCLONE_OWNER")
+        self.assertIn("cannot tell", Pass(cfg).check_account())
 
     def test_inbox_entries_in_one_call(self):
         import time

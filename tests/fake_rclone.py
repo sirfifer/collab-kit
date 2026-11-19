@@ -2,7 +2,8 @@
 """A stand-in for rclone in tests: maps "<remote>:<path>" onto the folder $FAKE_RCLONE_ROOT/<remote>/
 and implements the six commands Collab Kit uses with rclone's output shapes. A file named
 "*.gdoc-native" lists with Size -1 (how rclone shows a Google Doc); FAKE_RCLONE_DUP=<name> makes
-lsjson list that name twice."""
+lsjson list that name twice; FAKE_RCLONE_OWNER=<email> is the owner `lsjson --metadata` reports.
+`config userinfo` is refused, as the real rclone refuses it for Google Drive."""
 import datetime
 import json
 import os
@@ -67,9 +68,13 @@ try:
             size = -1 if c.name.endswith(".gdoc-native") else (0 if c.is_dir() else st.st_size)
             import hashlib
             h = {} if c.is_dir() or size < 0 else {"md5": hashlib.md5(c.read_bytes()).hexdigest()}
+            if "--files-only" in args and c.is_dir():
+                continue
             out.append({"Path": c.name, "Name": c.name, "Size": size, "IsDir": c.is_dir(), "Hashes": h,
                         "ModTime": datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc).isoformat(),
                         "MimeType": "inode/directory" if c.is_dir() else "text/markdown"})
+            if "--metadata" in args and os.environ.get("FAKE_RCLONE_OWNER"):
+                out[-1]["Metadata"] = {"owner": os.environ["FAKE_RCLONE_OWNER"]}
         dup = os.environ.get("FAKE_RCLONE_DUP")
         out += [dict(o) for o in out if o["Name"] == dup]
         print(json.dumps(out))
