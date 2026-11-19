@@ -53,8 +53,9 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
 6. **This repository is public.** Never copy anything from a real Collab Kit folder into it. The one
    snapshot, `examples/the-kit-itself`, is refreshed by `python3 tests/public_example.py refresh`,
    which applies the deny list and the topics left out (`snapshot.toml`) and checks the result.
-7. **Releasing X.Y.Z.** `VERSION`; the CHANGELOG section (the "Not yet released" text, dated); refresh
-   the kit's own install (rule 1) and the public example (rule 6); all tests green; commit, then tag
+7. **Releasing X.Y.Z.** `VERSION` and `KIT_VERSION` in `engine/kb.py`; the CHANGELOG section (the "Not yet released" text, dated); refresh
+   the kit's own install (rule 1) and the public example (rule 6) and
+   `bash tests/refresh-example.sh` (the 0.4 sample); all tests green; commit, then tag
    `vX.Y.Z` (the release workflow attaches the SBOMs and provenance). Then bring every install up to
    date, each as its own commit: each project that has the kit (skill `collab-kit-upgrade`), each
    machine's user hooks (`install.py machine --user-hooks`), and each back end's checkout of the kit

@@ -134,6 +134,9 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
     if be["live"]:
         head.append(f"Back end: {be['say']}. `{ck} ask/status/return` file returns; it applies them. Never edit "
                     f"the agenda or status files by hand.")
+    elif route == "cloud" and be.get("configured"):
+        head.append(f"Back end: {be['say']}. `{ck} ask/status/return` still file returns into the inbox; they wait "
+                    f"there safely and are applied when it runs again. Never apply them by hand meanwhile.")
     elif route == "cloud":
         head.append(f"Back end: {be['say']}. `{ck} ask/status/return` file AND apply your returns at once (level 1).")
     elif route == "repo":

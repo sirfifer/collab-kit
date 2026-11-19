@@ -18,7 +18,7 @@ Project:  <repo>/tools/collab-kit/project.toml  (committed; written by install.p
     unit = "projects/garden-planner/collab-kit"     # inside the Collab Kit folder
     home = "cloud"                                  # "cloud" (the folder is the truth) or "repo"
     [session]
-    stop_check = true                               # ask once before a session ends without a record
+    stop_check = true                               # ask (at most every 15 minutes, 3 times) before a session ends without a record
 """
 from __future__ import annotations
 

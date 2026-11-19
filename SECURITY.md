@@ -32,9 +32,12 @@ silent.
 ## Supported versions
 
 Only the latest release gets security fixes. Upgrading is `install.py project <repo>` in each
-project (and `install.py apply` for the 0.4 knowledge build); an agent working in a project is told
-by its session brief when a newer kit exists. There is no long-lived older line to maintain. Before 1.0, a fix may
-come with other changes; the release notes say what to check.
+project (and `install.py apply` for the 0.4 knowledge build); on a machine with the user-level hooks,
+`install.py machine --user-hooks` refreshes their copy of the engine; a back end runs from the kit's
+own checkout, so `git pull` there upgrades it (and the release notes say when to run
+`install.py backend --apply` again). An agent working in a project is told by its session brief when
+a newer kit exists. There is no long-lived older line to maintain. Before 1.0, a fix may come with
+other changes; the release notes say what to check.
 
 ## Scope
 
@@ -74,7 +77,7 @@ it can do only what the grammar describes, inside the unit it was filed in. Conc
 | Layer | What it stops |
 |---|---|
 | A return is applied whole or not at all, and at most once (a ledger per return) | half-applied or replayed changes |
-| Every store path is relative and never climbs (`..`, a root, a drive letter, a backslash are refused); knowledge paths must be plain files inside `knowledge/` | writing anywhere outside the Collab Kit folder or a project's `collab-kit/` |
+| Every store path is relative and never climbs (`..`, `.`, a root, a drive letter, a NUL, and on Windows a backslash are refused); knowledge paths must be plain files inside `knowledge/` | writing anywhere outside the Collab Kit folder or a project's `collab-kit/` |
 | An `undo` names a return id only, and every file its ledger names must be one a return could have written (its own agenda and knowledge; from a project, at the top level only its own row of `knowledge/projects.md`, checked line by line; at the top level, a new project's folder only to remove what it created; never a start file) | a forged ledger in the shared folder turning undo into a write anywhere (found by review, 2026-11-15, before release) |
 | A project's inbox changes only that project; a project is started only from the top-level inbox, from an existing idea, at most three a day, with a validated name | one unit's inbox reaching another |
 | A change to an existing item repeats part of its title | a misheard or invented number changing the wrong item |
@@ -94,10 +97,11 @@ deploying, and deleting behind confirmation in your Claude Code settings, and no
 Collab Kit asks an agent to do any of those on the strength of a file.
 
 **The hooks** (`.claude/settings.json` in a project, and optionally the user-level hooks) run the
-kit's own `tools/collab-kit/ck` and read only the project's Collab Kit files and git state. They
-never execute anything taken from those files. Claude Code holds project hooks until the folder is
-trusted; installing the kit into a repository adds hooks to its committed settings, so review
-`install.py project --dry-run` first.
+kit's own `ck` (the project's `tools/collab-kit/ck`, or for the user-level hooks the copy of the
+engine that `install.py machine --user-hooks` keeps) and read only the project's Collab Kit files
+and git state. They never execute anything taken from those files. Claude Code holds project hooks
+until the folder is trusted; installing the kit into a repository adds hooks to its committed
+settings, so review `install.py project --dry-run` first.
 
 ## The unattended pass (the 0.4 curator)
 
@@ -154,9 +158,13 @@ the file system whether each attempt was refused; run it after upgrading Claude 
 
 - The kit has **no package dependencies**: Python's standard library (3.11 or later), git, and a
   POSIX shell. A back end that reaches Google Drive through its API uses rclone, an external
-  program reviewed in `docs/rclone-intake.md` and pinned there. A new dependency needs a deliberate review first (license,
-  maintenance, known vulnerabilities in OSV, its own security posture) and a note in the pull
-  request; the default answer is no.
+  program reviewed in `docs/rclone-intake.md` and pinned there. A back end may also use the GitHub
+  CLI, `gh` (optional, external): it asks `gh` whether a GitHub repository is private before pushing
+  to it, so without `gh` (or signed out) every GitHub repository counts as public and nothing is
+  pushed unless the project sets `allow_public`; and `knowledge/repositories.md`, the names a new
+  project may not take, lists GitHub repositories only from `gh repo list`. A new dependency needs a
+  deliberate review first (license, maintenance, known vulnerabilities in OSV, its own security
+  posture) and a note in the pull request; the default answer is no.
 - Every release attaches a CycloneDX and an SPDX SBOM, with build provenance and SBOM attestations
   (`gh attestation verify <file> --repo <owner>/<repo>`).
 - GitHub Actions are pinned to full commit hashes and kept current by Dependabot; OSV-Scanner runs

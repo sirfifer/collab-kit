@@ -3,10 +3,13 @@
 
 Standard library only (Python 3.11+).
 
-Collab Kit 0.5:
+Collab Kit 0.5 (the steps, in order, for an agent: docs/for-agents.md):
+    python3 kit/install.py top "<the Collab Kit folder>" --human "Sam"      a new top level (or bring one current)
     python3 kit/install.py machine --cloud-root "<the Collab Kit folder>" --human "Sam" [--user-hooks]
-    python3 kit/install.py top "<the Collab Kit folder>" --human "Sam"      a new top level
-    python3 kit/install.py project <repo> [--home cloud|repo] [--dry-run]  a project's repository
+    python3 kit/install.py project <repo> --about "..." --spoken "..."      a project's repository
+    python3 kit/install.py backend --cloud "<folder or rclone:remote:>" [--apply]   a back end on this machine
+    python3 kit/install.py migrate-04 <repo>                                 a project from Collab Kit 0.4
+Every command takes --dry-run (backend: without --apply), and says what it would write.
 
 The knowledge build from 0.4 (documents split into sections, concepts, the index) is unchanged:
 
@@ -463,7 +466,8 @@ def _v05():
 def cmd_project(a):
     inst = _v05()
     plan = inst.install_project(Path(a.project), name=a.name, unit=a.unit, home=a.home, human=a.human,
-                                python=a.python, dry=a.dry_run, about=a.about or "", spoken=a.spoken or "")
+                                python=a.python, dry=a.dry_run, about=a.about or "", spoken=a.spoken or "",
+                                replace_start=a.replace_start)
     print(f"project {Path(a.project).resolve()}{' (dry run)' if a.dry_run else ''}:")
     plan.show()
     if a.check:
@@ -506,7 +510,7 @@ def cmd_migrate(a):
 def cmd_backend(a):
     inst = _v05()
     return inst.install_backend(Path(a.config).expanduser() if a.config else None, cloud=a.cloud,
-                                human=a.human, apply=a.apply)
+                                human=a.human, apply=a.apply, config_only=a.config_only)
 
 
 def main(argv=None):
@@ -521,6 +525,8 @@ def main(argv=None):
     be.add_argument("--cloud", help="for a new config: the Collab Kit folder (path, or rclone:remote:path)")
     be.add_argument("--human")
     be.add_argument("--apply", action="store_true", help="write and load the schedule (default: show it)")
+    be.add_argument("--config-only", action="store_true",
+                    help="write the config (if there is none) and stop: edit it, then run again with --apply")
     be.set_defaults(fn=cmd_backend)
     pr = sub.add_parser("project", help="0.5: install or upgrade Collab Kit in a project's repository")
     pr.add_argument("project")
@@ -528,8 +534,11 @@ def main(argv=None):
     pr.add_argument("--unit", help="the unit inside the Collab Kit folder (default projects/<name>/collab-kit)")
     pr.add_argument("--home", choices=["cloud", "repo"], help="where the project's channels live (default cloud)")
     pr.add_argument("--human", help="who the agenda waits on (default: the machine config's human)")
-    pr.add_argument("--about", help="--home repo: one sentence for the unit's start file (what the project is)")
-    pr.add_argument("--spoken", help="--home repo: what the person calls it, comma-separated")
+    pr.add_argument("--about", help="what the project is, one sentence: for its start file and its catalog row")
+    pr.add_argument("--spoken", help="what the person calls it aloud, comma-separated")
+    pr.add_argument("--replace-start", action="store_true",
+                    help="bring the project's start file to this kit's template, keeping its 'Project:' line "
+                         "(the old one is kept: _versions/ in the Collab Kit folder, git in a repository)")
     pr.add_argument("--python", default="python3", help=argparse.SUPPRESS)
     pr.add_argument("--dry-run", action="store_true")
     pr.add_argument("--check", action="store_true", help="with --dry-run: exit 1 if anything would change")
@@ -545,12 +554,14 @@ def main(argv=None):
     m.add_argument("--rclone-config", help="with an rclone cloud root: its own rclone config file")
     m.add_argument("--dry-run", action="store_true")
     m.set_defaults(fn=cmd_machine)
-    t = sub.add_parser("top", help="0.5: create the top level in a new Collab Kit folder (never overwrites)")
+    t = sub.add_parser("top", help="0.5: create the top level of a Collab Kit folder, or bring its start file current "
+                                     "(--replace-start, --setup; the old one is kept in _versions/)")
     t.add_argument("folder")
     t.add_argument("--human", required=True)
     t.add_argument("--dry-run", action="store_true")
     t.add_argument("--replace-start", action="store_true",
-                   help="replace the start file with this kit's template, keeping its setup line (the old one is kept in _versions/)")
+                   help="replace the start files with this kit's templates: the top level's (keeping its setup line) and "
+                        "each project's homed in this folder (keeping its 'Project:' line); the old ones are kept in _versions/")
     t.add_argument("--setup", choices=("none", "backend"),
                    help="set the start file's setup line by hand (e.g. 'none' when a back end is retired)")
     t.set_defaults(fn=cmd_top)

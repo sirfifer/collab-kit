@@ -13,13 +13,18 @@ In a project (from anywhere inside the repository, or by its full path from any 
     ck inbox                           returns waiting to be applied
     ck knowledge [path] [--from-file F]
                                        list the knowledge folder, read one file, or replace it
-    ck version | ck doctor
+    ck version                         the kit's version here
+    ck doctor                          every check, and the command that fixes each failure (exit 1 if any)
+    ck apply                           where no back end runs (level 1): apply this project's waiting returns
     ck hook session-start|stop|touch   (called by Claude Code; reads the hook's JSON on stdin)
 
-For a back end:
+By hand, for any unit (testing, repair):
+    ck apply <folder-or-rclone:remote> --unit NAME [--top] [--home repo] [--now]
+
+For a back end (run from the kit's own checkout, engine/ck: a project's copy of the engine has none):
     ck backend run [--config FILE]     one pass: apply returns, mirror, health, the generated views
+                   [--dry-run]         say what it would do; returns younger than 120 seconds wait
                    [--if-waiting]      only if a return waits or the last pass is older than the interval
-    ck apply <folder-or-rclone:remote> --unit NAME [--top]   apply one unit's inbox (testing, level 1)
 
 Everything printed from the project's files is fenced as data (see text.FENCE_NOTE).
 """
@@ -222,34 +227,67 @@ def cmd_version(a):
 
 
 def cmd_doctor(a):
+    """Every check, and for each failure the command that fixes it. Exit 1 when anything needs fixing."""
     from . import config as C
     from .session import Project, git
+    fixes: list[str] = []
+    m = C.machine()
+    kit = C.expand(m.get("kit", {}).get("source", "")) or "<the kit's checkout>"
+    install = f'python3 "{kit}/install.py"'
+    have_cfg = C.machine_file().is_file()
     print(f"Collab Kit {kit_version()}; Python {sys.version.split()[0]}; machine config {C.machine_file()}"
-          f" ({'present' if C.machine_file().is_file() else 'MISSING'})")
+          f" ({'present' if have_cfg else 'MISSING'}); the kit's checkout: {kit}")
+    if not have_cfg:
+        fixes.append(f'{install} machine --cloud-root "<the Collab Kit folder as this machine sees it>" --human "<name>"')
     p = Project.find()
     if not p:
         print("Not inside a Collab Kit project.")
-        return 0
-    print(f"Project {p.name}: home {p.home}, unit {p.unit_rel}, checkout {p.root}")
-    print(f"Collab Kit folder: {'reachable' if p.cloud() else 'NOT reachable'} ({p.machine.get('cloud', {}).get('root', 'not configured')})")
-    print(f"This project's folder there: {'present' if p.cloud_unit() else 'missing'}")
-    print(f"Back end: {p.backend()['say']}; returns from here go to: {p.route()[0]}")
-    k = p.kit_status()
-    print(f"Kit: {k['here']} here; newest known {k['newest'] or 'unknown'}"
-          f"{' (UPGRADE AVAILABLE: ' + k['source'] + ')' if k['behind'] else ''}")
-    common = (git(p.root, "rev-parse", "--path-format=absolute", "--git-common-dir") or "").strip()
-    main = Path(common).parent if common else p.root
-    for label, root in (("this checkout", p.root), ("the main checkout (whose hooks a worktree session uses)", main)):
-        if label != "this checkout" and root == p.root:
-            continue
-        s = root / ".claude" / "settings.json"
-        try:
-            hooks = json.loads(s.read_text(encoding="utf-8")).get("hooks", {}) if s.is_file() else {}
-        except ValueError:
-            hooks = {}
-        for ev in ("SessionStart", "Stop"):
-            ok = any("tools/collab-kit/ck" in h.get("command", "") for m in hooks.get(ev, []) for h in m.get("hooks", []))
-            print(f"Hook {ev} in {label}: {'installed' if ok else 'MISSING'}")
+    else:
+        root = m.get("cloud", {}).get("root", "")
+        print(f"Project {p.name}: home {p.home}, unit {p.unit_rel}, checkout {p.root}")
+        print(f"Collab Kit folder: {'reachable' if p.cloud() else 'NOT reachable'} ({root or 'not configured'})")
+        if not p.cloud() and have_cfg:
+            fixes.append(f"the Collab Kit folder ({root or 'not configured'}) cannot be read: is the cloud drive "
+                         f"running and signed in? Or set it: {install} machine --cloud-root \"<folder>\"")
+        unit = p.cloud_unit()
+        print(f"This project's folder there: {'present' if unit else 'missing'}"
+              + ("" if unit or p.home == "cloud" else " (normal: a back end that serves this repository keeps a copy there)"))
+        if p.cloud() and not unit and p.home == "cloud":
+            fixes.append(f'create it: {install} project "{p.root}" --about "<what it is>"')
+        be = p.backend()
+        print(f"Back end: {be['say']}; returns from here go to: {p.route()[0]}")
+        if be.get("configured") and not be["live"]:
+            fixes.append("the back end is late or stopped: look at its machine (its log, `launchctl list | grep collab`) "
+                         "or tell the person; returns wait until it runs")
+        k = p.kit_status()
+        print(f"Kit: {k['here']} here; newest known {k['newest'] or 'unknown'}"
+              f"{' (UPGRADE AVAILABLE: ' + k['source'] + ')' if k['behind'] else ''}")
+        if k["behind"]:
+            fixes.append("upgrade this repository's kit as its own commit: skill collab-kit-upgrade")
+        common = (git(p.root, "rev-parse", "--path-format=absolute", "--git-common-dir") or "").strip()
+        main = Path(common).parent if common else p.root
+        for label, where in (("this checkout", p.root), ("the main checkout (whose hooks a worktree session uses)", main)):
+            if label != "this checkout" and where == p.root:
+                continue
+            s_ = where / ".claude" / "settings.json"
+            try:
+                hooks = json.loads(s_.read_text(encoding="utf-8")).get("hooks", {}) if s_.is_file() else {}
+            except ValueError:
+                hooks = {}
+            for ev in ("SessionStart", "Stop"):
+                ok = any("tools/collab-kit/ck" in h.get("command", "") for m_ in hooks.get(ev, []) for h in m_.get("hooks", []))
+                print(f"Hook {ev} in {label}: {'installed' if ok else 'MISSING'}")
+                if not ok:
+                    fix = (f'{install} project "{where}"' if label == "this checkout" else
+                           "merge this branch's Collab Kit install into the main branch (or install it there)")
+                    if fix not in fixes:
+                        fixes.append(fix)
+    if fixes:
+        print("\nTo fix:")
+        for f in fixes:
+            print(f"  - {f}")
+        return 1
+    print("\nAll checks pass.")
     return 0
 
 
@@ -259,16 +297,57 @@ def cmd_hook(a):
 
 
 def cmd_apply(a):
+    """Apply waiting returns by hand: what the back end does, for a folder with no back end (level 1).
+    No folder given: this project's own inbox. A folder given: that unit's inbox (testing, repair)."""
     from .apply import apply_file, heal_duplicates
     from .store import open_store
     from .unit import Unit
-    store = open_store(a.store)
-    unit = Unit(store, "top" if a.top else a.unit, home=a.home, top=a.top)
+    from .session import Project
+    if a.store is None:
+        p = Project.find()
+        if not p:
+            print("Not inside a Collab Kit project: name the unit's folder (ck apply <folder> --unit NAME).")
+            return 2
+        be = p.backend()
+        if be.get("configured"):
+            print(f"A back end applies returns for this folder ({be['say']}): nothing to do here.")
+            return 0 if be["live"] else 1
+        if p.home == "repo":                          # sessions never number items in a checkout
+            print("This project's home is its repository: a back end applies its returns once they reach the "
+                  "main branch, never a checkout. Commit them; see docs/for-agents.md, 'A back end'.")
+            return 1
+        unit = p.cloud_unit()
+        if unit is None:
+            print("This project's folder in the Collab Kit folder is not reachable; see `ck doctor`.")
+            return 2
+        top = p.top_unit()
+    else:
+        store = open_store(a.store)
+        name = "top" if a.top else a.unit
+        if not name:
+            print("Name the unit: --unit <project name> (as its returns say in 'Project:'), or --top.")
+            return 2
+        if store.read("00-START-HERE.md") is None and not store.list("agenda"):
+            print(f"{a.store} is not a Collab Kit unit (no 00-START-HERE.md, no agenda/): nothing applied.")
+            return 2
+        unit = Unit(store, name, home=a.home, top=a.top)
+        top = None
+        import re
+        from .text import fold
+        named = set()
+        for e in unit.pending_returns():
+            m = re.search(r"(?mi)^Project:\s*(.+?)\s*$", (unit.store.read(f"_returns/{e.name}") or "") if not e.native else "")
+            if m:
+                named.add(fold(m.group(1)))
+        if named and fold("top" if a.top else name) not in named and not (a.top and named & {"top", "top level"}):
+            print(f"No waiting return here names '{name}' (they name: {', '.join(sorted(named))}); applying would "
+                  "set them all aside. Check --unit (the name in their 'Project:' line).")
+            return 2
     for old, new in heal_duplicates(unit):
         print(f"renumbered {old} -> {new}")
     rc = 0
     for e in unit.pending_returns():
-        out = apply_file(unit, e, force_settled=a.now)
+        out = apply_file(unit, e, force_settled=a.now, top=top)
         print(f"{out.status:8} {out.rid}: {out.message}")
         rc = rc or (1 if out.status in ("failed", "stray") else 0)
     return rc
@@ -331,12 +410,16 @@ def main(argv=None) -> int:
     s = sub.add_parser("hook")
     s.add_argument("event", choices=["session-start", "stop", "touch"])
     s.set_defaults(fn=cmd_hook)
-    s = sub.add_parser("apply")
-    s.add_argument("store")
-    s.add_argument("--unit", default="top")
-    s.add_argument("--top", action="store_true")
-    s.add_argument("--home", default="cloud", choices=["cloud", "repo"])
-    s.add_argument("--now", action="store_true", help="do not wait for recent files to settle")
+    s = sub.add_parser("apply", help="apply waiting returns by hand (level 1, no back end)",
+                       description="Apply waiting returns, as the back end would, where no back end runs. "
+                                   "With no folder: this project's own inbox. With a folder: that unit's.")
+    s.add_argument("store", nargs="?", default=None,
+                   help="the unit's folder (projects/<name>/collab-kit, a repository's collab-kit/, or the "
+                        "Collab Kit folder itself with --top), or rclone:remote:path")
+    s.add_argument("--unit", default="", help="the project's name, as its returns say in 'Project:'")
+    s.add_argument("--top", action="store_true", help="the folder is the top level")
+    s.add_argument("--home", default="cloud", choices=["cloud", "repo"], help="where the unit lives (default cloud)")
+    s.add_argument("--now", action="store_true", help="do not wait for recent files to settle (120 seconds)")
     s.set_defaults(fn=cmd_apply)
     s = sub.add_parser("backend")
     s.add_argument("action", choices=["run"])

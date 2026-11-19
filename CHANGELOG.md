@@ -1,6 +1,51 @@
 # Changelog
 
-## Not yet released
+## 0.5.3 (2026-11-19)
+
+The kit dogfooded on itself, and checked the way an agent meets it: an AI agent with no context
+installed, used, upgraded, broke and repaired Collab Kit in a sandbox from the documentation alone,
+and an audit compared every design statement with the code. What they found is fixed here.
+
+**For agents: one procedure.** [docs/for-agents.md](docs/for-agents.md) is the step-by-step for
+installing, upgrading, checking and repairing Collab Kit, linked from the README's first lines. The
+kit's own repository now has a `CLAUDE.md` and `AGENTS.md` for agents working on the kit itself.
+
+**The kit runs on itself.** Collab Kit is installed in its own repository (`tools/collab-kit/`, the
+hooks, the skills, the Collab Kit section), and `tests/test_own_install.py` fails whenever that
+install falls behind the engine.
+
+**Installing a project creates its folder.** `install.py project` used to stop at the repository: a
+project whose home is the Collab Kit folder had no folder there, so its returns waited in the
+repository and nobody delivered them. It now creates the project's folder (new files only), and files
+a return that marks the project live in `knowledge/projects.md`, adding its row from `--about` and
+`--spoken` when it is not listed. The `project` change can add a missing row when it says what the
+project is (`about=`; a misheard name without it adds nothing), and takes `where=`.
+
+**A late back end keeps its inbox.** Once a back end has run for a folder, sessions never apply
+returns themselves, even when it is late or stopped: they file, the returns wait for the back end and
+its lease, and the brief and `ck doctor` say to tell the person. Before, a session applied them
+itself, without the lease, and overwrote the front page's warning that the back end had stopped.
+`install.py top --setup none` (retiring a back end) now retires its heartbeat, so sessions apply
+again.
+
+**Upgrades in one command per place.** `install.py top --replace-start` also brings the start file of
+each project homed in the folder current (keeping its `Project:` line), and `install.py project
+--replace-start` does the same for one project. Old versions are kept.
+
+**Tools that say what to do.**
+- `ck doctor` prints where the kit's checkout is, lists each failure with the command that fixes it,
+  and exits 1 when anything needs fixing.
+- `ck apply` with no folder applies this project's own waiting returns (level 1 only). With a folder,
+  it refuses one that is not a unit, and refuses when no waiting return names the given unit, where
+  it used to set every return aside as a stray.
+- A damaged engine in a project prints the command that repairs it instead of a traceback; in a hook,
+  the agent sees it.
+- `install.py backend --config-only` writes `backend.toml` and stops, for review; the dry run shows the
+  config it would write. On Windows, and for systemd's lingering, it says plainly that the person
+  runs the printed commands.
+- `install.py machine` says when the config's kit source is older than the kit being run.
+- The back end's dry run says which returns are still settling (they wait 120 seconds).
+- The brief says the back end checks the inboxes every minute; it used to say "every 60 minutes".
 
 **Fixed: a back end over rclone refused every run.** Its account check asked rclone for the signed-in
 account (`config userinfo`), which rclone does not support for Google Drive, so the answer was always
@@ -8,6 +53,11 @@ empty. The check now reads who owns the folder's start file (`lsjson --metadata`
 with `account` in `backend.toml`. This is the folder's owner, not the signed-in account: a folder
 shared from another account is refused, which is what the setting promises. Found on the first real
 run on a second machine (2026-11-18); the test stand-in for rclone had never been asked that question.
+
+**The back end reports rclone's shared Google client.** A Google Drive remote with no OAuth client of
+its own uses rclone's shared one, which Google retires during 2026 (the back end would then stop) and
+which is rate-limited across every rclone user. The back end now lists it as a problem on the front
+page; [docs/rclone-intake.md](docs/rclone-intake.md) says how to give the remote its own client.
 
 ## 0.5.2 (2026-11-16)
 

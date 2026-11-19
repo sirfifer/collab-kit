@@ -29,9 +29,10 @@ If something can only be done at the machine, the kit is not finished.
    agenda item for a conversation. This makes the back end reliable and testable, and it means
    text arriving from outside has no AI to talk to.
 3. **The back end is light, and its absence is not fatal.** An always-on machine is the
-   recommended setup; a laptop works; a scheduled cloud run (GitHub Actions, Claude Code cloud
-   sessions) needs no machine at all. The same scripts run in every one of them. When the back end
-   is away, conversations keep working from the folder, and see what is still waiting.
+   recommended setup; a laptop works; a scheduled cloud run (GitHub Actions) needs no machine at
+   all. The same scripts run in every one of them. Claude Code cloud sessions are not a back end:
+   they would put an AI between incoming text and the credentials (DESIGN-0.5.md, section 9). When
+   the back end is away, conversations keep working from the folder, and see what is still waiting.
 4. **Everything has a place, at every level.** The top of Collab Kit holds what is about no
    single project (an inbox, an agenda across everything, knowledge about the person's whole
    world of work), and each project holds its own. Both look the same, so one set of rules covers

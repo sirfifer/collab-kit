@@ -37,7 +37,7 @@ BLOCK_NAME = "agents"
 
 class Plan:
     def __init__(self, root: Path, dry: bool):
-        self.root, self.dry, self.steps = root, dry, []
+        self.root, self.dry, self.steps, self.info = root, dry, [], []
 
     def write(self, rel: str, text: str, why: str) -> None:
         p = self.root / rel
@@ -53,11 +53,17 @@ class Plan:
     def note(self, what: str, why: str = "") -> None:
         self.steps.append((what, why))
 
+    def tell(self, what: str, why: str = "") -> None:
+        """Information, or a next step for someone: shown, never counted as a change (--check)."""
+        self.info.append((what, why))
+
     def show(self, out=sys.stdout) -> None:
         for what, why in self.steps:
             print(f"  {what}" + (f"  ({why})" if why else ""), file=out)
         if not self.steps:
             print("  nothing to change", file=out)
+        for what, why in self.info:
+            print(f"  {what}" + (f"  ({why})" if why else ""), file=out)
 
 
 def _render(text: str, ctx: dict) -> str:
@@ -130,7 +136,7 @@ def _block_into(path: Path, block: str, title: str, plan: Plan, rel: str) -> Non
 
 def install_project(root: Path, *, name: str | None = None, unit: str | None = None, home: str | None = None,
                     human: str | None = None, python: str = "", dry: bool = False, about: str = "",
-                    spoken: str = "") -> Plan:
+                    spoken: str = "", replace_start: bool = False) -> Plan:
     root = root.resolve()
     plan = Plan(root, dry)
     pfile = root / C.PROJECT_FILE
@@ -146,7 +152,7 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
         plan.write(C.PROJECT_FILE.as_posix(),
                    f"# Collab Kit settings for this repository (the project's own; never replaced on upgrade).\n"
                    f"[project]\nname = \"{name}\"\nunit = \"{unit}\"\nhome = \"{home}\"   # \"cloud\" or \"repo\"\n\n"
-                   f"[session]\nstop_check = true   # ask once before a session ends without recording anything\n",
+                   f"[session]\nstop_check = true   # before a session ends without recording anything, ask (at most every 15 minutes, 3 times)\n",
                    "the project's settings, created once")
     human = human or C.machine().get("human") or "the owner"
     ctx = {"name": name, "human": human, "kit_version": kit_version()}
@@ -185,7 +191,7 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
                 matcher={"SessionStart": "startup|resume|clear|compact"})
     if json.dumps(settings, sort_keys=True) != before or not sp.is_file():
         plan.write(".claude/settings.json", json.dumps(settings, indent=2) + "\n",
-                   "the session-start brief and the once-per-session check (other settings kept)")
+                   "the session-start brief and the end-of-turn check (other settings kept)")
     # 4. skills
     for sk in sorted((PROJECT_TEMPLATES / "skills").iterdir()):
         src = sk / "SKILL.md"
@@ -200,15 +206,118 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
         from .templates import project_start_file, returns_readme, set_human
         set_human(human)
         base = "collab-kit"
-        if not (root / base / "00-START-HERE.md").is_file():
-            plan.write(f"{base}/00-START-HERE.md", project_start_file(name, about, spoken or name, home="repo"),
-                       "the unit's start file")
+        startp = root / base / "00-START-HERE.md"
+        fresh = project_start_file(name, about, spoken or name, home="repo")
+        if not startp.is_file():
+            plan.write(f"{base}/00-START-HERE.md", fresh, "the unit's start file")
+        elif replace_start:
+            cur = startp.read_text(encoding="utf-8")
+            new = keep_description(cur, fresh)
+            if new != cur:                            # git keeps the old one
+                plan.write(f"{base}/00-START-HERE.md", new, "the start file, from the current template "
+                           "(its 'Project:' line kept; carry over anything else added by hand: git has the old one)")
         for rel, text in ((f"{base}/_returns/README.md", returns_readme(name)),
                           (f"{base}/knowledge/README.md", f"# {name}\n\nWhat this project knows.\n"),
                           (f"{base}/agenda/README.md", "# Agenda\n\nOne file per item (`W-NNN-...`). Change items by filing a return.\n")):
             if not (root / rel).is_file():
                 plan.write(rel, text, "a channel of the unit")
+    # 6. the project's side of the Collab Kit folder: its folder there, and its row in the catalog
+    _cloud_side(root, name, unit, home, about, spoken, human, plan, dry, replace_start)
     return plan
+
+
+def keep_description(current: str, fresh: str) -> str:
+    """The current template, keeping the project's own description: the line that starts 'Project: **'."""
+    mine = next((ln for ln in current.splitlines() if ln.startswith("Project: **")), None)
+    if mine is None:
+        return fresh
+    return "\n".join(mine if ln.startswith("Project: **") else ln for ln in fresh.split("\n"))
+
+
+def _cloud_side(root: Path, name: str, unit: str, home: str, about: str, spoken: str, human: str,
+                plan: Plan, dry: bool, replace_start: bool = False) -> None:
+    """A cloud-homed project gets its folder in the Collab Kit folder (new files only), and every project
+    is marked live in the top level's knowledge/projects.md through a return, so the one writer applies
+    it (the back end if one runs, else this machine at once). Without the folder in reach: the next step."""
+    from .session import Project, open_cloud
+    from .store import SubStore
+    from .templates import project_start_file, returns_readme, set_human
+    machine = C.machine()
+    cloud = open_cloud(machine)
+    if cloud is None:
+        why = ("this machine has no Collab Kit config: run install.py machine first"
+               if not machine.get("cloud", {}).get("root") else
+               f"the Collab Kit folder ({machine['cloud']['root']}) is not reachable from here")
+        plan.tell("next: the project's folder and its catalog row", f"{why}, then run this again")
+        return
+    if home == "cloud":
+        sub = SubStore(cloud, unit)
+        cur = sub.read("00-START-HERE.md")
+        if cur is not None and replace_start:
+            set_human(human)
+            new = keep_description(cur, project_start_file(name, about, spoken or name, home="cloud"))
+            if new != cur:
+                plan.note(f"replace {unit}/00-START-HERE.md with the current template", "its 'Project:' line kept; "
+                          "the old one is kept in _versions/ (carry over anything else added by hand)")
+                if not dry:
+                    from .unit import Unit, write_versioned
+                    write_versioned(Unit(sub, name, home="cloud"), "00-START-HERE.md", new)
+        if cur is None:
+            set_human(human)
+            files = {"00-START-HERE.md": project_start_file(name, about, spoken or name, home="cloud"),
+                     "_returns/README.md": returns_readme(name),
+                     "agenda/README.md": "# Agenda\n\nOne file per item (`W-NNN-...`). Change items by filing a return.\n",
+                     "knowledge/README.md": f"# {name}\n\n{about or 'What this project knows.'}\n",
+                     "WIP/README.md": "# WIP\n\nCheckpoint notes between saves. See the top-level start file.\n"}
+            for rel, text in files.items():
+                if sub.read(rel) is None:
+                    plan.note(f"create {unit}/{rel}", "in the Collab Kit folder: the project's home")
+                    if not dry:
+                        sub.write(rel, text)
+    from .apply import has_project_row, _col, _table_rows, _cells
+    catalog = cloud.read("knowledge/projects.md") or ""
+    lines, hi, cells, rows = _table_rows(catalog)
+    kcol, fcol = _col(cells, "collab kit", "collab-kit"), _col(cells, "folder")
+    state = next((_cells(lines[j])[kcol] for j in rows if fcol is not None and kcol is not None
+                  and len(_cells(lines[j])) > max(fcol, kcol) and _cells(lines[j])[fcol].strip("`") == name), None)
+    listed = has_project_row(catalog, name)
+    if hi is None:
+        plan.tell("skip the catalog", "the Collab Kit folder has no knowledge/projects.md table (install.py top)")
+        return
+    if listed and (kcol is None or state == "live"):
+        return
+    if not listed and not about:
+        plan.tell("next: the catalog row", f"'{name}' is not in knowledge/projects.md: run again with "
+                  "--about \"what it is\" (and --spoken \"what you call it\") to add it")
+        return
+    where = ("a repository; its Collab Kit home is its folder here" if home == "cloud" else
+             "a repository; its Collab Kit home is the repository (`collab-kit/` there): the folder here is a copy")
+    args = ' collab-kit=live' if kcol is not None else ""
+    if not listed:
+        args += f' about="{about}" where="{where}"' + (f' spoken="{spoken}"' if spoken else "")
+    change = f"project {name}{args}"
+    if dry or not (root / C.PROJECT_FILE).is_file():
+        plan.note(f"file a return: {change}", "marks the project live in the catalog")
+        return
+    from .apply import Reject
+    try:
+        proj = Project(root)
+        cu = proj.cloud_unit()
+        if proj.route()[0] != "cloud" or cu is None:  # only into the inbox that can reach the catalog
+            plan.tell(f"next: file `{change}` from the project's Collab Kit folder",
+                      "this repository's returns do not reach it yet (a back end mirrors a repository-homed "
+                      "project's folder once its backend.toml lists it)")
+            return
+        if any(change in (cu.store.read(f"_returns/{e.name}") or "") for e in cu.pending_returns() if not e.native):
+            plan.tell(f"already filed: {change}", "waiting in the project's inbox")
+            return
+        plan.note(f"file a return: {change}", "marks the project live in the catalog")
+        text = proj.compose("note", f"{name} is set up in Collab Kit", [change],
+                            sender=f"the Collab Kit installer in {name}")
+        res = proj.file(text)
+        plan.tell(f"  {'applied' if res.get('applied') else 'filed'} ({res['route']})", res.get("message", ""))
+    except (Reject, OSError) as e:
+        plan.tell("  not filed", str(e))
 
 
 # ---------------------------------------------------------------------------- machine --
@@ -239,7 +348,15 @@ def install_machine(*, cloud_root: str | None, human: str | None, kit_source: st
     text = ("# Collab Kit, this machine (see the kit's engine/collab_kit/config.py)\n"
             f"human = {json.dumps(human)}\n\n[cloud]\nroot = {json.dumps(cloud_root)}\n{extra}\n"
             f"[kit]\nsource = {json.dumps(kit_source)}\n")
-    plan.write(cfgp.name, text, "this machine's settings")
+    plan.write(cfgp.name, text, f"this machine's settings ({cfgp})")
+    def _v(path: str) -> tuple:
+        try:
+            return tuple(int(x) for x in (Path(C.expand(path)) / "VERSION").read_text().strip().split("."))
+        except (OSError, ValueError):
+            return ()
+    if Path(C.expand(kit_source)).resolve() != KIT.resolve() and _v(kit_source) < _v(str(KIT)):
+        plan.tell(f"note: the kit source in the config, {kit_source}, is {'.'.join(map(str, _v(kit_source))) or 'missing'}"
+                  f"; this kit is {kit_version()}", f"to use this one, run again with --kit-source \"{KIT}\"")
     if user_hooks:
         eng = data_dir() / "engine"
         files = {k.replace("tools/collab-kit/", ""): v for k, v in _engine_files().items()}
@@ -336,6 +453,31 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
             from .store import FolderStore
             from .unit import Unit, write_versioned
             write_versioned(Unit(FolderStore(folder), "top", home="cloud", top=True), "00-START-HERE.md", new)
+    if replace_start and start.is_file():                  # each project homed here: its start file too
+        from .templates import HOME_NOTES, project_start_file
+        set_human(human)
+        repo_note = HOME_NOTES["repo"].split(".")[0]
+        for ps in sorted(folder.glob("projects/*/collab-kit/00-START-HERE.md")):
+            cur = ps.read_text(encoding="utf-8")
+            if repo_note in cur:                           # a repository's copy: the back end mirrors it
+                continue
+            name = ps.parent.parent.name
+            new_p = keep_description(cur, project_start_file(name, "", name, home="cloud"))
+            if new_p != cur:
+                rel = ps.relative_to(folder).as_posix()
+                plan.note(f"replace {rel} with the current template", "its 'Project:' line kept; the old one is "
+                          "kept in _versions/ (carry over anything else added by hand)")
+                if not dry:
+                    from .store import FolderStore, SubStore
+                    from .unit import Unit, write_versioned
+                    write_versioned(Unit(SubStore(FolderStore(folder), ps.parent.relative_to(folder).as_posix()),
+                                         name, home="cloud"), "00-START-HERE.md", new_p)
+    beat = folder / "_backend" / "heartbeat.json"
+    if setup == "none" and beat.is_file():                 # a retired back end: sessions apply returns again
+        from .text import stamp
+        plan.note("retire _backend/heartbeat.json (renamed, kept)", "sessions apply returns themselves again")
+        if not dry:
+            beat.rename(beat.with_name(f"heartbeat.retired-{stamp()}.json"))
     if not dry:
         from .store import FolderStore
         from .text import utcnow
@@ -353,7 +495,7 @@ BACKEND_TEMPLATE = """# Collab Kit back end (see the kit's engine/collab_kit/bac
 [backend]
 cloud = {cloud}          # the Collab Kit folder: a path, or "rclone:<remote>:<path>"
 work = {work}            # the back end's own clones: never inside ~/dev or the Collab Kit folder
-interval_minutes = 60     # the sweep (pull, mirror, health); returns are applied within a minute of arriving
+interval_minutes = 60     # the sweep (pull, mirror, health); a return is applied within a few minutes of arriving (it settles 120 s first)
 human = {human}
 watch = ""               # optional, macOS: a synced copy of the folder (Drive for desktop); its inboxes ring the doorbell
 local_roots = []         # e.g. ["~/dev", "~/projects"]: folder names there count as taken
@@ -372,8 +514,9 @@ rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/r
 # name = "garden-planner"
 # repo = "git@github.com:you/garden-planner.git"
 # branch = "main"
-# push = true
-# allow_public = false
+# push = true             # false: the back end commits in its own clone only; nothing reaches GitHub
+# allow_public = false     # push collab-kit/ to a public repository only if true
+# returns_in_git = false   # keep the text of returns from the Collab Kit folder out of git
 """
 
 
@@ -390,7 +533,8 @@ def build_runner(dest_dir: Path) -> Path:
     return out
 
 
-def install_backend(config: Path | None, *, cloud: str | None, human: str | None, apply: bool) -> int:
+def install_backend(config: Path | None, *, cloud: str | None, human: str | None, apply: bool,
+                    config_only: bool = False) -> int:
     import subprocess
     from . import schedule
     config = config or C.config_dir() / "backend.toml"
@@ -401,10 +545,21 @@ def install_backend(config: Path | None, *, cloud: str | None, human: str | None
         work = data_dir() / "backend"
         text = BACKEND_TEMPLATE.format(cloud=json.dumps(cloud), work=json.dumps(str(work)),
                                        human=json.dumps(human or "the owner"))
-        print(f"create {config}" + ("" if apply else "  (dry run)"))
-        if apply:
+        write = apply or config_only
+        print(f"create {config}" + ("" if write else "  (dry run; it would hold:)"))
+        if write:
             config.parent.mkdir(parents=True, exist_ok=True)
             config.write_text(text, encoding="utf-8")
+            if os.name != "nt":
+                config.chmod(0o600)                   # it may hold a notification key later
+        else:
+            print("".join(f"    {ln}\n" for ln in text.splitlines()), end="")
+    elif config_only:
+        print(f"{config} exists: left as it is")
+    if config_only:
+        print(f"next: edit {config} (account, local_roots, deny, a [[project]] per repository-homed project), "
+              "then run this again with --apply to load the schedule")
+        return 0
     cfg = C.load_toml(config) if config.is_file() else {"backend": {"cloud": cloud or ""}}
     minutes = int(cfg.get("backend", {}).get("interval_minutes", 60))
     spec = C.expand(cfg.get("backend", {}).get("cloud", ""))
@@ -427,10 +582,17 @@ def install_backend(config: Path | None, *, cloud: str | None, human: str | None
     for d in p["mkdir"]:
         if apply:
             Path(d).mkdir(parents=True, exist_ok=True)
+    yours = [c for c in p["then"] if c.startswith(("loginctl", "schtasks"))]   # may need the person's rights
     for cmd in p["then"]:
+        if cmd in yours:
+            continue
         print(f"  run   {cmd}")
-        if apply and not cmd.startswith("loginctl") and not cmd.startswith("schtasks"):
+        if apply:
             subprocess.run(cmd, shell=True, check=False)
+    if yours:
+        print("  the person runs these themselves (they may ask for their password); until then nothing is scheduled:")
+        for cmd in yours:
+            print(f"    {cmd}")
     if not apply:
         print("(dry run: nothing written; add --apply)")
     elif runner:

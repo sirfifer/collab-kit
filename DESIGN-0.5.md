@@ -1,13 +1,17 @@
 # Collab Kit 0.5: design record
 
-Working record of the 0.5 design, 2026-11-14. Every decision here was made or confirmed by the owner. Folded into [DESIGN.md](DESIGN.md) when 0.5
-ships. Every decision here is measured against [VISION.md](VISION.md).
+The current design record of Collab Kit 0.5. 0.5.0 and 0.5.1 shipped on 2026-11-15 and 0.5.2 on
+2026-11-16; section 21 describes 0.5.3. Every decision here was made or confirmed by the owner, and
+every decision is measured against [VISION.md](VISION.md). [DESIGN.md](DESIGN.md) is the 0.4 record,
+kept because it is the only reference for the 0.4 knowledge build (`tools/kb/`), which is still part
+of the kit.
 
-**Status: the 0.5 architecture is locked (2026-11-14), after two rounds of simulation; 0.5.0 is built
-(2026-11-15: engine, back end, the native layer in section 18, migration; go-live on the Studio and
-the owner's projects remain).** Every decision below is made. What remains
-open does not change the architecture: which assistants beyond Claude can use it (an interface
-question, research in progress) and rclone's dependency intake review.
+**Status.** The architecture was locked on 2026-11-14, after two rounds of simulation. Where a later
+section revised an earlier one, the earlier one says so; anything not built is marked "not built yet
+(planned)". Done: the Collab Kit folder has been in use since 2026-11-14 (section 17), the back end
+has run on the Studio since 2026-11-18, and rclone's dependency intake review concluded "accept with
+conditions" on 2026-11-15 ([docs/rclone-intake.md](docs/rclone-intake.md), section 6). Still open,
+without changing the architecture: which assistants beyond Claude can use it (research in progress).
 
 ## What 0.4 could not do
 
@@ -31,13 +35,16 @@ Collab Kit/                    the system's folder, wherever the person keeps it
   00-START-HERE.md             the one file an assistant is pointed at
   _returns/                    the top-level inbox
   agenda/                      the top-level agenda
+  WIP/                         checkpoint notes between saves (section 17)
   knowledge/                   the top-level knowledge (one file, or many)
+  _backend/                    the back end's own: lease.json, heartbeat.json, mirror state (when one runs)
   projects/
     <project>/
       collab-kit/              the project's channels, shaped like the top level
         00-START-HERE.md
         _returns/
         agenda/
+        WIP/
         knowledge/
       ...                      the project itself, if it lives here (documents, music, data, anything)
 ```
@@ -46,9 +53,9 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 - **A project folder is the project.** `collab-kit/` is how it is collaborated on; everything beside
   it is the project itself. A project with its own repository usually has only `collab-kit/` here,
   a copy of the repository's `collab-kit/` folder. A project without one keeps all of itself here.
-- **The back end only ever writes inside the channel folders** (and start files only when it creates or
-  mirrors them, plus once the top-level start file's setup line: section 19). It never
-  touches a project's own files, so there are no reserved names in a project.
+- **The back end writes only inside the channel folders and its own `_backend/`** (and start files
+  only when it creates or mirrors them, plus once the top-level start file's setup line: section 19).
+  It never touches a project's own files, so there are no reserved names in a project.
 - **Moving a project into a repository later:** the project's own files move to the repository;
   `collab-kit/` stays and becomes the copy of the repository's `collab-kit/`.
 - **The top level needs no name.** A conversation that names no project is at the top level: "what's
@@ -65,16 +72,20 @@ Collab Kit/                    the system's folder, wherever the person keeps it
 
 ### 3. Source control: one choice at setup, two answers
 
+**Not built yet (planned).** As built, the top level always lives in the cloud folder: the back end
+and the agenda's front page treat it as cloud-homed, there is no top-level repository, and setup
+offers no choice. Only a project can have a repository as its home (sections 7 and 18). The plan:
+
 | Mode | The top-level repository holds | For |
 |---|---|---|
 | **Projects separate** | everything except `projects/` (one ignore line) | people whose projects have their own repositories |
 | **All in one** | the whole tree | everyone else; or no repository at all |
 
 In "projects separate" mode a project may have its own repository or live only in storage; nothing
-is mixed inside the top repository either way. Moving a project to its own repository is a skill
-(below). The top-level repository's suggested name is `<github-user>-collab-kit`, unique by
-construction; the kit's own repository is `collab-kit`. Projects keep the naming rule: a project's
-folder is named exactly like its repository.
+is mixed inside the top repository either way. Moving a project to its own repository is to be a
+skill (section 13; not built yet either). The top-level repository's suggested name is
+`<github-user>-collab-kit`, unique by construction; the kit's own repository is `collab-kit`.
+Projects keep the naming rule: a project's folder is named exactly like its repository.
 
 ### 4. Open formats only: a cloud drive is just a drive (Decided)
 
@@ -93,11 +104,14 @@ native format is refused, never processed.
 |---|---|---|
 | 1 | **A folder in a cloud drive.** The base product. | the conversation, with the person present |
 | 2 | + a back end (a machine, or a scheduled cloud run) | scripts |
-| 3 | + the top level in a repository | scripts |
+| 3 | + the top level in a repository (**not built yet (planned)**, section 3) | scripts |
 | 4 | + each project in its own repository | scripts |
 
-Each step up is one migration (a script or skill), never a rebuild. Whether the folder can live on the phone itself (Android first) is being researched; until then a
-cloud folder is the floor.
+Each step up is meant to be one migration, never a rebuild. Built: level 1 to 2 is
+`install.py backend`; a project's repository becomes its home with `install.py project <repo> --home repo`
+and a `[[project]]` table in `backend.toml` (level 4 does not need level 3). Not built yet (planned):
+level 3, and moving a project's existing channels from the folder into its repository. The folder on
+the phone itself was researched and set aside (sections 6 and 17); a cloud folder is the floor.
 
 **One set of operations, two ways to apply them.** The operations (create an item, set a field,
 log, settle, add knowledge, start a project, ...) are defined once. At level 1 the conversation
@@ -106,8 +120,8 @@ them into a return and scripts apply them. Same names, same rules, same results.
 
 ### 6. What a conversation can do to files (verified, and the editing question)
 
-Verified 2026-11-14 with the Claude Google Drive connector (typed; voice still to be tested by the
-owner): search and list by folder, read, create a plain file, create a folder, rename, move, and
+Verified 2026-11-14 with the Claude Google Drive connector (typed; voice passed the same evening,
+section 17): search and list by folder, read, create a plain file, create a folder, rename, move, and
 trash. **It cannot change an existing file's content.** The connector is built and run by Google;
 its `update_file` changes only metadata (name, folder, star, lock). Google's own Drive MCP reference
 (developer preview) lists no content-update tool either. This is a gap in Google's connector today,
@@ -116,13 +130,18 @@ not a Drive limit: the Drive API can replace a file's content in place.
 **Decided: editing is versioning by name.** Without in-place editing, "edit" and "keep a version"
 become the same act, which is also the version history that units without source control need:
 
-1. Rename the current file to its version name and move it to the folder's `_versions/`
-   (`agenda.md` becomes `_versions/agenda.2026-11-14T1530.md`).
-2. Create the new content under the original name, with conversion disabled.
-3. Keep versions per the retention rule in section 17 (it replaced "keep three"); trash older ones.
+1. Create the new content under the original name, with conversion disabled.
+2. Move the older file to the folder's `_versions/`, renamed with the UTC time to the second
+   (`knowledge/projects.md` becomes `knowledge/_versions/projects.20261114T153000Z.md`).
+3. Keep every version. Conversations never trim or trash anything; trimming by the retention rule
+   in section 17 is back-end work, not built yet.
+
+(Revised 2026-11-16, section 20: this first said rename first, then create, and trash older
+versions. Section 16 made it create first; section 20 stopped all trashing.)
 
 Consequences, stated as rules: a file's **name** is its identity, never its Drive id (ids change on
-every edit); readers ignore `_versions/`; if step 2 fails, step 1 is undone by renaming back. Two
+every edit); readers ignore `_versions/`; if step 2 fails, the name has two live files, and the
+newer by creation time is current (whoever sees the older moves it to `_versions/`, section 16). Two
 conversations editing one file: the later one wins and the earlier is in `_versions/`. No
 third-party connectors and no connector of our own.
 
@@ -147,6 +166,7 @@ What exists:
   assistants (Android AppFunctions, iOS App Intents).
 
 **Decided for 0.5:** the cloud folder is the base; the own app is recorded as a future upgrade.
+(Revised the same evening, section 17: the on-device app is dropped.)
 
 ### 7. One source of truth per unit, one direction per folder (Decided)
 
@@ -155,32 +175,53 @@ the cloud folder.
 
 - **Home is a repository:** `knowledge/` and `agenda/` flow repository to cloud; `_returns/` flows
   cloud to repository. Returns are applied in the repository, committed, and mirrored out.
-- **Home is the cloud folder:** the cloud folder is the truth for everything; git, if any, keeps a
-  one-way history of it.
+- **Home is the cloud folder:** the cloud folder is the truth for everything; git, if any, is to keep
+  a one-way history of it (not built yet (planned), with level 3; today the folder's `_versions/`
+  is its only history).
 - The back end **never deletes** in the cloud. Anything unexpected moves to `_returns/strays/` and
   becomes an agenda item. A git checkout never lives inside a synced folder.
 
 ### 8. The back end is scripts, and only scripts (Decided), with a real grammar (Decided)
 
 The conversation does the thinking; the back end files. Returns carry a versioned `Changes v1:` block.
-Simulation showed the first sketch was far too small for real returns, so v1 covers:
+Simulation showed the first sketch was far too small for real returns. v1 as built
+(`engine/collab_kit/returns.py`, `OPS`):
 
-- **items:** new (with a temporary handle, `new-item @headcount ...`), set any field, log, settle
-  with an outcome, snooze, withdraw, reopen;
-- **knowledge:** new or updated concept and answer, proposal against a document, register a document;
-- **the project:** spoken names, about, active or inactive; start a project;
-- **undo** of a whole earlier return;
+- **items:** `new-item` (optionally with a temporary handle, `new-item @headcount ...`; fields
+  `title=`, `kind=`, `importance=`, `status=`, `due=`, `project=`), `set` (the same six fields; it
+  never makes an item settled or dropped), `log`, `settle ... outcome=`, `snooze ... until=`,
+  `withdraw ... reason=`, `reopen ... reason=`. A kind word starts a new item of that kind:
+  `question`, `decision`, `work-out` (or `workout`), `hole`, `task` (or `todo`), as in
+  `task "Order the drip line" importance=2 "What's needed"` (a second quoted text is its What's needed);
+- **status:** `status "text"`, an entry in the unit's `knowledge/status.md`;
+- **knowledge:** `knowledge <path>` writes one whole plain file inside `knowledge/` from the fenced
+  body under it (in a repository-homed unit, never a file the knowledge build generates);
+- **the project:** `project [<name>]` with `spoken=`, `about=`, `active=`, `collab-kit=`, `where=`
+  changes a row of the top level's `knowledge/projects.md` (a project's inbox only its own row); a
+  missing row is added only when `about=` is given (0.5.3, section 21); `new-project name= from=W-NNN
+  "part of the idea's title"`, with `about=` and `spoken=`, starts a project (section 11);
+- **push-request** `repo= approval=` (and `branch=`): an approved push becomes an agenda task
+  carrying the approval verbatim (sections 17 and 18);
+- **undo** `<return id>` of a whole earlier return;
 - multi-line text in fenced bodies.
+
+Aliases: `drop` is `withdraw`, `close` is `settle`, `push` is `push-request`, and `newitem`,
+`new_item`, `newproject`, `new_project`, `push_request`, `pushrequest` are read as the hyphenated
+names. The header names the unit (`Project:`, `top` for the top level); an `Id:` line is optional
+(otherwise the file's name without `.md` is the id). Not built yet (planned): concepts and answers,
+proposals against a document, and registering a document as changes of their own.
 
 Rules: a return is applied whole or not at all, and at most once (a ledger of applied returns, kept
 with the effects); only the block right after the header is parsed; curly quotes, bullets and bold
 are normalised; dates are absolute (the conversation reads them back); a change naming an item
 repeats part of its title as a check; every return has a unique id and ends with `End.`.
 
-**The 0.4 AI curator (Decided):** leaves the base product. Scripts take the mechanical part
-(exactly which concepts and answers went stale when a document changed; registering new documents)
-and raise one "review these" agenda item per project. The judgment part becomes an optional reviewer
-whose only output is a return through the same parser.
+**The 0.4 AI curator (Decided):** leaves the base product (done: the 0.5 back end runs no AI). Not
+built yet (planned): scripts that take the mechanical part (exactly which concepts and answers went
+stale when a document changed; registering new documents) and raise one "review these" agenda item
+per project, and an optional reviewer for the judgment part, whose only output is a return through
+the same parser. Today the back end runs the knowledge build (`kb.py build`) in each pass for a
+repository-homed project that has it, and nothing flags stale concepts.
 
 ### 9. Runners (Decided)
 
@@ -195,7 +236,8 @@ whose only output is a return through the same parser.
   end mints item numbers, never reused. A backup runner is advanced configuration.
 - **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
   only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
-  runner. Cloud runners reach the API through rclone (decided, subject to the dependency intake review).
+  runner. Cloud runners reach the API through rclone (decided; the dependency intake review accepted
+  it with conditions on 2026-11-15, [docs/rclone-intake.md](docs/rclone-intake.md)).
 - **Health is visible:** the agenda's front page (`agenda/00-PRESSING.md`) opens with the date the back
   end is current as of and anything it could not handle. (Revised 2026-11-15: not in the start file;
   section 19.)
@@ -224,14 +266,19 @@ capped (top items, then "N more"); inactive projects collapse to one line.
 
 A project's inbox can change only that project. When a project is shared, returns from anyone but
 the owner become proposals. A per-project confidential setting keeps raw captures out of anything
-shared. Public repositories never get captures in git. The top-level repository must be private,
-checked every run. A project's files contain nothing from outside the project.
+shared. Public repositories never get captures in git. A top-level repository (level 3, not built
+yet (planned)) is to be private, checked every run. A project's files contain nothing from outside
+the project.
 
 ### 13. Skills where there is judgment, scripts underneath (Decided)
 
-Skills: file a return, start a project, move a project up a level (folder to repository), review the
-agenda, review changed documents. Every mechanical step inside is a script. The portable truth is the
-instruction files in each folder, which any assistant reads.
+Built: three Claude Code skills, installed in each project's repository (`templates/project/skills/`):
+`collab-kit` (see where the project stands and keep it current), `collab-kit-return` (file a return),
+and `collab-kit-upgrade` (upgrade the kit in the repository). Every mechanical step inside is the `ck`
+command. Not built yet (planned): skills to start a project, move a project up a level (folder to
+repository), review the agenda, and review changed documents. A project is started today as section
+11 says: a `new-project` return, or by hand at level 1. The portable truth is the instruction files
+in each folder, which any assistant reads.
 
 ### 14. Storage services and assistants (research, 2026-11-14)
 
@@ -240,14 +287,33 @@ instruction files in each folder, which any assistant reads.
   personal accounts included (connect on the web first). The second storage service.
 - **iCloud Drive:** no connector. **Dropbox, Box:** connectors exist; write behaviour unverified.
 - **Claude voice mode** uses connected tools (official since 2026-07-23; paid plans get all of them).
-  Which Drive tools voice exposes is undocumented: the owner's spoken test settles it.
+  Which Drive tools voice exposes is undocumented: the owner's spoken test settles it (it passed
+  that evening, section 17).
 - **ChatGPT, Gemini:** research in progress.
 
 ### 15. Moving from 0.4 (Decided)
 
-A script: unload the old jobs; refuse while curator work is unmerged; move folders and rewrite
-paths; leave a pointer file in `Project Knowledge`; sweep its old `_returns` and the interim
-`_inbox` (accepting its `Inbox: home` line) for 30 days.
+`install.py migrate-04 <repo>` (`engine/collab_kit/migrate.py`), run in the project's repository
+(`--dry-run` shows the steps):
+
+- **Refuses** while the working tree has uncommitted changes, while the 0.4 curator branch has
+  commits not on the main branch, while the repository is already on the 0.5 layout, and on macOS
+  while either 0.4 launchd job is loaded (it prints the `launchctl bootout` command; it never unloads
+  a job itself).
+- **Moves** with `git mv`: the knowledge folder's `agenda/` to `collab-kit/agenda/`, and the
+  knowledge folder to `collab-kit/knowledge/`.
+- **Converts** every agenda item: importance runs the other way (0.4's 4, critical, becomes 1), `done`
+  becomes `settled`, empty `due` and `project` fields are added, and the 0.4 build's generated block
+  is dropped. It removes the build's `00-AGENDA.md` and `01-HOW-ITEMS-ARE-KEPT.md`.
+- **Rewrites** `tools/kb/config.toml` (`[knowledge] out_dir = "collab-kit/knowledge"`,
+  `agenda = false`), the manifest's paths, and `tools/kb/collection-codes.json`, and puts a note at
+  the top of the knowledge folder's `CLAUDE.md` saying where the start file and agenda now are.
+
+Everything is a change in the working tree, reviewed and committed like any other. Then
+`install.py project <repo> --home repo`, `kb.py build`, and `kb.py check`. (Revised 2026-11-19: the
+first plan also unloaded the old jobs, left a pointer file in `Project Knowledge`, and swept its old
+`_returns` for 30 days. None of that was built: nothing in the kit reads or moves the old
+`Project Knowledge` folder, so anything waiting there is moved by hand.)
 
 ### 16. Rules from the second simulation round (Decided)
 
@@ -282,12 +348,15 @@ overwritten. Mirroring uses copy, never sync, and skips `_versions/`.
 **Native formats:** Collab Kit never manages, writes, or stores native formats. A person may still
 ask a conversation to read one of their own Docs; that is ordinary Drive use, outside Collab Kit.
 
-**Before the Studio back end goes live:** the lease and item counter live in git where a unit has a
-repository; the back end works in its own clone (outside `~/dev` and outside Drive) with a standing
-authorization to push `collab-kit/` only; Claude Code files returns instead of minting numbers; an
-explicit path map for migration; a generated list of every repository for the new-project checks;
-each project's visibility checked, with a deny-list guard against private material in public
-repositories; runs verify the Google account.
+**Before the Studio back end went live** (it has run since 2026-11-18): the lease lives in the
+Collab Kit folder (`_backend/lease.json`) and each unit's item counter with its ledgers
+(`_returns/applied/next-item.json`, so in git for a repository-homed unit; this first said both live
+in git, revised in the build, section 18); the back end works in its own clone (outside `~/dev` and
+outside Drive) with a standing authorization to push `collab-kit/` only; Claude Code files returns
+instead of minting numbers in a repository; an explicit path map for migration; a generated list of
+every repository for the new-project checks (`knowledge/repositories.md`); each project's visibility
+checked, with a deny-list guard against private material in public repositories; each run verifies
+the Google account when `backend.toml` names one (`account`; the template leaves it empty).
 
 **Public-release work is dogfooded.** Everything the reviews raised about other people's use
 (setup without a terminal, sharing, migration logistics, the runner repository at level 2, bot
@@ -310,30 +379,41 @@ W-005, W-010, W-011, W-012, W-015, W-016, W-017; return `2026-11-14-1912-wip-and
   notes between saves. The conversation is the working copy; a save is the commit. Notes are one call
   each, named `YYYY-MM-DD-HHMM-<thread-slug>-NN.md`. Save points: moving to another document or area,
   something settled, Richard says save, about five or six changes or ten minutes on one thing, always
-  before wrapping up. After a save the notes go to Drive trash. Leftover notes mean an unfinished
-  thread; the next conversation offers to finish it. A back end ignores `WIP/` and never applies it.
+  before wrapping up. After a save the notes move to `WIP/_done/` (revised 2026-11-16, section 20:
+  this first said Drive trash). Leftover notes mean an unfinished thread; the next conversation
+  offers to finish it. A back end ignores `WIP/` and never applies it.
 - **Version retention (W-011, replaces "keep three"):** every version from today, one per day for the
-  past week, one per week for about two months; older ones trashed. **Pinning:** on request, copy the
-  current version to `_versions/<name>.pinned-<label>.<timestamp>.md`, lock it with Drive's read-only
-  lock and a reason, never trim it, unpin only when Richard says.
+  past week, one per week for about two months; older ones trimmed. (Revised 2026-11-16, section 20:
+  conversations never trim or trash; every version is kept until a back end trims by this rule,
+  which is not built yet.) **Pinning:** on request, copy the current version to
+  `_versions/<name>.pinned-<label>.<timestamp>.md`, lock it with Drive's read-only lock and a reason,
+  never trim it, unpin only when Richard says.
 - **Moving an item between projects (W-012):** create it in the right project under that project's
   next number with a log line naming the old project and number; settle the old item with outcome
   "moved", pointing to the new one.
 - **Approved pushes (W-015):** on Richard's yes in a conversation, a return carries a push request with
   his approval verbatim; a back-end script commits and pushes exactly that. Conversations suggest a push
-  at natural points. This is in addition to the standing authorization for `collab-kit/` only.
-- **Status into knowledge (W-016):** anything working in the background (the back end, Claude Code
-  sessions, research runs) writes its status into the relevant `knowledge/` (project or top level), so
-  a conversation always knows what is going on.
-- **Kit version in every start file (W-005):** each start file says "Collab Kit 0.5". Each release
-  ships one migration from the previous version: a script for back-end users and plain written steps a
-  conversation can follow for folder-only users. Nobody but Richard used 0.4.
+  at natural points. This is in addition to the standing authorization for `collab-kit/` only. (As
+  built, section 18: the push request becomes an agenda task carrying the approval; the back end does
+  not push project work by itself yet.)
+- **Status into knowledge (W-016):** work going on outside conversations reports into the relevant
+  `knowledge/status.md` (project or top level) with a `status` change (`ck status` in a Claude Code
+  session), so a conversation knows what is going on. The back end does not write there: its health
+  goes to `_backend/heartbeat.json` and the top of the agenda's front page, `agenda/00-PRESSING.md`
+  (section 19).
+- **Kit version in every start file (W-005):** each start file says "Collab Kit 0.5". A release that
+  needs a step says so in its release notes (`CHANGELOG.md`), and
+  [docs/for-agents.md](docs/for-agents.md) holds the upgrade procedure for an agent. Plain written
+  steps a conversation can follow for folder-only users are not written yet (planned). Nobody but
+  Richard used 0.4.
 - **Sharing is out of 0.5 entirely (W-004),** to be revisited from scratch later. Section 12's sharing
   rules are withdrawn; the privacy rules for public repositories stay.
 - **The on-device app is dropped (W-010):** the assistant runs in the cloud; the phone is the line in.
 - **Observed:** Drive for desktop shows a file created under an existing name as `name (1).md` locally
   even after the older one has moved to `_versions/`; the cloud has one file with the right name. A
-  machine back end must read names through the API (rclone), never trust local Drive for desktop names.
+  machine back end should read names through the API (rclone), which sees the real names. A synced
+  folder still works (revised 2026-11-19): the folder store reads `name (1).md` as `name.md` when it
+  stands alone, and two copies of one agenda item heal as one (the newer is current; section 18).
 
 ### 18. Native in every project (decided 2026-11-14, built that night)
 
@@ -367,10 +447,11 @@ the session touches a project (and again after compaction).
 **One writer, and where a return goes.** Agents never edit the agenda or status by hand and never
 mint item numbers in a checkout: `ck` files a return. With a back end running, to the cloud inbox.
 Without one, a cloud-homed project's return is applied at once (level 1; two sessions that took one
-number heal: the later renumbers itself). A repository-homed project's return goes to the
-checkout's `collab-kit/_returns/`, committed with the work, applied by the back end once it reaches
-the main branch. Filed while the folder is unreachable: kept in the checkout and delivered by the next
-session that can reach it.
+number heal: the later renumbers itself). (Revised 2026-11-19, 0.5.3: "without one" means no back end
+was ever set up; one that is late or stopped still gets the return in its inbox, section 21.) A
+repository-homed project's return goes to the checkout's `collab-kit/_returns/`, committed with the
+work, applied by the back end once it reaches the main branch. Filed while the folder is
+unreachable: kept in the checkout and delivered by the next session that can reach it.
 
 **Keeping the kit itself current:** the brief compares the project's kit with the machine's newest;
 the agent upgrades it as its own commit (skill `collab-kit-upgrade`) and says so.
@@ -391,11 +472,12 @@ cloud returns move only after a successful push); every unpushed commit is check
 deny-list and the paths before a push; the mirror works by hash and copies any bytes; item numbers
 come from a counter and are never reused; Drive's "(1)" copies heal as one file.
 
-**Where the build differs from this record** (to settle in review): the lease lives in the cloud
-folder (`_backend/lease.json`, written, settled, read back, renewed per unit), not in git; the item
-counter lives with the ledgers (`_returns/applied/next-item.json`), in git for a repository-homed
-unit. Approved pushes of project work (section 17) become an agenda task carrying the approval; the
-back end does not push project work by itself yet.
+**Where the build differs from the first plan** (settled: the build stands, and section 16 now says
+so): the lease lives in the Collab Kit folder (`_backend/lease.json`, written, settled, read back,
+renewed per unit), not in git; the item counter lives with the ledgers
+(`_returns/applied/next-item.json`), in git for a repository-homed unit. Approved pushes of project
+work (section 17) become an agenda task carrying the approval; the back end does not push project
+work by itself yet.
 
 ### 19. Start files stay put; what is going on is on the agenda (decided 2026-11-15)
 
@@ -426,12 +508,13 @@ projects belongs in the top-level knowledge.
   no date. Its one setup-dependent line (`<!-- collab-kit:begin setup -->`) says whether a back end
   runs for the folder. The back end sets it once, on its first run, and only from the "no back end"
   wording (a line edited by hand is left alone); `install.py top --setup none` sets it back when a
-  back end is retired. A start file from before 0.5.1 is never patched (its state would be left
-  behind): `install.py top --replace-start` replaces it with the template and keeps the old one in
-  `_versions/`. Start files name the kit's series ("Collab Kit 0.5"), so a patch release never
-  changes them.
-- **No return writes a start file, and ledgers are checked accordingly** (a review of this change
-  found a forged ledger could still reach across units): a project's ledger may touch the top level
+  back end is retired (and, since 0.5.3, sets its heartbeat aside: section 21). A start file from
+  before 0.5.1 is never patched (its state would be left behind): `install.py top --replace-start`
+  replaces it with the template and keeps the old one in `_versions/`. Start files name the kit's
+  series ("Collab Kit 0.5"), so a patch release never changes them.
+- **No return changes an existing start file, and ledgers are checked accordingly** (only
+  `new-project` writes one, the new project's, and its undo may only remove it; a review of this
+  change found a forged ledger could still reach across units): a project's ledger may touch the top level
   only for its own row in `knowledge/projects.md`, checked line by line; the top level's ledger may
   touch a project's folder only to remove what `new-project` created. Ledgers are not signed: anyone
   who can write the shared folder can already change it directly, and a repository's ledgers reach
@@ -481,12 +564,15 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   from Claude Code transcripts (kept a year, both Macs) and commit trailers; "an end-to-end review by a
   new model" is only a heuristic. A script, not agent work: an agenda item.
 - **Returns are event driven** (returns 1445 and 1525; agenda W-004 locked, as 1525 asked: "explore,
-  decide, and lock"). The back end reads and writes Drive only through the Drive API (rclone): it read
-  every phone-written file when the synced folder refused them, sees the real names (the synced folder
-  shows "name (1).md" after a versioning save), and needs no macOS privacy permission. The job runs
-  every minute and asks one cheap question (one listing of every inbox): is a return waiting? Only then
-  does it do a full pass; every `interval_minutes` (60) it does one anyway, the sweep that pulls
-  repositories, mirrors, and writes the health. On macOS, when the machine also has a synced copy of
+  decide, and lock"). The back end prefers the Drive API (rclone): it read every phone-written file
+  when the synced folder refused them, sees the real names (the synced folder shows "name (1).md"
+  after a versioning save), and needs no macOS privacy permission. A synced folder (Drive for
+  desktop) also works as the back end's folder (revised 2026-11-19): the folder store reads the
+  "(1)" names as section 17 says, and on macOS `install.py backend` builds `collab-kit-runner`, the
+  one program given access to that folder. The job runs every minute and asks one cheap question
+  (one listing of every inbox): is a return waiting? Only then does it do a full pass; every
+  `interval_minutes` (60) it does one anyway, the sweep that pulls repositories, mirrors, and writes
+  the health. On macOS, when the machine also has a synced copy of
   the folder (`watch`), launchd starts the job the moment a file lands in an inbox: a doorbell, nothing
   is read through it. The question is "has anything settled in an inbox since the last pass?": a
   return still settling (two minutes) is not counted yet, and one a pass leaves in place (a failed
@@ -515,23 +601,67 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   card's vision and story, answers, reviews. The person keeps approvals (pushes) and their own sign-ins
   (one script).
 
+### 21. 0.5.3: the kit dogfooded, and an agent's install (2026-11-19)
+
+Collab Kit is now worked on in Collab Kit: the kit is installed in its own repository
+(`tools/collab-kit/`, the hooks, the skills, the Collab Kit section of `CLAUDE.md` and `AGENTS.md`),
+and a test (`tests/test_own_install.py`) fails when that install is behind the checkout. Installing
+it, and an agent installing the kit from [docs/for-agents.md](docs/for-agents.md), changed these:
+
+- **A cloud-homed project's folder is made by its install.** When this machine's config reaches the
+  Collab Kit folder and the project has no start file there yet, `install.py project` creates its
+  folder (`00-START-HERE.md`, `_returns/`, `agenda/`, `knowledge/`, `WIP/`): new files only, never
+  overwriting. It then files a return `project <name> collab-kit=live` (unless the catalog already
+  says `live`), which marks the project live in `knowledge/projects.md`; when the project is not
+  listed, the change also carries `about=`, `where=` and `spoken=`, so the row is added. With the
+  folder out of reach, or an unlisted project and no `--about`, it says what to run next and files
+  nothing. A repository-homed project's install files that return only where its returns reach the
+  folder (a back end that serves it); otherwise it says how to file it.
+- **`project` adds a missing row** when `about=` is given (a misspelt name without `about=` is refused
+  and adds nothing), and takes `where=` (section 8).
+- **Once a back end has run, sessions never apply returns.** A heartbeat (`_backend/heartbeat.json`)
+  means a back end is set up. Even when it is late or stopped, a session files into the inbox and
+  stops there: the return waits for the back end, which holds the lease, so there are never two
+  writers. The session brief and `ck doctor` say so. `install.py top --setup none` (retiring a back
+  end) renames the heartbeat (`heartbeat.retired-<time>.json`, kept), so sessions apply returns
+  themselves again.
+- **`ck doctor`** lists each failure with the command (or step) that fixes it, and exits 1 when
+  anything needs fixing.
+- **`ck apply`** with no folder applies this project's own inbox where no back end is set up and the
+  home is the Collab Kit folder; in a repository-homed project it refuses (sessions never number items
+  in a checkout, section 18). With a folder (`ck apply <folder> --unit NAME`, for testing and repair)
+  it refuses a folder that is not a unit, and refuses when the waiting returns name other units and
+  none names the one given (applying would set them all aside).
+- **Start files are brought current in one step.** `install.py top --replace-start` also replaces the
+  start file of each project homed in the folder, and `install.py project --replace-start` that of one
+  project; each keeps the project's own `Project:` line, and the old file is kept (`_versions/`, or
+  git). This settles the open point of section 19: the installer, not a session, refreshes them.
+- **`install.py backend --config-only`** writes `backend.toml` and stops, so it can be reviewed before
+  the schedule loads; the dry run shows the config it would write.
+- **A damaged engine** (a project's `tools/collab-kit/`, or the user-level hooks' copy) prints the
+  command that repairs it instead of a traceback; in a hook it never blocks the session.
+- **rclone's shared client is reported.** A back end whose rclone remote is Google Drive signed in
+  with rclone's shared client (no `client_id` in its config) lists that as a problem at the top of the
+  agenda's front page: Google retires that client during 2026. The fix is in
+  [docs/rclone-intake.md](docs/rclone-intake.md) (section 5, OAuth).
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, the back end starting agent work by itself (section 20), refreshing a project's start file
-when the template changes (`install.py top --replace-start` covers the top level; a project's start
-file, in the cloud folder or in its repository, is regenerated by a session from the template, keeping
-its own description).
+project, the back end starting agent work by itself (section 20). (Refreshing a project's start file
+when the template changes was listed here; 0.5.3 does it with `--replace-start`, section 21.)
 
-## Delivery (Decided 2026-11-14)
+## Delivery (planned 2026-11-14; what happened)
 
 | When | What |
 |---|---|
-| **Tonight** | The architecture is final for 0.5 (this record), so the article can be written against it and dogfooding starts on a stable base. |
-| **Sunday night** | Working: the layout; the top-level inbox, agenda, and knowledge; versioning by name; starting a project by voice; the owner's projects moved over; the Studio as the back end; GitHub Actions if it holds; a healthy public repository with an install script. |
-| **Next (named in the article)** | OneDrive; the own app for an on-device folder (Android first); ChatGPT and Gemini, as the research allows. |
+| **2026-11-14** | Done: the architecture final for 0.5 (this record), so the article could be written against it and dogfooding started on a stable base. |
+| **2026-11-15 and 16** | Done: 0.5.0 and 0.5.1 (2026-11-15), 0.5.2 (2026-11-16). The layout; the top-level inbox, agenda, and knowledge; versioning by name; starting a project by voice; moving a 0.4 project; a back end for macOS, Linux, and Windows; a GitHub Actions workflow (untested against a live Drive); a public repository with an install script. |
+| **2026-11-18** | Done: the Studio runs the back end. |
+| **Next (named in the article)** | OneDrive; ChatGPT and Gemini, as the research allows. |
 
 ## Open
 
 - The ChatGPT and Gemini path (research in progress).
-- rclone's intake review (license, maintenance, known vulnerabilities, its own security posture).
+- Done 2026-11-15: rclone's intake review (license, maintenance, known vulnerabilities, its own
+  security posture): accept with conditions ([docs/rclone-intake.md](docs/rclone-intake.md)).

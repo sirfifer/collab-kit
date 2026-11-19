@@ -2,7 +2,7 @@
 name: collab-kit-return
 description: File a change to collab-kit's Collab Kit agenda or knowledge as a return (the one way anything changes there). Use whenever work in this repository settles, advances, re-prioritises, or adds an agenda item; raises a question or decision for Richard; finishes or starts something worth a status line; adds a knowledge note; asks for a push; or undoes an earlier return. Also use when a brief, an item, or Richard says "put that on the agenda", "close that item", "log that", "record this".
 ---
-<!-- managed by Collab Kit 0.5.2: replaced on upgrade; delete this line to make the file your own -->
+<!-- managed by Collab Kit 0.5.3: replaced on upgrade; delete this line to make the file your own -->
 
 # File a return
 
@@ -54,7 +54,15 @@ Longer text goes in a fenced body under its change: put the change lines in a fi
 
 ## What happens next
 
-`ck` prints where the return went: applied at once (no back end runs, so it applies it
-itself; in a repository-homed project, commit `collab-kit/` with your work), or filed for the back
-end, which applies it within a few minutes. A refused return says exactly why (a failed title check,
-an unknown item, a bad date): fix it and file again. Never edit the agenda's files by hand instead.
+`ck` prints where the return went:
+
+- **Filed for the back end**, which applies it within a few minutes. This is also where it goes when
+  the back end is late or stopped: it waits in the inbox safely; never apply it by hand meanwhile.
+- **Applied at once**: the project's home is the Collab Kit folder and no back end was ever set up
+  (level 1), so `ck` applies it itself.
+- **Filed in this repository's `collab-kit/_returns/`**: the project's home is the repository, or the
+  Collab Kit folder cannot be reached from here. Commit it with your work. A back end applies it once
+  it reaches the main branch; a session that can reach the folder delivers it.
+
+A refused return says exactly why (a failed title check, an unknown item, a bad date): fix it and
+file again. Never edit the agenda's files by hand instead.

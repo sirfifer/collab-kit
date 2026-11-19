@@ -54,7 +54,7 @@ license, third-party notices and a source pointer. Rule: never redistribute.
   the **ID is kept**. Drive-to-Drive `copyto`/`moveto` onto an existing destination replaces it with a new
   ID. Collab Kit writes with `rcat` (or `copyto` from a local temporary file) and copies only to new names.
 - `rcat` input under 100 KiB is buffered and retried; larger input streams without retry. Collab Kit
-  spools larger writes to a temporary file and uses `copyto`.
+  spools writes over 90 KiB (a margin below that limit) to a temporary file and uses `copyto`.
 - **Duplicates:** Drive allows same-named siblings; single-file commands silently pick one. Collab Kit
   fails closed on a duplicate name in a listing.
 - **Conversion:** `--drive-import-formats ""` prevents any config from converting uploads.
@@ -63,19 +63,26 @@ license, third-party notices and a source pointer. Rule: never redistribute.
 - **OAuth:** rclone's shared client ID stops working during 2026. Create your own OAuth client and
   **publish it to production** (Testing grants expire after a week, which would break unattended runs).
   `drive.file` sees only files created through that client, so a folder also written by Drive for desktop
-  or the web needs the full `drive` scope. Service accounts need Workspace.
+  or the web needs the full `drive` scope. Service accounts need Workspace. The back end reads the
+  remote's section of the rclone config file (no rclone command) and, when a Google Drive remote has
+  no `client_id`, lists it as a problem at the top of the agenda's front page (`agenda/00-PRESSING.md`).
+  To give an existing remote its own client, by hand, once (add `--config <file>` when the back end
+  uses its own config file): `rclone config update <remote> client_id=... client_secret=...
+  config_refresh_token=false`, then `rclone config reconnect <remote>:` (a browser sign-in).
 
 ## 6. Verdict: accept with conditions
 
 1. Pin an exact version and per-platform SHA-256 (`engine/collab_kit/rclone.lock`). Every bump is a reviewed
    change that repeats this intake. The wrapper refuses any other `rclone version`.
 2. Only the six commands, through one wrapper that passes argument lists (no shell) and strips inherited
-   `RCLONE_*` variables. Every back end run checks the Google account the folder belongs to (an exact
-   match) with `lsjson --metadata`: the owner of the folder's start file. (`config userinfo` does not
+   `RCLONE_*` variables. When `backend.toml` names an `account` (the template leaves it empty), every
+   back end run checks the Google account the folder belongs to (an exact match, ignoring case) with
+   `lsjson --metadata`: the owner of the folder's start file. (`config userinfo` does not
    work for Google Drive: found on the first real run, 2026-11-18.) Never
    `selfupdate`, `serve`, `rcd`, or any other `config` command in automation.
 3. Fail closed on a duplicate name in a listing.
-4. Where IDs matter, `rcat` or `copyto` from a local file; payloads over 100 KiB are spooled.
+4. Where IDs matter, `rcat` or `copyto` from a local file; payloads over 90 KiB are spooled (a margin
+   below rclone's 100 KiB buffer).
 5. Our own published OAuth client and a dedicated config file (mode 0600). In GitHub Actions, write it from a
    secret into `$RUNNER_TEMP`, with `permissions: contents: read` and no third-party setup action.
 6. Re-check the advisories on every rclone release.

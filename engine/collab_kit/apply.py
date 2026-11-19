@@ -232,11 +232,23 @@ class Planner:
             raise Reject(f"line {ch.line}: collab-kit= is one of {', '.join(repr(s) for s in KIT_STATES)}")
         path = f"{KNOWLEDGE}/projects.md"              # the one list of projects (the start file has none)
         text = self.ov.read(path, where)
-        if text is None or not has_project_row(text, name):
-            raise Reject(f"line {ch.line}: no row for '{name}' in the top level's knowledge/projects.md")
+        if text is None or _table_rows(text)[1] is None:
+            raise Reject(f"line {ch.line}: the top level has no projects table in knowledge/projects.md")
         if "collab-kit" in ch.args and _col(_table_rows(text)[2], "collab kit", "collab-kit") is None:
             raise Reject(f"line {ch.line}: the projects list has no Collab Kit column to set "
                          "(add one: | Folder | Say | What it is | Where | Status | Collab Kit |)")
+        if not has_project_row(text, name):           # a row is added only with what it is: a typo adds nothing
+            if not ch.args.get("about", "").strip():
+                raise Reject(f"line {ch.line}: no row for '{name}' in the top level's knowledge/projects.md "
+                             "(to add one, say what it is: about=\"...\")")
+            why = check_project_name(name, set())
+            if why:
+                raise Reject(f"line {ch.line}: {why}")
+            text = add_project_row(text, {"folder": name, "say": ch.args.get("spoken", ""), "what": ch.args["about"],
+                                          "home": _cell(ch.args.get("where", "")), "status": "active",
+                                          "kit": ch.args.get("collab-kit", "live").strip().lower()})
+            self.ov.write(path, text, where)
+            return
         new = edit_project_row(text, name, ch.args)   # already as asked is fine (a pass redone after a failed push)
         if new != text:
             self.ov.write(path, new, where)
@@ -437,6 +449,9 @@ def edit_project_row(text: str, name: str, args: dict) -> str:
             row[wcol] = _cell(args["about"])
         if "collab-kit" in args and kcol is not None:
             row[kcol] = args["collab-kit"].strip().lower()
+        hcol = _col(cells, "where", "home", "here")
+        if "where" in args and hcol is not None:
+            row[hcol] = _cell(args["where"])
         if "active" in args and wcol is not None:
             row[wcol] = row[wcol].replace(" (inactive)", "") + ("" if args["active"] else " (inactive)")
         lines[j] = "| " + " | ".join(row) + " |"

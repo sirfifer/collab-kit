@@ -1,8 +1,22 @@
 # Collab Kit: design
 
-> **Collab Kit 0.5** is described in [DESIGN-0.5.md](DESIGN-0.5.md). This document describes the 0.4
-> design, of which the knowledge build (`kb.py`: documents split into sections, concepts, the index)
-> is still part of the kit; its AI curator and nightly job are not part of the 0.5 base product.
+> **This is the 0.4 design record.** The current design is [DESIGN-0.5.md](DESIGN-0.5.md). This
+> document is kept because it is the only reference for the 0.4 knowledge build, which is still part
+> of the kit: `tools/kb/` (`kb.py`: documents split into sections, concepts, answers, the index), its
+> config table, the manifest, tiers, collection codes, the owner profile, and the upgrade notes.
+>
+> **Superseded by DESIGN-0.5.md:** the `Project Knowledge` parent folder and its start file ("Many
+> projects, one parent folder" below; 0.5 has the Collab Kit folder, with every project listed in its
+> `knowledge/projects.md`); the integration job, the nightly AI curator, and their launchd jobs (the
+> 0.5 back end is scripts only); and the 0.4 agenda with its importance scale, where 4 is critical
+> (0.5 keeps the agenda in `collab-kit/agenda/`, and 1 is critical). The kit layout below is the 0.4
+> tree; 0.5 added `engine/collab_kit/` and the `install.py` commands `top`, `machine`, `project`,
+> `backend`, and `migrate-04`.
+>
+> **The knowledge build under 0.5** runs with `[knowledge] out_dir = "collab-kit/knowledge"` and
+> `agenda = false` in `tools/kb/config.toml` (`install.py migrate-04` sets both), so it never makes a
+> second agenda. A 0.5 back end runs `kb.py build` in each pass for a repository-homed project that
+> has the build.
 
 Version 0.4.0, November 2026. The repository is `collab-kit`, and a local clone lives in a folder
 of the same name (a local folder's name is always its repository's name). The pattern was first
@@ -262,6 +276,7 @@ captures.
 | `max_words` | 1800 | ceiling for one section file (about 2,400 tokens) |
 | `index_max_words` | 9000 | warn when `01-INDEX.md` grows past this |
 | `recent_heading` | `Newest additions` | 02-RECENT heading for collections marked `recent` |
+| `agenda` | `true` | `false` under Collab Kit 0.5, which keeps the agenda in `collab-kit/agenda/`: the build reads and writes no agenda (no `agenda/00-AGENDA.md`), `kb.py new-item` points at `ck ask`, and `install.py apply` writes nothing into the knowledge folder's `agenda/` or `_returns/` |
 | `[returns] captures_in_git` | **none: required** | `true`: each return is committed as a capture; `false`: returns stay in Drive (`_returns/processed/`), the curator reads them in its prompt, and `check` fails if one is in `captures/`. `init` will not finish, `apply` and `install.py check` fail, and the nightly job stops until it is set |
 | `[[tiers]]` | prime, foundation, deep-dive, analysis, reference, source, history | `name`, `note`, `canon` (current truth), `history` (banner, never overrides canon), `weight` (ranking in `find`) |
 | `[concepts] kinds` | principle ... project | allowed concept kinds |
@@ -300,7 +315,11 @@ private config repository), never in the kit and never in a public repository.
 it from `--profile <path>` or `$KB_KIT_PROFILE`; its values are written into the new project's
 config, where they can still be changed.
 
-## Installing in a new project
+## Installing in a new project (the 0.4 procedure)
+
+This is the 0.4 procedure: it sets up the parent folder, the Drive mirror, and the nightly jobs,
+which 0.5 replaced. Under 0.5 a project gets Collab Kit with `install.py project` (README), and a 0.4
+project moves with `install.py migrate-04` (DESIGN-0.5.md section 15).
 
 1. **Decide which Google account** the project's Drive mirror uses, and name it explicitly. If the
    project might have its own Google Workspace account, ask before creating anything in Drive.

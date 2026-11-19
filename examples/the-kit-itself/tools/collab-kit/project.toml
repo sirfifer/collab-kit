@@ -5,4 +5,4 @@ unit = "projects/collab-kit/collab-kit"
 home = "repo"   # "cloud" or "repo"
 
 [session]
-stop_check = true   # ask once before a session ends without recording anything
+stop_check = true   # before a session ends without recording anything, ask (at most every 15 minutes, 3 times)

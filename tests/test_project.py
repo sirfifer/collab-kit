@@ -199,6 +199,10 @@ class ProjectSide(unittest.TestCase):
         self.assertIn("Commit it with your work", r.stdout)
         self.assertEqual(list((self.repo / "collab-kit/agenda").glob("W-*.md")), [])
         self.assertEqual(len(list((self.repo / "collab-kit/_returns").glob("2*.md"))), 1)
+        r = self.ck("apply", "--now", check=False)                       # not by hand either
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("never a checkout", r.stdout)
+        self.assertEqual(list((self.repo / "collab-kit/agenda").glob("W-*.md")), [])
 
     def test_unreachable_cloud_keeps_the_return_in_the_repo(self):
         self.install()
@@ -319,8 +323,14 @@ class ProjectSide(unittest.TestCase):
                                       json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
         out = self.hook("SessionStart", sid="l2").stdout
         self.assertIn("THE BACK END HAS STOPPED", out)
-        self.assertNotIn("wait safely", out)                           # it applies at once here: no contradiction
-        self.assertIn("file AND apply", out)
+        self.assertIn("wait there safely", out)                        # a back end is set up: never applied here,
+        self.assertNotIn("file AND apply", out)                        # so no session races its lease (2026-11-19)
+        self.ck("ask", "Filed while it is down")
+        unit = self.cloud / "projects/garden/collab-kit"
+        self.assertEqual(len([f for f in (unit / "_returns").glob("*.md") if f.name != "README.md"]), 1)
+        self.assertFalse(any("filed-while" in f.name for f in (unit / "agenda").glob("W-*.md")))
+        page = self.cloud / "agenda/00-PRESSING.md"
+        self.assertFalse(page.exists() and "no back end runs" in page.read_text())  # the health line is not overwritten
 
     def test_level_one_keeps_the_front_page(self):
         self.install()
@@ -328,6 +338,133 @@ class ProjectSide(unittest.TestCase):
         page = (self.cloud / "agenda/00-PRESSING.md").read_text()
         self.assertIn("Order the seeds", page.split("## Critical (importance 1)")[1])
         self.assertIn("no back end runs for this folder", page)
+
+    def new_repo(self, name):
+        repo = Path(self.tmp.name) / name
+        repo.mkdir()
+        sh("git", "init", "-q", "-b", "main", cwd=repo)
+        sh("git", "config", "user.email", "t@example.com", cwd=repo)
+        sh("git", "config", "user.name", "T", cwd=repo)
+        (repo / "README.md").write_text(f"# {name}\n")
+        sh("git", "add", "-A", cwd=repo)
+        sh("git", "commit", "-qm", "start", cwd=repo)
+        return repo
+
+    def test_install_creates_the_projects_folder_and_catalog_row(self):
+        # found 2026-11-19 (an agent's trial install): a cloud-homed project had no folder in the Collab Kit
+        # folder, so its returns piled up in the repository and nobody delivered them
+        repo = self.new_repo("orchard")
+        plan = installer.install_project(repo, about="Apple trees by the barn", spoken="the orchard")
+        unit = self.cloud / "projects/orchard/collab-kit"
+        for rel in ("00-START-HERE.md", "_returns/README.md", "agenda/README.md", "knowledge/README.md", "WIP/README.md"):
+            self.assertTrue((unit / rel).is_file(), rel)
+        self.assertIn("Apple trees by the barn", (unit / "00-START-HERE.md").read_text())
+        catalog = (self.cloud / "knowledge/projects.md").read_text()
+        self.assertIn("| `orchard` | \"the orchard\" | Apple trees by the barn |", catalog)   # level 1: applied at once
+        (unit / "00-START-HERE.md").write_text("# orchard, edited by hand\n")
+        again = installer.install_project(repo)                 # an upgrade never overwrites, never refiles
+        self.assertEqual((unit / "00-START-HERE.md").read_text(), "# orchard, edited by hand\n")
+        self.assertEqual((self.cloud / "knowledge/projects.md").read_text().count("`orchard`"), 1)
+        self.assertFalse(any(w.startswith("file a return") for w, _ in again.steps))
+        self.assertFalse(any(w.startswith("create") or w.startswith("update") for w, _ in again.steps), again.steps)
+        installer.install_project(repo, replace_start=True)      # a refresh keeps the description, versions the old
+        refreshed = (unit / "00-START-HERE.md").read_text()
+        self.assertIn("## In this folder", refreshed)
+        self.assertTrue(list((unit / "_versions").glob("00-START-HERE*")))
+        res = sh(sys.executable, str(repo / "tools/collab-kit/ck.py"), "ask", "Prune in March?", cwd=repo, env=self.env)
+        self.assertEqual(res.returncode, 0)
+        self.assertTrue(any(unit.glob("agenda/W-001-*.md")))
+
+    def test_install_without_about_leaves_the_catalog_as_a_next_step(self):
+        repo = self.new_repo("orchard")
+        plan = installer.install_project(repo)
+        self.assertTrue(any("--about" in why for _, why in plan.info), plan.info)
+        self.assertNotIn("`orchard`", (self.cloud / "knowledge/projects.md").read_text())
+        self.assertTrue((self.cloud / "projects/orchard/collab-kit/00-START-HERE.md").is_file())
+
+    def test_project_change_adds_a_row_only_with_what_it_is(self):
+        self.install()
+        bad = self.ck("return", "--type", "note", "--topic", "t", "--change", "project garden-planer collab-kit=live",
+                      check=False)
+        self.assertNotEqual(bad.returncode, 0)                  # a misheard name adds nothing
+        top = self.cloud / "_returns"
+        (top / "2026-11-19-0100-row.md").write_text(
+            "Project: top\nFrom: Sam\nType: note\nTopic: the shed\n\nChanges v1:\n"
+            'project shed about="The tool shed rebuild" spoken="the shed"\nEnd.\n')
+        from collab_kit.apply import apply_file
+        from collab_kit.unit import Unit
+        u = Unit(FolderStore(self.cloud), "top", home="cloud", top=True)
+        out = [apply_file(u, e, force_settled=True) for e in u.pending_returns()]
+        self.assertEqual([o.status for o in out], ["applied"], [o.message for o in out])
+        self.assertIn("| `shed` | \"the shed\" | The tool shed rebuild |", (self.cloud / "knowledge/projects.md").read_text())
+
+    def test_ck_apply_refuses_the_wrong_unit_instead_of_setting_returns_aside(self):
+        self.install()
+        unit = self.cloud / "projects/garden/collab-kit"
+        (unit / "_returns/2026-11-19-0100-x.md").write_text(
+            "Project: garden\nFrom: Sam\nType: note\nTopic: t\n\nChanges v1:\nnew-item title=\"Water\"\nEnd.\n")
+        res = self.ck("apply", str(unit), "--unit", "gardn", "--now", check=False)
+        self.assertEqual(res.returncode, 2)
+        self.assertIn("name: garden", res.stdout)
+        self.assertTrue((unit / "_returns/2026-11-19-0100-x.md").is_file())       # nothing set aside
+        res = self.ck("apply", str(self.cloud / "nowhere"), "--unit", "garden", check=False)
+        self.assertEqual(res.returncode, 2)
+        self.assertIn("is not a Collab Kit unit", res.stdout)
+        res = self.ck("apply", "--now")                                          # no folder: this project's own inbox
+        self.assertIn("applied", res.stdout)
+        self.assertTrue(any(unit.glob("agenda/W-*-water.md")))
+        FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": "2026-11-01T03:00:00+00:00"}))
+        res = self.ck("apply", check=False)
+        self.assertIn("A back end applies returns", res.stdout)
+
+    def test_doctor_names_the_fix_and_fails(self):
+        self.install()
+        res = self.ck("doctor", check=False)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertIn("All checks pass", res.stdout)
+        (self.repo / ".claude" / "settings.json").unlink()
+        res = self.ck("doctor", check=False)
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("To fix:", res.stdout)
+        self.assertIn('install.py" project "', res.stdout)
+        self.assertIn('garden"', res.stdout.split('To fix:')[1])
+
+    def test_a_damaged_engine_says_how_to_repair_it(self):
+        self.install()
+        (self.repo / "tools/collab-kit/collab_kit/store.py").unlink()
+        res = self.ck("brief", check=False)
+        self.assertEqual(res.returncode, 3)
+        self.assertIn("damaged or incomplete", res.stderr)
+        self.assertIn("install.py\" project", res.stderr)
+        self.assertNotIn("Traceback", res.stderr)
+        res = self.ck("hook", "session-start", inp="{}", check=False)          # a hook: the agent sees the fix
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("damaged or incomplete", res.stdout)
+
+    def test_retiring_the_back_end_lets_sessions_apply_again(self):
+        self.install()
+        FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": "2026-11-01T03:00:00+00:00"}))
+        installer.install_top(self.cloud, human="Sam", setup="none")
+        self.assertFalse((self.cloud / "_backend/heartbeat.json").exists())
+        self.assertTrue(list((self.cloud / "_backend").glob("heartbeat.retired-*.json")))
+        self.ck("ask", "Applied again")
+        self.assertTrue(any((self.cloud / "projects/garden/collab-kit/agenda").glob("W-*-applied-again.md")))
+
+    def test_top_replace_start_refreshes_the_folders_own_project_start_files(self):
+        unit = self.cloud / "projects/garden/collab-kit"
+        (unit / "00-START-HERE.md").write_text("# garden: start here (Collab Kit 0.5)\n\nProject: **garden**. Sam calls "
+                                                "it \"the plot\". Beds by the fence.\n\nOld rules.\n")
+        mirror = self.cloud / "projects/shed/collab-kit"
+        mirror.mkdir(parents=True)
+        from collab_kit.templates import HOME_NOTES
+        (mirror / "00-START-HERE.md").write_text(f"# shed\n\n{HOME_NOTES['repo']}\n")
+        installer.install_top(self.cloud, human="Sam", replace_start=True)
+        text = (unit / "00-START-HERE.md").read_text()
+        self.assertIn("Project: **garden**. Sam calls it \"the plot\". Beds by the fence.", text)
+        self.assertIn("## In this folder", text)
+        self.assertNotIn("Old rules.", text)
+        self.assertTrue(list((unit / "_versions").glob("00-START-HERE*")))
+        self.assertIn("# shed\n", (mirror / "00-START-HERE.md").read_text())   # a repository's copy: untouched
 
     def test_items_order(self):
         self.install()

@@ -3,9 +3,10 @@ id = "W-006"
 title = "Make the Studio the back end"
 kind = "task"
 importance = 2
-status = "in-progress"
+status = "settled"
 due = ""
 project = "collab-kit"
+outcome = "Done 2026-11-18: the launchd job org.collab-kit.backend on the Studio checks the inboxes every minute and makes a full pass at least hourly; Drive is read through the API with rclone 1.76.0 (W-004); the framework is served from GitHub. A full pass is slow; that has its own item."
 +++
 
 ## What's needed
@@ -24,3 +25,4 @@ The Studio back end runs with all prerequisites in place.
 - 2026-11-17: Richard, 2026-11-15 (voice): go ahead with setting up the Studio as the back end. Do everything that does not need him now: go-live step 2 (install.py top), getting the kit onto the Studio, install.py machine, the backend dry run and backend.toml (account, local_roots, deny list, the framework project entry). For the parts that need him (his permissions, sign-ins, macOS prompts such as allowing access to Google Drive files or Full Disk Access for the runner), the standard is a single shell script left on the Studio's desktop that he runs himself; it should say plainly what it will ask and check the result (launchd state, log, health block). Report on the top-level agenda when the script is ready for him and when the back end is healthy. (return 2026-11-15-1958-w006-proceed-studio-desktop-script, from Richard (voice))
 - 2026-11-17: 2026-11-16: the kit is on the Studio (~/dev/collab-kit) and its backend.toml is written: rclone remote (the Drive API, W-004), account owner@example.com, local roots, the deny list. Richard's part: run 'Collab Kit back end setup.command' on the Studio's desktop (one Google sign-in; optional Pushover keys). The framework joins after its main is pushed (Richard's yes). knowledge/go-live-0.5.md has the steps. (return 2026-11-17-0151-claude-code-0-5-2, from Claude Code on the MacBook (collab-kit, wt/v052-nail-down))
 - 2026-11-17: set due to (none) (return 2026-11-17-0151-claude-code-0-5-2, from Claude Code on the MacBook (collab-kit, wt/v052-nail-down))
+- 2026-11-19: settled: Done 2026-11-18: the launchd job org.collab-kit.backend on the Studio checks the inboxes every minute and makes a full pass at least hourly; Drive is read through the API with rclone 1.76.0 (W-004); the framework is served from GitHub. A full pass is slow; that has its own item. (return 2026-11-19-2055-back-end-live-and-full-check, from Claude Code on the MacBook (collab-kit))

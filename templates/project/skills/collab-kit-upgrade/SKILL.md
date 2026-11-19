@@ -11,18 +11,20 @@ by the installer, never edited by hand. The project's own settings stay in
 `tools/collab-kit/project.toml`.
 
 1. Work where you would make any other change (a branch or worktree, per this repository's rules).
-2. Find the newest kit: `tools/collab-kit/ck doctor` prints where it is (the machine's
-   `[kit].source`).
+2. Find the newest kit: `tools/collab-kit/ck doctor` prints where it is on its first line ("the
+   kit's checkout", the machine's `[kit].source`). If that checkout is a git clone, `git -C <kit> pull`
+   first.
 3. See what changes, then apply:
 
    ```bash
    python3 <kit>/install.py project . --dry-run
-   python3 <kit>/install.py project .
-   tools/collab-kit/ck doctor        # the hooks installed, the folder reachable
+   python3 <kit>/install.py project . --replace-start   # also brings the project's start file current
+   tools/collab-kit/ck doctor        # exit 0: every check passes; otherwise it prints each fix
    ```
 
 4. Read the kit's release notes for this version (`<kit>/CHANGELOG.md`). If they name a migration
-   step for projects, do it now.
+   step for projects, do it now. The Collab Kit folder's own start file, this machine's user hooks, and
+   a back end are upgraded separately, not from this repository: `<kit>/docs/for-agents.md`, "Upgrade".
 5. Commit the upgrade on its own ("Upgrade Collab Kit to X.Y.Z"), separate from other work, and
    tell {{human}} in one line. If the upgrade fails, file it with
    `ck ask "Collab Kit upgrade to X.Y.Z failed: ..." --kind task` and carry on with the task.

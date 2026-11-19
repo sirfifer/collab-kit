@@ -243,7 +243,9 @@ class Pass:
                 self.note(f"{unit.name}: two items had {old}; the later one is now {new}")
         for e in unit.pending_returns():
             if self.dry:
-                self.note(f"would apply {unit.name}/{e.name}")
+                young = e.mtime and utcnow().timestamp() - e.mtime < SETTLE_SECONDS
+                self.note(f"{unit.name}/{e.name}: " + (f"waits (younger than {SETTLE_SECONDS} seconds: it may still "
+                          "be syncing or moving)" if young else "would be applied"))
                 continue
             try:
                 out = apply_file(unit, e, top=top)

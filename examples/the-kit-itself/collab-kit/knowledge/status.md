@@ -1,7 +1,15 @@
 # collab-kit: what is going on
 
 Written by work running outside conversations (Claude Code sessions, research runs, later the back end).
-Newest first. Last updated 2026-11-17 01:45 UTC.
+Newest first. Last updated 2026-11-19 20:53 UTC.
+
+## 2026-11-19 20:53 UTC, Claude Code on the MacBook (collab-kit): The Studio back end is live (W-006 done); the kit's own install and docs get a full check
+
+2026-11-19: the Studio back end is live and serving the framework (W-006 settled). Collab Kit's own project gets a full check now: its install at the current version, the design against the code, and the docs for AI agents.
+
+## 2026-11-19 05:41 UTC, Claude Code, working in knowledge-distillation-framework: The Studio back end runs (W-006); one kit fix was needed and is on the kit's main line, not released
+
+2026-11-18: the Studio back end is installed and running (W-006). Richard ran the setup script; it stopped at the account check, because rclone has no config userinfo for Google Drive, so a back end over rclone refused every run. Fixed in the kit at commit 6fef702 on both Macs (the check now reads who owns the folder's start file with lsjson --metadata; 123 tests pass; changelog entry under Not yet released, VERSION unchanged). knowledge-distillation-framework is the first repository-homed project on it: a return filed in Drive was applied, pushed and mirrored back in 4 to 10 minutes. A full pass takes about 20 minutes because Drive is read one file at a time; that is worth a look. The used setup script is archived on the Studio.
 
 ## 2026-11-17 01:45 UTC, Claude Code on the MacBook (collab-kit, wt/v052-nail-down): Collab Kit 0.5.2: the six voice returns of 2026-11-15 are in; W-019 merged; the Studio prepared
 

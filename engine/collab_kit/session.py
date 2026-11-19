@@ -7,7 +7,10 @@ the way the start files describe: one format, one inbox, one writer per file.
 
 Where a return goes (DESIGN-0.5 sections 5, 7, 16):
   - a back end is running and the folder is reachable:  the unit's cloud inbox; the back end applies it.
-  - no back end, home is the cloud folder (level 1):    the cloud inbox, applied there at once; two
+  - a back end is set up but late or stopped:           the same inbox, never applied here (it waits for
+                                                        the back end, which holds the lease); the brief
+                                                        says so.
+  - no back end was ever set up, home is the cloud folder (level 1): the cloud inbox, applied there at once; two
                                                         sessions that took the same item number heal
                                                         (the later file renumbers itself).
   - home is the repository, no back end reachable:      the repository's collab-kit/_returns/, never
@@ -55,6 +58,24 @@ def parse_time(s: str) -> dt.datetime:
     return t if t.tzinfo else t.replace(tzinfo=dt.timezone.utc)
 
 
+def open_cloud(machine: dict) -> Store | None:
+    """The Collab Kit folder as this machine's config names it, if it is set up and there."""
+    cloud = machine.get("cloud", {})
+    spec = C.expand(cloud.get("root", ""))
+    for key, env in (("rclone", "COLLAB_KIT_RCLONE"), ("rclone_config", "COLLAB_KIT_RCLONE_CONFIG")):
+        if cloud.get(key) and not os.environ.get(env):
+            os.environ[env] = C.expand(cloud[key])   # a machine that reaches the folder through rclone
+    if not spec:
+        return None
+    try:
+        store = open_store(spec)
+        if isinstance(store, FolderStore) and not store.root.is_dir():
+            return None
+        return store if store.list("") else None
+    except (StoreError, OSError):
+        return None
+
+
 class Project:
     def __init__(self, root: Path, machine: dict | None = None):
         self.root = root
@@ -94,22 +115,7 @@ class Project:
     def cloud(self) -> Store | None:
         """The Collab Kit folder, if this machine is set up to reach it and it is there."""
         if self._cloud is False:
-            cloud = self.machine.get("cloud", {})
-            spec = C.expand(cloud.get("root", ""))
-            for key, env in (("rclone", "COLLAB_KIT_RCLONE"), ("rclone_config", "COLLAB_KIT_RCLONE_CONFIG")):
-                if cloud.get(key) and not os.environ.get(env):
-                    os.environ[env] = C.expand(cloud[key])   # a machine that reaches the folder through rclone
-            store = None
-            if spec:
-                try:
-                    store = open_store(spec)
-                    if isinstance(store, FolderStore) and not store.root.is_dir():
-                        store = None
-                    elif store is not None and not store.list(""):
-                        store = None
-                except (StoreError, OSError):
-                    store = None
-            self._cloud = store
+            self._cloud = open_cloud(self.machine)
         return self._cloud or None
 
     def cloud_unit(self) -> Unit | None:
@@ -158,7 +164,7 @@ class Project:
         except (StoreError, OSError):
             raw = None
         if not raw:
-            self._backend = {"known": True, "live": False, "say": "none is running"}
+            self._backend = {"known": True, "live": False, "configured": False, "say": "none is running"}
             return self._backend
         try:
             hb = json.loads(raw)
@@ -166,7 +172,8 @@ class Project:
             every = int(hb.get("interval_minutes", 60))
             age_min = (utcnow() - last).total_seconds() / 60
         except (ValueError, KeyError, TypeError):
-            self._backend = {"known": True, "live": False, "stopped": True, "say": "its heartbeat file is unreadable"}
+            self._backend = {"known": True, "live": False, "configured": True, "stopped": True,
+                             "say": "its heartbeat file is unreadable"}
             return self._backend
         live = age_min <= max(3 * every, 90)            # routing: file only while it is keeping up
         stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
@@ -177,7 +184,9 @@ class Project:
                f"late: its last full pass was {when}, and one is due at least every {every} minutes")
         if problems and isinstance(problems, list):
             say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
-        self._backend = {"known": True, "live": live, "stopped": stopped, "say": say, "last": when}
+        if not live:
+            say += "; returns wait in the inbox until it runs again: tell " + (self.machine.get("human") or "the owner")
+        self._backend = {"known": True, "live": live, "configured": True, "stopped": stopped, "say": say, "last": when}
         return self._backend
 
     # ------------------------------------------------------------------------ kit version --
@@ -203,8 +212,8 @@ class Project:
         cu = self.cloud_unit()
         if cu and be["live"]:
             return "cloud", cu, False, "full"
-        if self.home == "cloud" and cu:
-            return "cloud", cu, True, "full"
+        if self.home == "cloud" and cu:            # applied here only where no back end was ever set up:
+            return "cloud", cu, not be.get("configured"), "full"   # a late one gets its inbox, and its lease
         if self.home == "repo":
             return "repo", self.repo_unit(), False, "full" if (self.root / REPO_UNIT_DIR / "agenda").is_dir() else "grammar"
         return "offline", self.repo_unit(), False, "grammar"

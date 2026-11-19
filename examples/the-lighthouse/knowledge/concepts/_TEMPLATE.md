@@ -46,4 +46,4 @@ What breaks or goes missing without it. One short paragraph.
 
 Optional. What is unresolved about it, with a pointer to where that is discussed.
 
-<!-- managed by Collab Kit 0.5.2: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->
+<!-- managed by Collab Kit 0.5.3: rendered from tools/kb/config.toml by kit/install.py apply. Edit the config or the kit, not this file. To make it the project's own, delete this line. -->

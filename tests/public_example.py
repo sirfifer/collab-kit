@@ -7,7 +7,7 @@ someone else's repository. Two kinds of file live there:
 
 - **generated:** what the installer writes (CLAUDE.md and AGENTS.md sections, hooks, skills, the
   project settings, the unit's start file and channel READMEs). The vendored engine under
-  `tools/collab-kit/` is left out: it is `engine/`, byte for byte.
+  `tools/collab-kit/` is left out: it is the project side of `engine/`, byte for byte.
 - **snapshot:** the unit's agenda, applied returns with their ledgers, and knowledge, copied from the
   live folder and sanitized.
 
