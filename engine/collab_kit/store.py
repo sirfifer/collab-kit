@@ -382,8 +382,10 @@ class RcloneStore(Store):
             raise StoreError("rclone is not installed (see docs/rclone-intake.md)") from None
         except subprocess.TimeoutExpired:
             raise StoreError(f"rclone timed out: {args[0]}") from None
-        if res.returncode != 0:
-            err = StoreError(f"rclone {args[0]} failed: {res.stderr.decode('utf-8', 'replace').strip()[:400]}")
+        if res.returncode != 0:                       # the cause is at the end; notices are not it
+            lines = [ln.strip() for ln in res.stderr.decode("utf-8", "replace").splitlines() if ln.strip()]
+            msg = " / ".join([ln for ln in lines if " NOTICE: " not in ln] or lines)
+            err = StoreError(f"rclone {args[0]} failed (exit {res.returncode}): {msg[-400:]}")
             err.code = res.returncode          # 3: directory not found, 4: file not found (rclone docs)
             raise err
         return res.stdout.decode("utf-8", errors="replace")

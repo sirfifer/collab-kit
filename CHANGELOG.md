@@ -85,6 +85,8 @@ run on a second machine (2026-11-18); the test stand-in for rclone had never bee
 its own uses rclone's shared one, which Google retires during 2026 (the back end would then stop) and
 which is rate-limited across every rclone user. The back end now lists it as a problem on the front
 page; [docs/rclone-intake.md](docs/rclone-intake.md) says how to give the remote its own client.
+An rclone error now shows its cause (the end of rclone's message, without its notices): on the first
+real back end every error was cut off after the shared-client notice.
 
 ## 0.5.2 (2026-11-16)
 

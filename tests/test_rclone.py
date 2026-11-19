@@ -86,6 +86,22 @@ class Rclone(unittest.TestCase):
             import isolation
             isolation.restore()
 
+    def test_an_error_shows_its_cause_not_rclones_notices(self):
+        # found 2026-11-19: every error on the Studio was cut off after the shared-client notice
+        import subprocess
+        from unittest import mock
+        from collab_kit import store as S
+        stderr = (b"2026/11/19 13:47:55 NOTICE: collabkit: This remote uses rclone's shared Google Drive client_id, "
+                  + b"x" * 400 + b"\n2026/11/19 13:47:56 ERROR : agenda/00-PRESSING.md: Failed to copy: "
+                  b"googleapi: Error 403: Rate Limit Exceeded\n")
+        done = subprocess.CompletedProcess([], 1, b"", stderr)
+        self.store._checked = True
+        with mock.patch.object(S, "run_quiet", return_value=done):
+            with self.assertRaises(S.StoreError) as cm:
+                self.store.write("agenda/00-PRESSING.md", "x")
+        self.assertIn("Error 403: Rate Limit Exceeded", str(cm.exception))
+        self.assertNotIn("NOTICE", str(cm.exception))
+
     def test_back_end_checks_the_account_over_rclone(self):
         from collab_kit.backend import Pass
         self.store.write("00-START-HERE.md", "start\n")
