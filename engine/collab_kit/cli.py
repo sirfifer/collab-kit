@@ -355,7 +355,10 @@ def cmd_apply(a):
     if changed and a.store is None:                   # level 1: nobody else keeps the agenda's front page
         from .text import utcnow
         from .views import rebuild_without_backend
-        rebuild_without_backend(p.cloud(), p.machine.get("human") or "the owner", utcnow().date())
+        try:
+            rebuild_without_backend(p.cloud(), p.machine.get("human") or "the owner", utcnow().date())
+        except Exception as e:                        # noqa: BLE001 (the returns are applied; the page waits)
+            print(f"the agenda's front page was not rebuilt ({type(e).__name__}: {e}); the next apply does it")
     return rc
 
 

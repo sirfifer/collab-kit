@@ -143,11 +143,22 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
     pfile = root / C.PROJECT_FILE
     if pfile.is_file():
         cfg = C.project(root)
+        if name and name != cfg["project"]["name"]:  # the project's own file decides; never half-renamed
+            plan.refused = (f"this repository is already the project '{cfg['project']['name']}' "
+                            f"(tools/collab-kit/project.toml): to rename it, edit name and unit there, not --name")
+            plan.tell("nothing installed", plan.refused)
+            return plan
         name = name or cfg["project"]["name"]
         unit = unit or cfg["project"]["unit"]
         home = home or cfg["project"]["home"]
     else:
-        name = name or _main_checkout(root).name           # a worktree's folder name is never the project's
+        main = _main_checkout(root)                       # a worktree's folder name is never the project's
+        if not name and main is None:
+            plan.refused = ("this is a worktree whose main checkout cannot be told (a bare repository's, or a "
+                            "submodule's): give the project's name with --name")
+            plan.tell("nothing installed", plan.refused)
+            return plan
+        name = name or main.name
         from .text import check_project_name, slug
         why = check_project_name(name)
         if why:
@@ -233,15 +244,24 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
     return plan
 
 
-def _main_checkout(root: Path) -> Path:
-    """The repository's main checkout (for a worktree, the folder its .git belongs to); else root."""
-    try:
-        res = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                             capture_output=True, text=True, timeout=30)
-        common = Path(res.stdout.strip()) if res.returncode == 0 and res.stdout.strip() else None
-    except (OSError, subprocess.TimeoutExpired):
-        common = None
-    return common.parent if common and common.name == ".git" else root
+def _main_checkout(root: Path) -> Path | None:
+    """The folder whose name a project takes by default. A subfolder of a repository, or a repository's
+    main checkout: itself. A worktree: the main checkout (the folder its .git belongs to). A worktree
+    whose main checkout cannot be told (of a bare repository, or of a submodule): None, so the caller
+    asks for --name rather than take the worktree's own folder name."""
+    def git(*args: str) -> str | None:
+        try:
+            res = subprocess.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", *args],
+                                 capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else None
+    top, gitdir, common = git("--show-toplevel"), git("--git-dir"), git("--git-common-dir")
+    if not top or Path(top).resolve() != root.resolve() or not gitdir or not common:
+        return root                                  # not a repository's top, or not git: its own name
+    if Path(gitdir).resolve() == Path(common).resolve():
+        return root                                  # the main checkout itself
+    return Path(common).parent if Path(common).name == ".git" else None
 
 
 def keep_description(current: str, fresh: str) -> str:
@@ -264,7 +284,11 @@ def keep_description(current: str, fresh: str) -> str:
 
 
 def _q(value: str) -> str:
-    """A quoted value for a change line (the grammar reads \\" and \\\\ inside quotes)."""
+    """A quoted value for a change line, already in the form the grammar reads it back in: one line,
+    curly quotes and odd spaces straightened, bold markers gone (text.normalise_line does that to every
+    line), then \\ and " escaped. So a dry run and a real run file the same text."""
+    from .text import _BOLD, straighten
+    value = _BOLD.sub(r"\2", straighten(" ".join(value.split())))
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
@@ -284,8 +308,11 @@ def _cloud_side(root: Path, name: str, unit: str, home: str, about: str, spoken:
     from .text import check_project_name
     from .unit import Unit, write_versioned
     why = check_project_name(name)
+    seg = unit.split("/")
+    if not why and not (len(seg) == 3 and seg[0] == "projects" and seg[2] == "collab-kit" and seg[1] == name):
+        why = f"its unit '{unit}' is not projects/{name}/collab-kit"
     if why:
-        plan.tell("skip the Collab Kit folder", f"{why}: give the project a name the kit accepts (--name)")
+        plan.tell("skip the Collab Kit folder", f"{why}: correct name and unit in tools/collab-kit/project.toml")
         return
     machine = C.machine()
     try:
@@ -362,7 +389,7 @@ def _cloud_side(root: Path, name: str, unit: str, home: str, about: str, spoken:
         res = proj.file(proj.compose("note", f"{name} is set up in Collab Kit", [change],
                                      sender=f"the Collab Kit installer in {name}"))
         plan.tell(f"  {'applied' if res.get('applied') else 'filed'} ({res['route']})", res.get("message", ""))
-    except (StoreError, OSError, ReturnError, Reject, subprocess.TimeoutExpired) as e:
+    except Exception as e:                            # noqa: BLE001 (the repository side is installed: say, never raise)
         plan.tell("stopped at the Collab Kit folder", f"{type(e).__name__}: {str(e)[:200]}; run this again")
 
 
@@ -464,8 +491,14 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
         if not (folder / rel).exists():
             plan.write(rel, text, "a new Collab Kit folder")
     start = folder / "00-START-HERE.md"
+    cur = None
     if start.is_file():
-        cur = start.read_text(encoding="utf-8")
+        from .store import FolderStore as _FS, StoreError as _SE
+        try:
+            cur = _FS(folder).read("00-START-HERE.md")    # the store retries a Drive placeholder
+        except (_SE, OSError) as e:
+            plan.tell("skipped 00-START-HERE.md", f"{type(e).__name__}: {e}; run this again")
+    if cur is not None:
         new = cur
         have = get_block(cur.replace("\r\n", "\n"), "setup")
         if have is None:

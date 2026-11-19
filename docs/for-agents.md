@@ -87,7 +87,11 @@ Ask the person, or read it from their setup. Never guess an account.
 
    This installs the kit in the repository, creates the project's folder in the Collab Kit folder
    (new files only), and files a return that marks the project live in the catalog (adding its row,
-   from `--about` and `--spoken`, when it is not listed). Commit the install on its own ("Install
+   from `--about` and `--spoken`, when it is not listed). The project's name is the repository's
+   folder name (the main checkout's, also when you run it from a worktree); if the kit refuses that
+   name (capitals, double hyphens), nothing is installed and it suggests one: pass `--name`. Anything
+   it could not do in the Collab Kit folder (offline, a sync error) it says, and running it again
+   finishes the job. Commit the install on its own ("Install
    Collab Kit X.Y.Z"). For `--home repo`, the repository holds `collab-kit/` itself, and a back end
    must list the repository (a `[[project]]` in its `backend.toml`) before its returns are applied or
    a phone can see it.

@@ -443,6 +443,7 @@ def edit_project_row(text: str, name: str, args: dict) -> str:
         row = _cells(lines[j])
         if fcol is None or fcol >= len(row) or row[fcol].strip("`") != name:
             continue
+        row += [""] * (len(cells) - len(row))          # a row older than a column added later
         if "spoken" in args and scol is not None:
             row[scol] = _cell(", ".join(f"\"{s.strip()}\"" for s in args["spoken"].split(",") if s.strip()))
         if "about" in args and wcol is not None:

@@ -66,6 +66,13 @@ each project homed in the folder current (keeping its `Project:` line), and `ins
 - `ck apply` rebuilds the front page at level 1 and accepts the top level's names (`Collab Kit`);
   the shared-client check finds rclone's default config on Windows and with `XDG_CONFIG_HOME`; the
   repair message expands `~` and gives the right advice for the kit's own checkout.
+- Then a check of those fixes found more, also fixed: curly quotes and line breaks in `--about` are
+  filed the way the grammar reads them back; a catalog row older than the Collab Kit column gets the
+  column; `--name` never contradicts an existing `project.toml` (rename a project there), and a unit
+  that is not `projects/<name>/collab-kit` is never written to; a worktree of a bare repository or a
+  submodule must be named; a subfolder of a repository keeps its own name; the top start file is read
+  through the store; `ck apply`'s front-page rebuild cannot fail the apply; and the repair advice for
+  the kit's own checkout never suggests discarding work.
 
 **Fixed: a back end over rclone refused every run.** Its account check asked rclone for the signed-in
 account (`config userinfo`), which rclone does not support for Google Drive, so the answer was always

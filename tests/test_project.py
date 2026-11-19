@@ -572,6 +572,55 @@ class ProjectSide(unittest.TestCase):
         res = self.ck("apply", str(self.cloud), "--top", "--now", check=False)
         self.assertIn("applied", res.stdout, res.stdout)
 
+    # ---- found by the check of the review's fixes (2026-11-19)
+    def test_curly_quotes_and_newlines_in_about_are_filed_as_read(self):
+        repo = self.new_repo("orchard")
+        dry = installer.install_project(repo, about="Apples, the \u201cold\u201d trees\nby the barn", dry=True)
+        real = installer.install_project(repo, about="Apples, the \u201cold\u201d trees\nby the barn")
+        self.assertFalse(any(w.startswith("stopped") for w, _ in real.info), real.info)
+        self.assertEqual([w for w, _ in dry.steps if w.startswith("file a return")],
+                         [w for w, _ in real.steps if w.startswith("file a return")])
+        self.assertIn('Apples, the "old" trees by the barn', (self.cloud / "knowledge/projects.md").read_text())
+
+    def test_a_short_catalog_row_gets_its_new_column(self):
+        (self.cloud / "knowledge/projects.md").write_text(
+            "| Folder | Say | What it is | Where | Status | Collab Kit |\n|---|---|---|---|---|---|\n"
+            "| `orchard` | \"o\" | o | here | active |\n")                       # older than the column
+        repo = self.new_repo("orchard")
+        plan = installer.install_project(repo)
+        self.assertFalse(any(w.startswith("stopped") for w, _ in plan.info), plan.info)
+        self.assertIn("| `orchard` | \"o\" | o | here | active | live |", (self.cloud / "knowledge/projects.md").read_text())
+
+    def test_name_never_contradicts_an_existing_project_file(self):
+        repo = self.new_repo("orchard")
+        installer.install_project(repo, about="Apples")
+        plan = installer.install_project(repo, name="pears")
+        self.assertIn("edit name and unit there", plan.refused)
+        self.assertFalse((self.cloud / "projects/pears").exists())
+        toml = repo / "tools/collab-kit/project.toml"
+        toml.write_text(toml.read_text().replace('unit = "projects/orchard/collab-kit"', 'unit = "projects/Orchard/x"'))
+        plan = installer.install_project(repo)
+        self.assertTrue(any("is not projects/orchard/collab-kit" in why for _, why in plan.info), plan.info)
+        self.assertNotIn("Orchard", os.listdir(self.cloud / "projects"))         # exact name (macOS folds case)
+
+    def test_a_worktree_of_a_bare_repository_must_be_named(self):
+        src = self.new_repo("orchard")
+        bare = Path(self.tmp.name) / "orchard.git"
+        sh("git", "clone", "-q", "--bare", str(src), str(bare))
+        wt = Path(self.tmp.name) / "main"
+        sh("git", "-C", str(bare), "worktree", "add", "-q", str(wt), "main")
+        plan = installer.install_project(wt, about="Apples")
+        self.assertIn("--name", plan.refused)
+        self.assertFalse((self.cloud / "projects/main").exists())
+        self.assertEqual(installer.install_project(wt, name="orchard", about="Apples").refused, "")
+
+    def test_a_subfolder_keeps_its_own_name(self):
+        repo = self.new_repo("mono")
+        sub = repo / "apps" / "quince"
+        sub.mkdir(parents=True)
+        installer.install_project(sub, about="Quinces")
+        self.assertIn('name = "quince"', (sub / "tools/collab-kit/project.toml").read_text())
+
     def test_items_order(self):
         self.install()
         self.ck("ask", "Later", "--importance", "3")
