@@ -227,11 +227,20 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
 
 
 def keep_description(current: str, fresh: str) -> str:
-    """The current template, keeping the project's own description: the line that starts 'Project: **'."""
-    mine = next((ln for ln in current.splitlines() if ln.startswith("Project: **")), None)
-    if mine is None:
-        return fresh
-    return "\n".join(mine if ln.startswith("Project: **") else ln for ln in fresh.split("\n"))
+    """The current template, keeping what the project wrote itself: its description (the paragraph that
+    starts 'Project: **') and any paragraph of its own before the first heading (a pointer into its
+    knowledge, say). The template's own paragraphs (the home note, '**Home: ...') come from `fresh`."""
+    def intro(text: str) -> tuple[str, list[str], list[str]]:
+        lines = text.replace("\r\n", "\n").split("\n")
+        end = next((i for i, ln in enumerate(lines) if i and ln.startswith("## ")), len(lines))
+        body = "\n".join(lines[1:end]).strip("\n")
+        return lines[0], [q for q in re.split(r"\n[ \t]*\n", body) if q.strip()], lines[end:]
+    _, cur, _ = intro(current)
+    title, paras, tail = intro(fresh)
+    mine = next((q for q in cur if q.startswith("Project: **")), None)
+    own = [q for q in cur if not q.startswith(("Project: **", "**Home:"))]
+    paras = [mine if mine and q.startswith("Project: **") else q for q in paras] + own
+    return title + "\n\n" + "\n\n".join(paras) + "\n\n" + "\n".join(tail)
 
 
 def _cloud_side(root: Path, name: str, unit: str, home: str, about: str, spoken: str, human: str,

@@ -450,6 +450,16 @@ class ProjectSide(unittest.TestCase):
         self.ck("ask", "Applied again")
         self.assertTrue(any((self.cloud / "projects/garden/collab-kit/agenda").glob("W-*-applied-again.md")))
 
+    def test_keep_description_keeps_the_projects_own_paragraphs_and_is_stable(self):
+        from collab_kit.templates import project_start_file
+        set_human("Sam")
+        fresh = project_start_file("garden", "Beds by the fence", "the plot", home="cloud")
+        self.assertEqual(installer.keep_description(fresh, fresh), fresh)          # current: unchanged
+        mine = fresh.replace("## In this folder", "Start with `knowledge/README.md`.\n\n## In this folder", 1)
+        self.assertEqual(installer.keep_description(mine, fresh), mine)            # its own pointer survives
+        older = mine.replace("**Home: this folder.**", "**Home: this folder (old wording).**")
+        self.assertEqual(installer.keep_description(older, fresh), mine)           # the template's part is renewed
+
     def test_top_replace_start_refreshes_the_folders_own_project_start_files(self):
         unit = self.cloud / "projects/garden/collab-kit"
         (unit / "00-START-HERE.md").write_text("# garden: start here (Collab Kit 0.5)\n\nProject: **garden**. Sam calls "
@@ -462,7 +472,7 @@ class ProjectSide(unittest.TestCase):
         text = (unit / "00-START-HERE.md").read_text()
         self.assertIn("Project: **garden**. Sam calls it \"the plot\". Beds by the fence.", text)
         self.assertIn("## In this folder", text)
-        self.assertNotIn("Old rules.", text)
+        self.assertIn("Old rules.", text.split("## In this folder")[0])         # the project's own words are kept
         self.assertTrue(list((unit / "_versions").glob("00-START-HERE*")))
         self.assertIn("# shed\n", (mirror / "00-START-HERE.md").read_text())   # a repository's copy: untouched
 
