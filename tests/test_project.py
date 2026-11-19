@@ -314,7 +314,7 @@ class ProjectSide(unittest.TestCase):
         FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": late, "interval_minutes": 15}))
         out = self.hook("SessionStart", sid="l1").stdout
         self.assertNotIn("HAS STOPPED", out)
-        self.assertIn("late: it last ran", out)
+        self.assertIn("late: its last full pass was", out)
         FolderStore(self.cloud).write("_backend/heartbeat.json",
                                       json.dumps({"last_run": "2026-11-01T03:00:00+00:00", "interval_minutes": 15}))
         out = self.hook("SessionStart", sid="l2").stdout

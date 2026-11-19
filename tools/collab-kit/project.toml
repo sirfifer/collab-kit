@@ -1,0 +1,8 @@
+# Collab Kit settings for this repository (the project's own; never replaced on upgrade).
+[project]
+name = "collab-kit"
+unit = "projects/collab-kit/collab-kit"
+home = "cloud"   # "cloud" or "repo"
+
+[session]
+stop_check = true   # ask once before a session ends without recording anything

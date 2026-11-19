@@ -172,8 +172,9 @@ class Project:
         stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
         when = last.strftime("%Y-%m-%d %H:%M UTC")
         problems = hb.get("problems") or []
-        say = (f"running (last ran {when}, every {every} minutes)" if live else
-               f"stopped: it last ran {when}" if stopped else f"late: it last ran {when}, every {every} minutes")
+        say = (f"running (it checks the inboxes every minute; last full pass {when}, at least one every {every} minutes)"
+               if live else f"stopped: its last full pass was {when}" if stopped else
+               f"late: its last full pass was {when}, and one is due at least every {every} minutes")
         if problems and isinstance(problems, list):
             say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
         self._backend = {"known": True, "live": live, "stopped": stopped, "say": say, "last": when}

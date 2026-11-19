@@ -59,6 +59,20 @@ class Rclone(unittest.TestCase):
         os.environ["FAKE_RCLONE_OWNER"] = "sam@example.com"
         self.assertEqual(self.store.account(), "sam@example.com")
 
+    def test_shared_google_client_is_noticed(self):
+        # found 2026-11-19: the first real back end ran on rclone's shared client, which Google retires in 2026
+        conf = self.t / "rclone.conf"
+        store = RcloneStore("collabkit:", rclone=self.rclone, config=str(conf))
+        self.assertFalse(store.uses_shared_google_client(), "no config file: cannot tell")
+        conf.write_text("[collabkit]\ntype = drive\nscope = drive\nclient_id = \ntoken = {}\n")
+        self.assertTrue(store.uses_shared_google_client())
+        conf.write_text("[collabkit]\ntype = drive\nclient_id = 123-abc.apps.googleusercontent.com\n")
+        self.assertFalse(store.uses_shared_google_client())
+        conf.write_text("[collabkit]\ntype = onedrive\n")
+        self.assertFalse(store.uses_shared_google_client(), "not Google Drive")
+        conf.write_text("RCLONE_ENCRYPT_V0:\nabcdef\n")
+        self.assertFalse(store.uses_shared_google_client(), "an encrypted config: cannot tell")
+
     def test_back_end_checks_the_account_over_rclone(self):
         from collab_kit.backend import Pass
         self.store.write("00-START-HERE.md", "start\n")

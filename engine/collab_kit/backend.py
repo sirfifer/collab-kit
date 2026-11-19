@@ -62,7 +62,7 @@ from pathlib import Path
 
 from . import config as C
 from .apply import SETTLE_SECONDS, Outcome, apply_file, heal_duplicates, raise_item
-from .store import FolderStore, Store, StoreError, SubStore, open_store, run_quiet
+from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store, run_quiet
 from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
 from .views import PRESSING, cloud_units, front_page, inactive_projects, write_front_page  # noqa: F401
 from .text import one_line, sha, stamp, utcnow
@@ -715,6 +715,10 @@ class Pass:
         if wrong:
             print(f"PROBLEM: refusing to run: {wrong}")
             return 2
+        if isinstance(self.cloud, RcloneStore) and self.cloud.uses_shared_google_client():
+            self.problem("rclone reaches Drive with rclone's shared Google client, which Google retires during "
+                         "2026 (then the back end stops) and which is slow: give the remote its own client "
+                         "(docs/rclone-intake.md, 'OAuth')")
         try:
             if not self.dry and not take_lease(self.cloud, self.me, max(self.interval - 5, 10), self.settle):
                 print("collab-kit back end: another runner holds the lease; exiting")

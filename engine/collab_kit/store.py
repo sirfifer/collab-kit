@@ -331,6 +331,23 @@ class RcloneStore(Store):
     def _env(self) -> dict:
         return {k: v for k, v in os.environ.items() if not k.startswith("RCLONE_")}
 
+    def uses_shared_google_client(self) -> bool:
+        """True when the remote is Google Drive signed in with rclone's shared client (no client_id of
+        its own): Google retires that client during 2026, and it is rate-limited across every rclone
+        user. Read from the config file itself, so no rclone command is added; False when unsure."""
+        import configparser
+        path = Path(self.config).expanduser() if self.config else Path.home() / ".config" / "rclone" / "rclone.conf"
+        cp = configparser.ConfigParser(interpolation=None)
+        try:
+            cp.read_string(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, configparser.Error):
+            return False                              # missing, or encrypted: cannot tell
+        name = self.remote.split(":", 1)[0]
+        if not cp.has_section(name):
+            return False
+        sec = cp[name]
+        return sec.get("type", "").strip() == "drive" and not sec.get("client_id", "").strip()
+
     def _check_version(self) -> None:
         if self._checked:
             return
