@@ -12,6 +12,23 @@ Typed chat, dictation, Claude Code, other assistants, and other people are all s
 on a phone is the hardest case, so it is the one every decision is measured against. What works
 hands-free works everywhere.
 
+## What it makes possible
+
+**A long, fully informed working session about an involved project, entirely by voice.**
+
+Much of what Collab Kit does can be done more simply: a note dictated, a list kept, a question asked.
+That is not what it is for. It is for the conversation that today needs the desk: an hour on a hard
+problem, in a project with real depth, where every answer depends on what the project actually says.
+
+Voice mode alone cannot hold that conversation. It has some memory and some history, and it can be
+handed a document. Then it knows only what it was handed, as of that moment, and handing it over
+already took your hands. Collab Kit gives the conversation the project itself: indexed, current, and
+loaded a piece at a time, so the context holds the talk and the few files that matter to it. It does
+this for every project at once, so moving from one project to the next is a sentence.
+
+And nothing waits. What a conversation works out is filed within minutes, the agents doing the work
+start from it, and their questions are on the agenda before the next conversation begins.
+
 ## The test
 
 **Weeks or months of work without touching the back end**, including starting new projects.

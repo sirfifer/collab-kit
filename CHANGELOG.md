@@ -2,6 +2,16 @@
 
 ## Not yet released
 
+**The documentation explains the project to someone new** (agenda W-022). The README now opens with
+what Collab Kit is for (long, fully informed working sessions about a complex project, hands-free, by
+voice), what a session is like, and why voice mode cannot do that alone, and says plainly what works
+today and what does not yet. Two new pages: [docs/how-it-works.md](docs/how-it-works.md) follows one
+session round the whole loop (what is loaded when, one return's life, how fast, why the back end has
+no AI), with a diagram of the flow (`docs/images/how-collab-kit-works.svg`);
+[docs/folder-structure.md](docs/folder-structure.md) shows every folder and file, who writes and
+reads each, and the ten rules the layout follows. VISION.md gains "What it makes possible". No
+behaviour changed.
+
 **A full pass over rclone takes seconds, not 20 minutes** (agenda W-020). A back end reaching the
 folder through rclone read every file with its own `rclone cat`, 4 to 16 seconds each, and the front
 page alone reads every agenda item: a pass took 20 to 30 minutes, and every arriving return started

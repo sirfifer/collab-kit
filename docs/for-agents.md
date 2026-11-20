@@ -5,7 +5,8 @@ it. This page is the procedure, in order. Every command here is real and was che
 where something needs the person's own hands, it says so. Commands below write `<kit>` for the kit's
 checkout (for example `~/dev/collab-kit`) and `<folder>` for the Collab Kit folder.
 
-Working on the kit's own code instead? Read [CLAUDE.md](../CLAUDE.md).
+Working on the kit's own code instead? Read [CLAUDE.md](../CLAUDE.md). To understand what you are
+installing first: [how it works](how-it-works.md) and [the folder and the method](folder-structure.md).
 
 ## Rules that always apply
 
