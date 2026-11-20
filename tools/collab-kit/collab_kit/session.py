@@ -23,6 +23,7 @@ Where a return goes (DESIGN-0.5 sections 5, 7, 16):
 """
 from __future__ import annotations
 
+import atexit
 import datetime as dt
 import json
 import os
@@ -35,7 +36,7 @@ from . import config as C
 from . import kit_version
 from . import returns as R
 from .apply import Planner, Reject, apply_return, heal_duplicates
-from .store import FolderStore, Store, StoreError, SubStore, open_store
+from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store
 from .text import fold, slug, utcnow
 from .unit import RETURNS, Unit
 
@@ -58,8 +59,13 @@ def parse_time(s: str) -> dt.datetime:
     return t if t.tzinfo else t.replace(tzinfo=dt.timezone.utc)
 
 
+RCLONE_CACHE = "rclone-cache"                           # in the machine's state folder: file contents by md5
+
+
 def open_cloud(machine: dict) -> Store | None:
-    """The Collab Kit folder as this machine's config names it, if it is set up and there."""
+    """The Collab Kit folder as this machine's config names it, if it is set up and there. Through
+    rclone it is read from one listing taken now (a `ck` command is short): a file is downloaded only
+    when its md5 is not in the machine's cache (DESIGN-0.5 section 22), so a brief takes seconds."""
     cloud = machine.get("cloud", {})
     spec = C.expand(cloud.get("root", ""))
     for key, env in (("rclone", "COLLAB_KIT_RCLONE"), ("rclone_config", "COLLAB_KIT_RCLONE_CONFIG")):
@@ -71,6 +77,9 @@ def open_cloud(machine: dict) -> Store | None:
         store = open_store(spec)
         if isinstance(store, FolderStore) and not store.root.is_dir():
             return None
+        if isinstance(store, RcloneStore):
+            store.snapshot(C.state_dir() / RCLONE_CACHE)
+            atexit.register(store.end_snapshot)
         return store if store.list("") else None
     except (StoreError, OSError):
         return None

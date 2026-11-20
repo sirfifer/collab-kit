@@ -673,6 +673,10 @@ Through rclone, a pass now:
 - **The log says what a pass cost.** Every pass ends with one line: when it ended, how long it took,
   its problems, the rclone calls by command, and the reads the cache answered.
 - If the listing fails, the pass reads file by file, as before, and lists that as a problem.
+- **Sessions read the same way.** On a machine that reaches the folder through rclone (no synced
+  copy, as on the Studio), every `ck` command and hook takes one listing when it first needs the
+  folder, and its own cache is in the machine's state folder (`<state>/rclone-cache/`). Before, a
+  session brief there took 156 seconds, longer than the session hook's 30.
 
 A pass with nothing new costs the listing, the lease (three reads, two writes), the heartbeat, and the
 account check when one is set: about eight calls instead of several hundred. Through a synced folder

@@ -374,6 +374,34 @@ class PassOverRclone(unittest.TestCase):
         self.assertNotIn("Order seeds", pressing)
         self.assertIn("Plan beds", pressing.split("## Critical")[1])
 
+    def test_a_session_reads_one_listing(self):
+        # a machine without a synced copy (the Studio) reaches the folder through rclone: a brief read
+        # every agenda item with its own download, 156 seconds there, over the session hook's 30
+        from collab_kit import config as C
+        from collab_kit.session import backend_state, open_cloud
+        from collab_kit.store import SubStore
+        self.drop("projects/garden/collab-kit/_returns/r1.md",
+                  "Project: garden\nChanges v1:\nnew-item title=\"Order seeds\"\nnew-item title=\"Plan beds\"\nEnd.\n")
+        self.run_pass()
+        machine = {"cloud": {"root": "rclone:drive:Collab Kit", "rclone": os.environ["COLLAB_KIT_RCLONE"]}}
+        log = self.t / "calls.log"
+
+        def brief():
+            log.write_text("")
+            store = open_cloud(machine)
+            titles = [i.title for i in Unit(SubStore(store, "projects/garden/collab-kit"), "garden").items()]
+            live = backend_state(store)["live"]
+            store.end_snapshot()
+            return titles, live, log.read_text().splitlines()
+        titles, live, calls = brief()
+        self.assertEqual((titles, live), (["Order seeds", "Plan beds"], True))
+        self.assertEqual([c.split()[0] for c in calls].count("lsjson"), 1)
+        self.assertEqual(len([c for c in calls if c.startswith("cat")]), 3, "two items and the heartbeat, once")
+        self.assertTrue((C.state_dir() / "rclone-cache").is_dir())
+        titles, live, calls = brief()                                # the next command: the listing only
+        self.assertEqual((titles, live), (["Order seeds", "Plan beds"], True))
+        self.assertEqual(calls, ["lsjson -R drive:Collab Kit"])
+
     def test_a_dry_run_writes_no_cache(self):
         from collab_kit.backend import Pass
         self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\"\nEnd.\n")

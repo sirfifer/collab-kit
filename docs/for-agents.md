@@ -162,7 +162,7 @@ runs from the kit's checkout, not from a project's copy.
    | Key | Meaning |
    |---|---|
    | `cloud` | the Collab Kit folder: a path, or `rclone:<remote>:<path>` |
-   | `work` | the back end's own folder: its clones of repositories and, through rclone, `rclone-cache/` (file contents by md5, so a pass downloads only what changed; safe to delete); never inside `~/dev` or the Collab Kit folder |
+   | `work` | the back end's own folder: its clones of repositories and, through rclone, `rclone-cache/` (file contents by md5, so a pass downloads only what changed; safe to delete; sessions on the machine keep their own in the machine's state folder); never inside `~/dev` or the Collab Kit folder |
    | `interval_minutes` | the full sweep (pull, mirror, health), default 60; returns are checked every minute regardless |
    | `human` | the person's name |
    | `account` | the Google account that must own the folder (the owner of its start file); checked every run when set |

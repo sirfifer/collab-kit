@@ -10,8 +10,10 @@ its md5 is not in the back end's cache (`<work>/rclone-cache/`); every other lis
 from the listing and the cache, and writes go through rclone as before and update both. The lease is
 always read as it is now and is renewed only every two minutes; the mirror's state file is written
 only when it changed. A name Drive holds twice still fails closed, and a Google-native file is still
-never read. Every pass ends with one log line: how long it took and its rclone calls. Through a
-synced folder nothing changed. See DESIGN-0.5 section 22.
+never read. Every pass ends with one log line: how long it took and its rclone calls. Sessions on a
+machine that reaches the folder through rclone read it the same way (the cache in the machine's
+state folder), so a brief there takes seconds rather than minutes, inside the session hook's 30.
+Through a synced folder nothing changed. See DESIGN-0.5 section 22.
 
 ## 0.5.3 (2026-11-19)
 
