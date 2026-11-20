@@ -685,8 +685,15 @@ Through rclone, a pass now:
   folder, and its own cache is in the machine's state folder (`<state>/rclone-cache/`). Before, a
   session brief there took 156 seconds, longer than the session hook's 30.
 
-A pass with nothing new costs the listing, the lease (four reads, two writes), the heartbeat, and the
-account check when one is set: about nine calls instead of several hundred. (A review of the change
+- **Nothing is written to the wrong place** (found 2026-11-20). Before the lease, a pass looks at the
+  folder's top: without `00-START-HERE.md` or `agenda/` there it writes nothing, says which folder it
+  reached, and exits 2. (When `account` is set over rclone, the account check is that look: it reads
+  the start file's owner.) The case it guards: answering Yes to rclone's "Shared Drive" question on a
+  reconnect empties `root_folder_id`, and the remote then points at another drive, which a pass would
+  otherwise have written its lease into and walked whole.
+
+A pass with nothing new costs a look at the folder's top, the listing, the lease (four reads, two
+writes) and the heartbeat: nine calls instead of several hundred. (A review of the change
 found the read-before-write gaps above and the empty-folder reading of "not found"; both are fixed
 and tested.) Through a synced folder
 nothing changed. A GitHub Actions run starts with an empty cache: it downloads each file it reads once

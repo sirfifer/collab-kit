@@ -115,6 +115,14 @@ class BackEnd(unittest.TestCase):
         self.run_pass()
         self.assertEqual(len(self.s.files("_versions")), versions)
 
+    def test_a_folder_that_is_not_a_collab_kit_folder_gets_nothing(self):
+        elsewhere = self.t / "Somewhere else"
+        (elsewhere / "notes").mkdir(parents=True)
+        self.cfg["backend"]["cloud"] = str(elsewhere)
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 2)
+        self.assertEqual([x.name for x in elsewhere.iterdir()], ["notes"], "no lease, no heartbeat")
+
     def test_wrong_account_refuses(self):
         self.cfg["backend"]["account"] = "someone@example.com"
         self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"x\"\nEnd.\n")

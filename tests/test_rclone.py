@@ -345,8 +345,10 @@ class PassOverRclone(unittest.TestCase):
             self.assertIn(title, pressing)
         self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"), "# site knowledge\n", "mirrored")
         self.assertEqual([c for c in calls if c.startswith("lsjson")],
-                         ["lsjson -R drive:Collab Kit", "lsjson -R drive:Collab Kit/projects/site/collab-kit"],
-                         "the folder, and the site's copy again just before the first mirror writes to it")
+                         ["lsjson drive:Collab Kit", "lsjson -R drive:Collab Kit",
+                          "lsjson -R drive:Collab Kit/projects/site/collab-kit"],
+                         "a look at its top (is it a Collab Kit folder?), the folder, and the site's copy again "
+                         "just before the first mirror writes to it")
         start = "cat drive:Collab Kit/00-START-HERE.md"                # read again just before its setup line is set
         self.assertEqual(calls.count(start), 2)
         reads = [c for c in calls if c.startswith("cat") and c not in (lease, start)]
@@ -355,12 +357,13 @@ class PassOverRclone(unittest.TestCase):
 
         p, rc, calls = self.run_pass()                               # steady state: nothing new anywhere
         self.assertEqual(rc, 0, p.problems)
-        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
+        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson drive:Collab Kit", "lsjson -R drive:Collab Kit"])
         self.assertEqual([c for c in calls if c.startswith("cat") and c != lease], [], "no file downloaded")
         self.assertEqual(sorted(c.split()[0] for c in calls),
-                         ["cat"] * 4 + ["lsjson"] + ["rcat"] * 3, f"the lease (4 reads, 2 writes) and the heartbeat: {calls}")
+                         ["cat"] * 4 + ["lsjson"] * 2 + ["rcat"] * 3,
+                         f"the top, the folder, the lease (4 reads, 2 writes) and the heartbeat: {calls}")
         self.assertGreater(p.cloud.cache_hits, 3)
-        self.assertIn("rclone calls: cat 4, lsjson 1, rcat 3", p.summary(1))
+        self.assertIn("rclone calls: cat 4, lsjson 2, rcat 3", p.summary(1))
 
         agenda = os.listdir(self.root / "projects/garden/collab-kit/agenda")
         item = next(n for n in agenda if n.startswith("W-002"))
@@ -371,7 +374,7 @@ class PassOverRclone(unittest.TestCase):
                   "Project: garden\nChanges v1:\nsettle W-001 \"seeds\" outcome=\"ordered\"\nEnd.\n")
         p, rc, calls = self.run_pass()
         self.assertEqual(rc, 0, p.problems)
-        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
+        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson drive:Collab Kit", "lsjson -R drive:Collab Kit"])
         self.assertEqual(sorted(c for c in calls if c.startswith("cat") and c != lease),
                          ["cat drive:Collab Kit/projects/garden/collab-kit/_returns/r2.md",
                           f"cat drive:Collab Kit/projects/garden/collab-kit/agenda/{settled}",
@@ -473,6 +476,18 @@ class PassOverRclone(unittest.TestCase):
         self.s.write("_backend/lease.json", json.dumps({"holder": "other:1", "expires": "2999-01-01T00:00:00+00:00"}))
         with self.assertRaises(LeaseLost):
             p.renew()                                                 # at once, not two minutes later
+
+    def test_a_remote_pointed_elsewhere_gets_nothing(self):
+        # found 2026-11-20: a reconnect that answers Yes to rclone's Shared Drive question empties
+        # root_folder_id, and the remote then points at another drive; nothing may be written there
+        other = self.t / "drive" / "Family"
+        (other / "Photos").mkdir(parents=True)
+        (other / "budget.md").write_text("private\n")
+        self.cfg["backend"]["cloud"] = "rclone:drive:Family"
+        p, rc, calls = self.run_pass()
+        self.assertEqual(rc, 2)
+        self.assertEqual(sorted(x.name for x in other.iterdir()), ["Photos", "budget.md"], "nothing written there")
+        self.assertEqual(calls, ["lsjson drive:Family"], "one look at its top, never walked")
 
     def test_a_dry_run_writes_no_cache(self):
         from collab_kit.backend import Pass

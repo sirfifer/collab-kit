@@ -17,6 +17,13 @@ machine that reaches the folder through rclone read it the same way (the cache i
 state folder), so a brief there takes seconds rather than minutes, inside the session hook's 30.
 Through a synced folder nothing changed. See DESIGN-0.5 section 22.
 
+**A back end writes nothing to a folder that is not a Collab Kit folder.** Before taking its lease,
+a pass looks at the folder's top; without `00-START-HERE.md` or `agenda/` it refuses to run, names
+the folder, and writes nothing. Found on the Studio on 2026-11-20: answering Yes to rclone's "Shared
+Drive" question on a reconnect empties `root_folder_id`, which points the remote at another drive.
+The docs now say to answer No, and to check the remote with `rclone lsf <remote>: --max-depth 1`
+after any reconnect.
+
 ## 0.5.3 (2026-11-19)
 
 The kit dogfooded on itself, and checked the way an agent meets it: an AI agent with no context

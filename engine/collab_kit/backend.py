@@ -738,9 +738,25 @@ class Pass:
                 self.step(name, self.apply_inbox, unit, self.top)
         self.step("the views", self.views)
 
+    def check_folder(self) -> str | None:
+        """Why the cloud root may not be a Collab Kit folder, or None. Checked before the lease, so a
+        remote pointed at the wrong place (a reconnect answered Yes to rclone's Shared Drive question,
+        which empties root_folder_id) gets nothing written to it and is never walked."""
+        if self.account and self.cloud_spec.startswith("rclone:"):
+            return None                               # check_account found the owner of its start file
+        try:
+            names = {e.name for e in self.cloud.list("")}
+        except (StoreError, OSError) as e:
+            return f"the Collab Kit folder is not reachable: {e}"
+        if START in names or AGENDA in names:
+            return None
+        return (f"{self.cloud_spec} has no {START} and no {AGENDA}/ at its top, so it is not a Collab Kit folder; "
+                f"nothing was written. Check where the remote points (for rclone: `rclone lsf <remote>: --max-depth 1` "
+                f"must show {START}; a reconnect that answered Yes to the Shared Drive question empties root_folder_id)")
+
     def run(self) -> int:
         started = time.monotonic()
-        wrong = self.check_account()
+        wrong = self.check_account() or self.check_folder()
         if wrong:
             print(f"PROBLEM: refusing to run: {wrong}")
             return 2

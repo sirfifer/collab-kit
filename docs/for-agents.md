@@ -147,7 +147,9 @@ runs from the kit's checkout, not from a project's copy.
    remote must use **the person's own Google OAuth client** (rclone's shared one stops working during
    2026, and is slow): creating it is the person's job in Google Cloud; give them the steps from the
    intake, then `rclone config update <remote> client_id=... client_secret=... config_refresh_token=false`
-   and `rclone config reconnect <remote>:` (a browser sign-in). Use the full `drive` scope, and the
+   and `rclone config reconnect <remote>:` (a browser sign-in; to "Configure this as a Shared Drive
+   (Team Drive)?" the answer is **No**, since Yes empties `root_folder_id` and points the remote at
+   another drive; afterwards `rclone lsf <remote>: --max-depth 1` must list `00-START-HERE.md`). Use the full `drive` scope, and the
    remote's `root_folder_id` set to the Collab Kit folder. A synced Drive for desktop folder also
    works (macOS asks once to allow `collab-kit-runner`).
 2. **This machine:** `install.py machine` as in "Set up from nothing", with the rclone flags.
@@ -192,9 +194,9 @@ runs from the kit's checkout, not from a project's copy.
 6. **Check it:** the first line of `<folder>/agenda/00-PRESSING.md` (its date must be today, and
    problems are listed under it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
    `journalctl --user -u collab-kit-backend`), where every pass ends with one line: when, how long,
-   its problems and, through rclone, its calls by command (a pass with nothing new is one `lsjson`
-   listing, a second when `account` is set, four lease reads and three writes: seconds, not minutes); `launchctl print
-   gui/$(id -u)/org.collab-kit.backend` on macOS. In a project, `ck doctor` reports it as running.
+   its problems and, through rclone, its calls by command (a pass with nothing new is two `lsjson`,
+   the folder's top and then all of it, four lease reads and three writes: seconds, not minutes);
+   `launchctl print gui/$(id -u)/org.collab-kit.backend` on macOS. In a project, `ck doctor` reports it as running.
 
 **Retiring a back end:** unload its schedule, then `install.py top "<folder>" --human "Sam" --setup
 none`, which also retires its heartbeat so sessions apply returns themselves again.
@@ -246,6 +248,7 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 | Files named `name (1).md` in a synced folder on a Mac | Drive for desktop's local alias after a phone saved a new version | nothing: the kit reads the real name; never rename them by hand |
 | The front page's date is two or more days old, or `ck doctor` says the back end is late | the back end stopped | on its machine: the log, the schedule, rclone's sign-in; one `ck backend run` by hand shows the error; tell the person |
 | The front page says rclone uses the shared Google client | the remote has no OAuth client of its own | the person creates one; see "A back end", step 1 |
+| The log says "refusing to run: ... is not a Collab Kit folder" | the remote (or path) points somewhere else, e.g. a reconnect answered Yes to the Shared Drive question | set the remote's `root_folder_id` to the Collab Kit folder and `team_drive` empty (`rclone config update`); `rclone lsf <remote>: --max-depth 1` must list `00-START-HERE.md` |
 | A pass's log line shows many `cat` calls, pass after pass, or the front page says the folder "could not be read in one listing" | the cache in `<work>/rclone-cache/` cannot be written, or the recursive listing fails | check the work folder's permissions and space; run `ck backend run --dry-run` by hand to see the listing's error |
 | Two agenda items with the same number | two conversations filed at once at level 1 | nothing: the later one is renumbered when returns are next applied |
 | A project from Collab Kit 0.4 (`tools/kb/`) | the old knowledge build | `install.py migrate-04 <repo>`, then `install.py project <repo> --home repo` |

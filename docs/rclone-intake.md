@@ -68,7 +68,11 @@ license, third-party notices and a source pointer. Rule: never redistribute.
   no `client_id`, lists it as a problem at the top of the agenda's front page (`agenda/00-PRESSING.md`).
   To give an existing remote its own client, by hand, once (add `--config <file>` when the back end
   uses its own config file): `rclone config update <remote> client_id=... client_secret=...
-  config_refresh_token=false`, then `rclone config reconnect <remote>:` (a browser sign-in).
+  config_refresh_token=false`, then `rclone config reconnect <remote>:` (a browser sign-in). When the
+  reconnect asks "Configure this as a Shared Drive (Team Drive)?", answer **No**: Yes empties
+  `root_folder_id`, and the remote then points at another drive. After any reconnect, check by hand
+  that `rclone lsf <remote>: --max-depth 1` (add `--config <file>`) lists `00-START-HERE.md`. A back end
+  that finds neither it nor `agenda/` at the folder's top writes nothing and refuses to run.
 
 ## 6. Verdict: accept with conditions
 
