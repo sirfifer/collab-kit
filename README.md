@@ -99,7 +99,8 @@ python3 install.py backend --cloud "<folder, or rclone:remote:path>" --human "Sa
 Returns are applied within a few minutes of arriving: the job runs every minute, asks one cheap
 question (is any return waiting?), and does a full pass only then, or hourly for the sweep (pulls,
 mirrors, health). Prefer an rclone remote: it reads every file the moment a phone writes it and needs
-no macOS permission. On a Mac that also syncs the folder, `watch = "<that folder>"` in `backend.toml`
+no macOS permission; a pass lists the whole folder once and downloads only the files that changed
+since the last one. On a Mac that also syncs the folder, `watch = "<that folder>"` in `backend.toml`
 rings the job the moment a file lands. A push to your phone when something critical appears is
 optional ([docs/notifications.md](docs/notifications.md)).
 

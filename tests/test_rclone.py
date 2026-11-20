@@ -39,7 +39,7 @@ class Rclone(unittest.TestCase):
 
     def tearDown(self):
         for k in ("FAKE_RCLONE_ROOT", "FAKE_RCLONE_VERSION", "FAKE_RCLONE_DUP", "FAKE_RCLONE_OWNER",
-                  "COLLAB_KIT_RCLONE", "RCLONE_CONFIG_PASS"):
+                  "FAKE_RCLONE_CALLS", "COLLAB_KIT_RCLONE", "RCLONE_CONFIG_PASS"):
             os.environ.pop(k, None)
         self.tmp.cleanup()
 
@@ -175,6 +175,212 @@ class Rclone(unittest.TestCase):
         A.apply_file(unit, unit.store.entry("_returns/r2.md"))
         self.assertEqual(unit.item("W-001").importance, 1)
         self.assertEqual(len(self.store.files("agenda/_versions")), 1)
+
+    # ---- a pass's snapshot (W-020: one listing per pass, a download only for a changed file)
+    def calls(self):
+        f = self.t / "calls.log"
+        lines = f.read_text().splitlines() if f.exists() else []
+        f.write_text("")
+        return lines
+
+    def test_a_snapshot_lists_once_and_reads_from_the_cache(self):
+        os.environ["FAKE_RCLONE_CALLS"] = str(self.t / "calls.log")
+        for rel, text in (("agenda/W-001-a.md", "a\n"), ("agenda/W-002-b.md", "b\n"), ("knowledge/k.md", "k\n")):
+            self.store.write(rel, text)
+        self.calls()
+        cache = self.t / "work" / "rclone-cache"
+        self.store.snapshot(cache)
+        self.assertEqual([e.name for e in self.store.files("agenda")], ["W-001-a.md", "W-002-b.md"])
+        self.assertEqual(self.store.read("agenda/W-001-a.md"), "a\n")
+        self.assertEqual(self.store.read("agenda/W-001-a.md"), "a\n")           # the second read: the cache
+        self.assertIsNone(self.store.read("agenda/missing.md"))
+        self.assertEqual(self.store.list("nope"), [])
+        self.assertEqual(self.calls(), ["lsjson -R drive:Collab Kit", "cat drive:Collab Kit/agenda/W-001-a.md"])
+        self.store.end_snapshot()
+        # the next pass (a new store, as every run is): the cache answers, one changed file is downloaded
+        (self.t / "drive" / "Collab Kit" / "agenda" / "W-001-a.md").write_text("a, changed elsewhere\n")
+        store = RcloneStore("drive:Collab Kit", rclone=self.rclone)
+        store.snapshot(cache)
+        self.assertEqual(store.read("agenda/W-001-a.md"), "a, changed elsewhere\n")
+        self.assertEqual(store.read("agenda/W-001-a.md"), "a, changed elsewhere\n")
+        self.assertEqual(store.read("agenda/W-002-b.md"), "b\n")
+        self.assertEqual(self.calls(), ["lsjson -R drive:Collab Kit", "cat drive:Collab Kit/agenda/W-001-a.md",
+                                        "cat drive:Collab Kit/agenda/W-002-b.md"])
+        store.end_snapshot()
+        self.assertEqual(len(list(cache.iterdir())), 2, "the old copy of W-001 is dropped")
+        store = RcloneStore("drive:Collab Kit", rclone=self.rclone)
+        store.snapshot(cache)
+        self.assertEqual([store.read(f"agenda/{n}") for n in ("W-001-a.md", "W-002-b.md")], ["a, changed elsewhere\n", "b\n"])
+        self.assertEqual(self.calls(), ["lsjson -R drive:Collab Kit"], "steady state: the listing only")
+        self.assertEqual(store.cache_hits, 2)
+
+    def test_a_snapshot_follows_its_own_writes(self):
+        os.environ["FAKE_RCLONE_CALLS"] = str(self.t / "calls.log")
+        self.store.write("agenda/W-001-a.md", "a\n")
+        self.store.snapshot(None)                                   # memory only, as in a dry run
+        self.calls()
+        self.store.write("agenda/W-001-a.md", "a2\n")
+        self.store.copy("agenda/W-001-a.md", "agenda/_versions/W-001-a.1.md")
+        self.store.mkdir("agenda")                                  # listed: no call
+        self.store.mkdir("_returns/applied")
+        self.store.write("_returns/r.md", "r\n")
+        self.store.move("_returns/r.md", "_returns/applied/r.md")
+        self.store.write("knowledge/new/deep.md", "deep\n")
+        self.assertEqual(self.store.read("agenda/W-001-a.md"), "a2\n")
+        self.assertEqual(self.store.read("agenda/_versions/W-001-a.1.md"), "a2\n")
+        self.assertEqual(self.store.read("_returns/applied/r.md"), "r\n")
+        self.assertIsNone(self.store.read("_returns/r.md"))
+        self.assertTrue(self.store.exists("knowledge/new"))
+        self.assertEqual([e.name for e in self.store.dirs("knowledge")], ["new"])
+        with self.assertRaises(StoreError):
+            self.store.copy("agenda/W-001-a.md", "agenda/_versions/W-001-a.1.md")
+        self.assertEqual([c.split()[0] for c in self.calls()], ["rcat", "copyto", "mkdir", "rcat", "moveto", "rcat"])
+        self.store.end_snapshot()
+        self.assertEqual(self.store.read("_returns/applied/r.md"), "r\n")    # the folder agrees
+        self.assertEqual(self.store.read("agenda/_versions/W-001-a.1.md"), "a2\n")
+
+    def test_a_snapshot_keeps_the_rules(self):
+        self.store.write("_returns/r.md", "x")
+        self.store.write("_returns/s.md", "y")
+        (self.t / "drive" / "Collab Kit" / "_returns" / "notes.gdoc-native").write_text("binary")
+        self.store.write("_backend/lease.json", "{}")
+        os.environ["FAKE_RCLONE_DUP"] = "r.md"
+        self.store.snapshot(self.t / "cache")
+        with self.assertRaises(StoreError):
+            self.store.read("_returns/r.md")                         # a duplicated name still fails closed
+        with self.assertRaises(StoreError):
+            self.store.write("_returns/r.md", "z")
+        self.assertEqual(self.store.read("_returns/s.md"), "y")
+        native = [e for e in self.store.list("_returns") if e.name.endswith("native")][0]
+        self.assertTrue(native.native)
+        self.assertGreater(native.mtime, 0)
+        self.assertEqual(self.store.read("_backend/lease.json"), "{}")       # downloaded once: now in the cache
+        os.environ["FAKE_RCLONE_CALLS"] = str(self.t / "calls.log")
+        (self.t / "drive" / "Collab Kit" / "_backend" / "lease.json").write_text('{"holder": "other"}')
+        self.assertEqual(self.store.read("_backend/lease.json"), "{}", "a read is the folder as the pass listed it")
+        self.assertEqual(self.store.read_fresh("_backend/lease.json"), '{"holder": "other"}', "the lease: as it is now")
+        self.assertEqual(self.calls(), ["cat drive:Collab Kit/_backend/lease.json"])
+        from collab_kit.store import ContentCache
+        cc = ContentCache(self.t / "cache")
+        self.assertIsNone(cc.get("../../etc/passwd"), "a listed hash is never a path")
+        h = cc.put(b"hello")
+        (self.t / "cache" / h).write_bytes(b"tampered")
+        self.assertIsNone(cc.get(h), "a copy that no longer matches its md5 is dropped")
+        self.assertFalse((self.t / "cache" / h).exists())
+
+
+
+class PassOverRclone(unittest.TestCase):
+    """A whole back end pass through rclone (the fake), counted call by call: one listing of the
+    folder, and a download only for a file whose md5 the cache does not hold (W-020)."""
+
+    def setUp(self):
+        import subprocess
+        from collab_kit.store import FolderStore
+        from collab_kit.templates import set_human, top_start_file
+        self.tmp = tempfile.TemporaryDirectory()
+        t = self.t = Path(self.tmp.name)
+        launcher = t / ("rclone.cmd" if os.name == "nt" else "rclone")
+        if os.name == "nt":
+            launcher.write_text(f'@"{sys.executable}" "{HERE / "fake_rclone.py"}" %*\n')
+        else:
+            launcher.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{HERE / "fake_rclone.py"}" "$@"\n')
+            launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC)
+        os.environ.update(FAKE_RCLONE_ROOT=str(t), COLLAB_KIT_RCLONE=str(launcher), FAKE_RCLONE_CALLS=str(t / "calls.log"))
+        self.root = t / "drive" / "Collab Kit"
+        set_human("Sam")
+        s = self.s = FolderStore(self.root)                         # the folder itself, written behind rclone's back
+        s.write("00-START-HERE.md", top_start_file())
+        s.write("knowledge/projects.md", "| Folder | Say | What it is | Home |\n|---|---|---|---|\n"
+                "| `garden` | \"g\" | g | cloud |\n| `site` | \"s\" | the site | repo |\n")
+        for d in ("_returns", "agenda", "projects/garden/collab-kit/_returns", "projects/garden/collab-kit/agenda",
+                  "projects/site/collab-kit/_returns"):
+            s.mkdir(d)
+        origin, seed = t / "site.git", t / "seed"
+
+        def sh(*a, cwd=None):
+            subprocess.run(list(a), cwd=cwd, check=True, capture_output=True)
+        sh("git", "init", "-q", "--bare", "-b", "main", str(origin))
+        sh("git", "clone", "-q", str(origin), str(seed))
+        sh("git", "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty", "-m", "x", cwd=seed)
+        (seed / "collab-kit/knowledge").mkdir(parents=True)
+        (seed / "collab-kit/00-START-HERE.md").write_text("# site\n")
+        (seed / "collab-kit/knowledge/README.md").write_text("# site knowledge\n")
+        sh("git", "add", "-A", cwd=seed)
+        sh("git", "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-qm", "seed", cwd=seed)
+        sh("git", "push", "-q", "origin", "HEAD:main", cwd=seed)
+        self.cfg = {"backend": {"cloud": "rclone:drive:Collab Kit", "work": str(t / "work"), "human": "Sam",
+                                "local_roots": [], "lease_settle_seconds": 0},
+                    "project": [{"name": "site", "repo": str(origin), "branch": "main", "push": True,
+                                 "allow_public": True}]}
+
+    def tearDown(self):
+        for k in ("FAKE_RCLONE_ROOT", "FAKE_RCLONE_CALLS", "COLLAB_KIT_RCLONE"):
+            os.environ.pop(k, None)
+        self.tmp.cleanup()
+
+    def drop(self, rel, text):
+        self.s.write(rel, text)
+        t = time.time() - 3600
+        os.utime(self.root / rel, (t, t))
+
+    def run_pass(self):
+        from collab_kit.backend import Pass
+        log = self.t / "calls.log"
+        log.write_text("")
+        p = Pass(self.cfg)
+        rc = p.run()
+        return p, rc, log.read_text().splitlines()
+
+    def test_a_steady_pass_is_one_listing(self):
+        self.drop("projects/garden/collab-kit/_returns/r1.md",
+                  "Project: garden\nChanges v1:\nnew-item title=\"Order seeds\" importance=1\n"
+                  "new-item title=\"Plan beds\" importance=2\nEnd.\n")
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\" importance=2\nEnd.\n")
+        lease = "cat drive:Collab Kit/_backend/lease.json"
+        p, rc, calls = self.run_pass()                               # the first pass: the cache is empty
+        self.assertEqual(rc, 0, p.problems)
+        pressing = self.s.read("agenda/00-PRESSING.md")
+        for title in ("Order seeds", "Plan beds", "Top thing"):
+            self.assertIn(title, pressing)
+        self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"), "# site knowledge\n", "mirrored")
+        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
+        reads = [c for c in calls if c.startswith("cat") and c != lease]
+        self.assertEqual(len(reads), len(set(reads)), f"a file is downloaded at most once a pass: {reads}")
+        self.assertIn("cat drive:Collab Kit/_returns/t1.md", reads)
+
+        p, rc, calls = self.run_pass()                               # steady state: nothing new anywhere
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
+        self.assertEqual([c for c in calls if c.startswith("cat") and c != lease], [], "no file downloaded")
+        self.assertEqual(sorted(c.split()[0] for c in calls),
+                         ["cat"] * 3 + ["lsjson"] + ["rcat"] * 3, f"the lease (3 reads, 2 writes) and the heartbeat: {calls}")
+        self.assertGreater(p.cloud.cache_hits, 3)
+        self.assertIn("rclone calls: cat 3, lsjson 1, rcat 3", p.summary(1))
+
+        item = next(n for n in os.listdir(self.root / "projects/garden/collab-kit/agenda") if n.startswith("W-002"))
+        path = self.root / "projects/garden/collab-kit/agenda" / item
+        path.write_text(path.read_text().replace("importance = 2", "importance = 1"))   # changed elsewhere
+        self.drop("projects/garden/collab-kit/_returns/r2.md",
+                  "Project: garden\nChanges v1:\nsettle W-001 \"seeds\" outcome=\"ordered\"\nEnd.\n")
+        p, rc, calls = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
+        self.assertEqual(sorted(c for c in calls if c.startswith("cat") and c != lease),
+                         [f"cat drive:Collab Kit/projects/garden/collab-kit/_returns/r2.md",
+                          f"cat drive:Collab Kit/projects/garden/collab-kit/agenda/{item}"],
+                         "only the changed item and the new return are downloaded")
+        pressing = self.s.read("agenda/00-PRESSING.md")
+        self.assertNotIn("Order seeds", pressing)
+        self.assertIn("Plan beds", pressing.split("## Critical")[1])
+
+    def test_a_dry_run_writes_no_cache(self):
+        from collab_kit.backend import Pass
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\"\nEnd.\n")
+        p = Pass(self.cfg, dry_run=True)
+        self.assertEqual(p.run(), 0, p.problems)
+        self.assertFalse((self.t / "work" / "rclone-cache").exists())
+        self.assertTrue(self.s.exists("_returns/t1.md"))
 
 
 if __name__ == "__main__":

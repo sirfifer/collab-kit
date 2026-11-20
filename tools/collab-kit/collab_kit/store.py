@@ -17,13 +17,16 @@ its name and id.
 """
 from __future__ import annotations
 
+import collections
 import dataclasses
 import errno
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 _DOWNLOADS = {"allowed": False}
@@ -155,6 +158,10 @@ class Store:
     def md5s(self, rel: str = "") -> dict[str, str | None]:
         """{name: md5 of its bytes} for the files in a folder (None when the store cannot say)."""
         return {e.name: None for e in self.files(rel)}
+
+    def read_fresh(self, rel: str) -> str | None:
+        """Read the file as it is now, never from a pass's snapshot (the lease)."""
+        return self.read(rel)
 
     INBOXES = ("_returns", "projects/*/collab-kit/_returns")
 
@@ -297,11 +304,78 @@ class FolderStore(Store):
         return out
 
 
+_MD5 = re.compile(r"^[0-9a-f]{32}$")
+
+
+class ContentCache:
+    """File contents kept by their md5, the hash Drive lists for every file: a file whose listed md5
+    is here is read from here instead of being downloaded again. In a folder of the back end's own (its
+    work folder, never the Collab Kit folder), or in memory only (a dry run writes nothing). A cached
+    copy whose bytes no longer match its md5 is dropped and downloaded again."""
+
+    def __init__(self, folder: str | os.PathLike | None = None):
+        self.folder = Path(folder).expanduser() if folder else None
+        self.mem: dict[str, bytes] = {}
+        if self.folder:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            try:
+                os.chmod(self.folder, 0o700)
+            except OSError:
+                pass
+
+    def get(self, h: str | None) -> bytes | None:
+        if not h or not _MD5.match(h):                # a listed hash is outside text: never a path otherwise
+            return None
+        if h in self.mem:
+            return self.mem[h]
+        if not self.folder:
+            return None
+        p = self.folder / h
+        try:
+            data = p.read_bytes()
+        except OSError:
+            return None
+        if hashlib.md5(data).hexdigest() != h:
+            p.unlink(missing_ok=True)
+            return None
+        return data
+
+    def put(self, data: bytes) -> str:
+        h = hashlib.md5(data).hexdigest()
+        if not self.folder:
+            self.mem[h] = data
+            return h
+        tmp = self.folder / f".{h}.{os.getpid()}.tmp"
+        try:
+            tmp.write_bytes(data)
+            os.replace(tmp, self.folder / h)
+        except OSError:
+            tmp.unlink(missing_ok=True)              # a cache that cannot be written only costs a download
+        return h
+
+    def keep_only(self, wanted: set) -> None:
+        """Drop every copy whose md5 no file in the folder has any more."""
+        if not self.folder or not self.folder.is_dir():
+            return
+        for p in self.folder.iterdir():
+            if p.name not in wanted:
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+
+
 class RcloneStore(Store):
     """A cloud folder through rclone (e.g. remote 'gdrive:Collab Kit'), under the conditions of
     docs/rclone-intake.md: the pinned version only (rclone.lock), six commands only, argument lists
     (no shell), inherited RCLONE_* settings stripped, a dedicated config, fail closed on duplicate
-    names, writes that keep the Drive file id (rcat, or copyto from a local file over 90 KiB)."""
+    names, writes that keep the Drive file id (rcat, or copyto from a local file over 90 KiB).
+
+    A back end's pass reads the folder through a snapshot (snapshot() to end_snapshot()): one
+    recursive listing with every file's md5 answers every listing, and a read downloads a file
+    (`cat`) only when the content cache does not hold its listed md5. Writes, copies and moves still go
+    through rclone, and update the snapshot and the cache. Without a snapshot every call is its own
+    rclone command, as before."""
 
     label = "rclone"
     SPOOL_OVER = 90 * 1024
@@ -315,6 +389,10 @@ class RcloneStore(Store):
             self.flags = ["--config", self.config, *self.flags]
         self._checked = not check_version
         self.dupes: dict[str, set[str]] = {}     # folder -> names Drive holds more than once
+        self.calls: collections.Counter = collections.Counter()   # rclone commands run, by command
+        self.cache_hits = 0                       # reads a snapshot answered from the content cache
+        self._snap: dict[str, dict[str, Entry]] | None = None    # folder -> {name: entry}, during a pass
+        self._cache: ContentCache | None = None
 
     def __repr__(self):
         return f"RcloneStore({self.remote})"
@@ -370,10 +448,11 @@ class RcloneStore(Store):
             raise StoreError(f"rclone must be {want} (rclone.lock); this is '{first[:60]}'")
         self._checked = True
 
-    def _run(self, args: list[str], data: str | None = None) -> str:
+    def _run(self, args: list[str], data: str | None = None, raw: bool = False) -> str | bytes:
         if args[0] not in ("lsjson", "cat", "rcat", "copyto", "moveto", "mkdir"):
             raise StoreError(f"rclone {args[0]} is not one of the commands Collab Kit uses")
         self._check_version()
+        self.calls[args[0]] += 1
         cmd = [self.rclone, *args, *self.flags]
         try:
             res = run_quiet(cmd, input=data.encode("utf-8") if data is not None else None,
@@ -388,7 +467,7 @@ class RcloneStore(Store):
             err = StoreError(f"rclone {args[0]} failed (exit {res.returncode}): {msg[-400:]}")
             err.code = res.returncode          # 3: directory not found, 4: file not found (rclone docs)
             raise err
-        return res.stdout.decode("utf-8", errors="replace")
+        return res.stdout if raw else res.stdout.decode("utf-8", errors="replace")
 
     def inbox_entries(self) -> list[tuple[str, float, int]]:
         """One rclone call for every inbox (rather than one per folder): this runs every minute."""
@@ -408,34 +487,101 @@ class RcloneStore(Store):
                 out.append((path, _rclone_time(it.get("ModTime", "")), int(it.get("Size") or 0)))
         return out
 
+    @staticmethod
+    def _entry(it: dict) -> Entry:
+        """One item of `lsjson` output. Google Docs, Sheets, Slides appear under an export name with
+        size -1 (rclone docs): native, never read."""
+        size = int(it.get("Size") if it.get("Size") is not None else 0)
+        name = str(it.get("Name") or _base(str(it.get("Path") or "")))
+        return Entry(name, name, bool(it.get("IsDir")), _rclone_time(it.get("ModTime", "")), max(size, 0),
+                     native=(not it.get("IsDir")) and size < 0, md5=(it.get("Hashes") or {}).get("md5"))
+
+    def _add(self, folder: dict[str, Entry], parent: str, e: Entry) -> None:
+        """Add a listed entry; a name listed twice is a duplicate (the newer is kept for listing)."""
+        if e.name in folder:
+            self.dupes.setdefault(parent, set()).add(e.name)
+            if e.mtime <= folder[e.name].mtime:
+                return
+        folder[e.name] = e
+
     def list(self, rel: str = "") -> list[Entry]:
+        if self._snap is not None:
+            check_rel(rel)
+            return sorted((dataclasses.replace(e) for e in self._snap.get(rel.strip("/"), {}).values()),
+                          key=lambda e: e.name)
         try:
             out = self._run(["lsjson", "--hash", "--hash-type", "md5", self._r(rel)])
         except StoreError as e:
             if getattr(e, "code", None) == 3:
                 return []
             raise
-        items = json.loads(out or "[]")
         res: dict[str, Entry] = {}
-        for it in items:
-            size = int(it.get("Size") if it.get("Size") is not None else 0)
-            # Google Docs, Sheets, Slides appear under an export name with size -1 (rclone docs).
-            e = Entry(it["Name"], it["Name"], bool(it.get("IsDir")), 0.0, max(size, 0),
-                      native=(not it.get("IsDir")) and size < 0)
-            mod = it.get("ModTime")
-            if mod:
-                try:
-                    import datetime as _dt
-                    e.mtime = _dt.datetime.fromisoformat(mod.replace("Z", "+00:00")).timestamp()
-                except ValueError:
-                    pass
-            e.md5 = (it.get("Hashes") or {}).get("md5")
-            if e.name in res:
-                self.dupes.setdefault(rel, set()).add(e.name)
-                if e.mtime <= res[e.name].mtime:
-                    continue
-            res[e.name] = e
+        for it in json.loads(out or "[]"):
+            self._add(res, rel, self._entry(it))
         return sorted(res.values(), key=lambda e: e.name)
+
+    # ---- a pass's snapshot
+    def snapshot(self, cache: str | os.PathLike | None = None) -> int:
+        """Read the whole folder in one listing (`lsjson -R` with md5s) and answer every listing and
+        read from it until end_snapshot(); `cache` is the content cache's folder (None: memory only).
+        Returns how many entries the listing held."""
+        try:
+            items = json.loads(self._run(["lsjson", "-R", "--hash", "--hash-type", "md5", self._r("")]) or "[]")
+        except StoreError as e:
+            if getattr(e, "code", None) != 3:
+                raise
+            items = []
+        tree: dict[str, dict[str, Entry]] = {"": {}}
+        self.dupes = {}
+        for it in items:
+            path = str(it.get("Path") or "").strip("/")
+            if not path:
+                continue
+            e = self._entry(it)
+            e.name = e.real = _base(path)
+            if e.is_dir:
+                tree.setdefault(path, {})
+            self._add(tree.setdefault(_parent(path), {}), _parent(path), e)
+        try:
+            contents = ContentCache(cache)
+        except OSError:
+            contents = ContentCache(None)            # a cache that cannot be made only costs downloads
+        self._snap, self._cache = tree, contents
+        self.cache_hits = 0
+        return len(items)
+
+    def end_snapshot(self) -> None:
+        """Back to one rclone call per operation; the cache keeps only what the folder still holds."""
+        if self._snap is None:
+            return
+        if self._cache is not None:
+            self._cache.keep_only({e.md5 for folder in self._snap.values() for e in folder.values() if e.md5})
+        self._snap, self._cache = None, None
+
+    def _snap_entry(self, rel: str) -> Entry | None:
+        return self._snap.get(_parent(rel), {}).get(_base(rel)) if self._snap is not None else None
+
+    def _snap_dirs(self, rel: str) -> None:
+        """Every folder on the way to rel (a folder) is in the snapshot."""
+        parts = [p for p in rel.split("/") if p]
+        for i in range(len(parts)):
+            path, parent = "/".join(parts[: i + 1]), "/".join(parts[:i])
+            folder = self._snap.setdefault(parent, {})
+            if parts[i] not in folder or not folder[parts[i]].is_dir:
+                folder[parts[i]] = Entry(parts[i], parts[i], True, time.time())
+            self._snap.setdefault(path, {})
+
+    def _snap_file(self, rel: str, md5: str | None, size: int, native: bool = False, mtime: float | None = None) -> None:
+        """The file as this pass left it (written, copied, moved; or read: then its time stays)."""
+        if self._snap is None:
+            return
+        self._snap_dirs(_parent(rel))
+        self._snap[_parent(rel)][_base(rel)] = Entry(_base(rel), _base(rel), False, time.time() if mtime is None else mtime,
+                                                     size, native=native, md5=md5)
+
+    def _snap_forget(self, rel: str) -> None:
+        if self._snap is not None:
+            self._snap.get(_parent(rel), {}).pop(_base(rel), None)
 
     def md5s(self, rel: str = "") -> dict[str, str | None]:
         return {e.name: getattr(e, "md5", None) for e in self.files(rel)}
@@ -455,45 +601,88 @@ class RcloneStore(Store):
 
     def read(self, rel: str) -> str | None:
         self._guard(rel)
+        if self._snap is not None:
+            e = self._snap_entry(rel)
+            if e is None or e.is_dir:
+                return None                          # not in the folder when the pass listed it
+            data = self._cache.get(e.md5) if not e.native else None
+            if data is not None:
+                self.cache_hits += 1
+                return data.decode("utf-8", errors="replace")
+        return self._cat(rel)
+
+    def read_fresh(self, rel: str) -> str | None:
+        self._guard(rel)
+        return self._cat(rel)
+
+    def _cat(self, rel: str) -> str | None:
         try:
-            return self._run(["cat", self._r(rel)])
+            data = self._run(["cat", self._r(rel)], raw=True)
         except StoreError as e:
             if getattr(e, "code", None) in (3, 4):
+                self._snap_forget(rel)
                 return None
             raise
+        if self._snap is not None:
+            e = self._snap_entry(rel)
+            if e is None or not e.native:             # what was read is what the folder holds now
+                self._snap_file(rel, self._cache.put(data), len(data), mtime=e.mtime if e else None)
+        return data.decode("utf-8", errors="replace")
 
     def put_file(self, local, rel: str) -> None:
         self._guard(rel)
         self._run(["copyto", str(local), self._r(rel)])
+        if self._snap is not None:
+            h, size = hashlib.md5(), 0
+            with open(local, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+                    size += len(chunk)
+            self._snap_file(rel, h.hexdigest(), size)
 
     def write(self, rel: str, text: str) -> None:
         self._guard(rel)
-        if len(text.encode("utf-8")) <= self.SPOOL_OVER:
+        data = text.encode("utf-8")
+        if len(data) <= self.SPOOL_OVER:
             self._run(["rcat", self._r(rel)], data=text)
-            return
-        import tempfile
-        fd, tmp = tempfile.mkstemp(prefix="collab-kit-", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-                f.write(text)
-            self._run(["copyto", tmp, self._r(rel)])
-        finally:
-            os.unlink(tmp)
+        else:
+            import tempfile
+            fd, tmp = tempfile.mkstemp(prefix="collab-kit-", suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(text)
+                self._run(["copyto", tmp, self._r(rel)])
+            finally:
+                os.unlink(tmp)
+        if self._snap is not None:
+            self._snap_file(rel, self._cache.put(data), len(data))
 
     def copy(self, src: str, dst: str) -> None:
         self._guard(src)
         if self.exists(dst):
             raise StoreError(f"copy would overwrite {dst}")
         self._run(["copyto", self._r(src), self._r(dst)])
+        e = self._snap_entry(src)
+        if self._snap is not None:
+            self._snap_file(dst, e.md5 if e else None, e.size if e else 0, e.native if e else False)
 
     def move(self, src: str, dst: str) -> None:
         self._guard(src)
         if self.exists(dst):
             raise StoreError(f"move would overwrite {dst}")
         self._run(["moveto", self._r(src), self._r(dst)])
+        e = self._snap_entry(src)
+        if self._snap is not None:
+            self._snap_forget(src)
+            self._snap_file(dst, e.md5 if e else None, e.size if e else 0, e.native if e else False)
 
     def mkdir(self, rel: str) -> None:
+        if self._snap is not None and rel.strip("/") in self._snap:
+            check_rel(rel)
+            return                                   # listed: the folder is there (rclone also makes parents itself)
         self._run(["mkdir", self._r(rel)])
+        if self._snap is not None:
+            self._snap_dirs(rel.strip("/"))
 
 
 class SubStore(Store):

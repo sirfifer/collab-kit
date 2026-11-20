@@ -22,6 +22,9 @@
                  once, the first time it runs for the folder.
     heartbeat    _backend/heartbeat.json: when it ran, what failed. Written whatever happened.
 
+Through rclone a pass reads the folder from one listing taken after the lease (RcloneStore.snapshot):
+a file is downloaded only when its md5 is not in the work folder's cache (DESIGN-0.5 section 22).
+
 If a push fails, nothing is lost: the cloud returns stay in the inbox and the next pass starts again
 from the remote and applies them again. Problems are recomputed every pass, so a standing problem is
 reported until it is gone.
@@ -119,7 +122,7 @@ def take_lease(cloud: Store, me: str, minutes: int, settle: float = 0) -> bool:
     """Write the lease, wait for a synced folder to settle, and read it back: the runner whose name
     is there owns this pass."""
     now = utcnow()
-    raw = cloud.read(LEASE)
+    raw = cloud.read_fresh(LEASE)
     if raw:
         try:
             cur = json.loads(raw)
@@ -133,7 +136,7 @@ def take_lease(cloud: Store, me: str, minutes: int, settle: float = 0) -> bool:
     if settle:
         time.sleep(settle)
     try:
-        return json.loads(cloud.read(LEASE) or "{}").get("holder") == me
+        return json.loads(cloud.read_fresh(LEASE) or "{}").get("holder") == me
     except ValueError:
         return False
 
@@ -161,7 +164,7 @@ def write_lease(cloud: Store, me: str, minutes: int) -> None:
 
 def drop_lease(cloud: Store, me: str) -> None:
     try:
-        cur = json.loads(cloud.read(LEASE) or "{}")
+        cur = json.loads(cloud.read_fresh(LEASE) or "{}")
         if cur.get("holder") == me:
             cur["expires"] = utcnow().isoformat()
             cloud.write(LEASE, json.dumps(cur))
@@ -212,6 +215,7 @@ class Pass:
         self.me = f"{socket.gethostname()}:{os.getpid()}"
         self.dry = dry_run
         self.held_lease = False
+        self.renewed_at = time.monotonic()
         self.problems: list[str] = []
         self.log: list[str] = []
         self.top = Unit(self.cloud, "top", home="cloud", top=True)
@@ -223,17 +227,23 @@ class Pass:
     def problem(self, msg: str) -> None:
         self.problems.append(one_line(msg, 300))
 
+    RENEW_EVERY = 120                 # seconds: well inside the lease (interval - 5 minutes) and its 300-second staleness
+
     def renew(self) -> None:
-        """Extend the lease, unless another runner has taken it (then this pass stops)."""
-        if self.dry:
+        """Extend the lease, unless another runner has taken it (then this pass stops). Called before
+        every project; it reads and writes the lease only once RENEW_EVERY seconds have passed since
+        the last time, so a fast pass spends no calls on it (a live holder's lease cannot be taken
+        before it expires)."""
+        if self.dry or time.monotonic() - self.renewed_at < self.RENEW_EVERY:
             return
         try:
-            holder = json.loads(self.cloud.read(LEASE) or "{}").get("holder")
+            holder = json.loads(self.cloud.read_fresh(LEASE) or "{}").get("holder")
         except ValueError:
             holder = None
         if holder not in (None, self.me):
             raise LeaseLost(f"another runner ({holder}) took the lease; this pass stops here")
         write_lease(self.cloud, self.me, max(self.interval - 5, 10))
+        self.renewed_at = time.monotonic()
 
     # ---- inboxes
     def apply_inbox(self, unit: Unit, top: Unit | None) -> list[Outcome]:
@@ -512,7 +522,9 @@ class Pass:
                 self.keep_aside(cloud_unit, rel, f"{STRAYS}/{stamp()}-{flat}", move=True)
                 self.problem(f"{name}: {rel} was created in the folder, where it is a copy of the repository; "
                              f"moved to _returns/strays/")
-        self.cloud.write(state_path, json.dumps(new_state, indent=0, sort_keys=True))
+        state = json.dumps(new_state, indent=0, sort_keys=True)
+        if state != raw:
+            self.cloud.write(state_path, state)
 
     def put(self, unit: Unit, rel: str, data: bytes) -> None:
         try:
@@ -713,6 +725,7 @@ class Pass:
         self.step("the views", self.views)
 
     def run(self) -> int:
+        started = time.monotonic()
         wrong = self.check_account()
         if wrong:
             print(f"PROBLEM: refusing to run: {wrong}")
@@ -726,9 +739,11 @@ class Pass:
                 print("collab-kit back end: another runner holds the lease; exiting")
                 return 0
             self.held_lease = not self.dry
+            self.renewed_at = time.monotonic()
         except (StoreError, OSError) as ex:
             print(f"PROBLEM: the Collab Kit folder is not reachable: {ex}")
             return 2
+        self.start_snapshot()
         lost = False
         try:
             self.passes()
@@ -736,6 +751,8 @@ class Pass:
             lost = True                                # another runner owns the folder now: write nothing more
             print(f"collab-kit back end: {ex}")
         finally:
+            if isinstance(self.cloud, RcloneStore):
+                self.cloud.end_snapshot()
             if not self.dry and not lost:
                 try:
                     self.cloud.write(HEARTBEAT, json.dumps({
@@ -748,7 +765,30 @@ class Pass:
             print(line)
         for p in self.problems:
             print(f"PROBLEM: {p}")
+        print(self.summary(time.monotonic() - started))
         return 1 if self.problems else 0
+
+    CACHE = "rclone-cache"                            # in the work folder: file contents by md5
+
+    def start_snapshot(self) -> None:
+        """Through rclone, read the whole folder in one listing; a file is downloaded only when its md5
+        is not in the work folder's cache (a dry run keeps the cache in memory). If the listing fails,
+        the pass reads file by file and says so."""
+        if not isinstance(self.cloud, RcloneStore):
+            return
+        try:
+            self.cloud.snapshot(None if self.dry else self.work / self.CACHE)
+        except (StoreError, OSError, ValueError) as ex:
+            self.problem(f"the folder could not be read in one listing, so this pass read it file by file: {ex}")
+
+    def summary(self, seconds: float) -> str:
+        """The log's line for this pass: when, how long, and (through rclone) what it cost."""
+        line = (f"{utcnow():%Y-%m-%d %H:%M:%S} UTC: {'dry run' if self.dry else 'full pass'} took {seconds:.0f} s, "
+                f"{len(self.problems)} problem(s)")
+        if isinstance(self.cloud, RcloneStore):
+            calls = ", ".join(f"{k} {v}" for k, v in sorted(self.cloud.calls.items())) or "none"
+            line += f"; rclone calls: {calls}; {self.cloud.cache_hits} read(s) from the cache"
+        return line
 
 
 def version_path(rel: str) -> str:

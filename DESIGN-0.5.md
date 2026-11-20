@@ -645,6 +645,40 @@ it, and an agent installing the kit from [docs/for-agents.md](docs/for-agents.md
   agenda's front page: Google retires that client during 2026. The fix is in
   [docs/rclone-intake.md](docs/rclone-intake.md) (section 5, OAuth).
 
+### 22. A full pass reads the folder once (agenda W-020, 2026-11-19)
+
+A full pass over rclone took 20 to 30 minutes on the Studio: every read was its own `rclone cat`, which
+finds its file from the folder's root and downloads it (about 4 to 8 seconds each with rclone's shared
+Google client, once more than 16; a listing took under a second), and the front page alone reads every
+agenda item of every unit. Every arriving return starts a full pass, so a return could wait that long.
+Through rclone, a pass now:
+
+- **Lists the folder once.** One `lsjson -R --hash --hash-type md5` at the start of the pass answers
+  every listing and existence check until it ends. No new command or flag (the intake's six commands).
+- **Downloads only what changed.** A read is answered from a cache of file contents in the back end's
+  work folder (`<work>/rclone-cache/`, one file per md5); a file is downloaded (`cat`) only when the
+  cache lacks the md5 the listing gave it, and is then kept. A cached copy that no longer matches its
+  md5 is dropped. At the end of a pass the cache keeps only what some file in the folder still holds;
+  deleting it costs one download per file on the next pass. A dry run keeps it in memory.
+- **Writes as before.** Writes, copies, moves and new folders go through rclone as they did (the
+  file ids are kept), and update the listing and the cache, so the pass reads its own writes. A folder
+  the listing holds is not made again.
+- **Reads are as of the listing.** A file changed elsewhere during a pass is read as listed; the next
+  pass sees the change. The lease is the exception: it is always read as it is now.
+- **The rules stay.** A name Drive holds twice fails closed (now known for every folder at once); a
+  Google-native file (size -1) is never read; a return still settles for two minutes.
+- **Fewer calls around it.** The lease is renewed before a project only once two minutes have passed
+  since it was last written (a live holder's lease cannot be taken before it expires, so a fast pass
+  needs no renewal); the mirror's state file is written only when it changed.
+- **The log says what a pass cost.** Every pass ends with one line: when it ended, how long it took,
+  its problems, the rclone calls by command, and the reads the cache answered.
+- If the listing fails, the pass reads file by file, as before, and lists that as a problem.
+
+A pass with nothing new costs the listing, the lease (three reads, two writes), the heartbeat, and the
+account check when one is set: about eight calls instead of several hundred. Through a synced folder
+nothing changed. A GitHub Actions run starts with an empty cache: it downloads each file it reads once
+per run.
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right

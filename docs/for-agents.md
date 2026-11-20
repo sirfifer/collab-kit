@@ -162,7 +162,7 @@ runs from the kit's checkout, not from a project's copy.
    | Key | Meaning |
    |---|---|
    | `cloud` | the Collab Kit folder: a path, or `rclone:<remote>:<path>` |
-   | `work` | the back end's own clones of repositories; never inside `~/dev` or the Collab Kit folder |
+   | `work` | the back end's own folder: its clones of repositories and, through rclone, `rclone-cache/` (file contents by md5, so a pass downloads only what changed; safe to delete); never inside `~/dev` or the Collab Kit folder |
    | `interval_minutes` | the full sweep (pull, mirror, health), default 60; returns are checked every minute regardless |
    | `human` | the person's name |
    | `account` | the Google account that must own the folder (the owner of its start file); checked every run when set |
@@ -191,8 +191,10 @@ runs from the kit's checkout, not from a project's copy.
    Re-run it after adding a project if you use `watch`.
 6. **Check it:** the first line of `<folder>/agenda/00-PRESSING.md` (its date must be today, and
    problems are listed under it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
-   `journalctl --user -u collab-kit-backend`); `launchctl print gui/$(id -u)/org.collab-kit.backend`
-   on macOS. In a project, `ck doctor` reports it as running.
+   `journalctl --user -u collab-kit-backend`), where every pass ends with one line: when, how long,
+   its problems and, through rclone, its calls by command (a pass with nothing new is one `lsjson`
+   listing, a second when `account` is set, three lease reads and three writes: seconds, not minutes); `launchctl print
+   gui/$(id -u)/org.collab-kit.backend` on macOS. In a project, `ck doctor` reports it as running.
 
 **Retiring a back end:** unload its schedule, then `install.py top "<folder>" --human "Sam" --setup
 none`, which also retires its heartbeat so sessions apply returns themselves again.
@@ -244,6 +246,7 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 | Files named `name (1).md` in a synced folder on a Mac | Drive for desktop's local alias after a phone saved a new version | nothing: the kit reads the real name; never rename them by hand |
 | The front page's date is two or more days old, or `ck doctor` says the back end is late | the back end stopped | on its machine: the log, the schedule, rclone's sign-in; one `ck backend run` by hand shows the error; tell the person |
 | The front page says rclone uses the shared Google client | the remote has no OAuth client of its own | the person creates one; see "A back end", step 1 |
+| A pass's log line shows many `cat` calls, pass after pass, or the front page says the folder "could not be read in one listing" | the cache in `<work>/rclone-cache/` cannot be written, or the recursive listing fails | check the work folder's permissions and space; run `ck backend run --dry-run` by hand to see the listing's error |
 | Two agenda items with the same number | two conversations filed at once at level 1 | nothing: the later one is renumbered when returns are next applied |
 | A project from Collab Kit 0.4 (`tools/kb/`) | the old knowledge build | `install.py migrate-04 <repo>`, then `install.py project <repo> --home repo` |
 

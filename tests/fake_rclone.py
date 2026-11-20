@@ -3,7 +3,9 @@
 and implements the six commands Collab Kit uses with rclone's output shapes. A file named
 "*.gdoc-native" lists with Size -1 (how rclone shows a Google Doc); FAKE_RCLONE_DUP=<name> makes
 lsjson list that name twice; FAKE_RCLONE_OWNER=<email> is the owner `lsjson --metadata` reports.
-`config userinfo` is refused, as the real rclone refuses it for Google Drive."""
+`config userinfo` is refused, as the real rclone refuses it for Google Drive. With FAKE_RCLONE_CALLS
+set to a file, every call appends one line to it: the command, "-R" for a recursive listing, and
+the remote path it names (what the tests count)."""
 import datetime
 import json
 import os
@@ -34,6 +36,17 @@ for a in args[1:]:
     clean.append(a)
 
 
+if os.environ.get("FAKE_RCLONE_CALLS"):
+    with open(os.environ["FAKE_RCLONE_CALLS"], "a", encoding="utf-8") as f:
+        f.write(" ".join([cmd, *(["-R"] if "-R" in args else []), *[a for a in clean if ":" in a and not a.startswith("/")]])
+                + "\n")
+
+
+def hashes(c, size):
+    import hashlib
+    return {} if c.is_dir() or size < 0 or "--hash" not in args else {"md5": hashlib.md5(c.read_bytes()).hexdigest()}
+
+
 def local(p):
     if ":" in p and not p.startswith("/"):
         remote, path = p.split(":", 1)
@@ -53,9 +66,12 @@ try:
             if ("--files-only" in args and c.is_dir()) or (rx and not any(r.match(rel) for r in rx)):
                 continue
             st = c.stat()
-            out.append({"Path": rel, "Name": c.name, "Size": st.st_size, "IsDir": c.is_dir(),
+            size = -1 if c.is_dir() or c.name.endswith(".gdoc-native") else st.st_size
+            out.append({"Path": rel, "Name": c.name, "Size": size, "IsDir": c.is_dir(), "Hashes": hashes(c, size),
                         "ModTime": datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%S.123456789Z")})
+        dup = os.environ.get("FAKE_RCLONE_DUP")
+        out += [dict(o) for o in out if o["Name"] == dup]
         print(json.dumps(out))
     elif cmd == "lsjson":
         d = local(clean[0])
@@ -66,11 +82,9 @@ try:
         for c in sorted(d.iterdir()):
             st = c.stat()
             size = -1 if c.name.endswith(".gdoc-native") else (0 if c.is_dir() else st.st_size)
-            import hashlib
-            h = {} if c.is_dir() or size < 0 else {"md5": hashlib.md5(c.read_bytes()).hexdigest()}
             if "--files-only" in args and c.is_dir():
                 continue
-            out.append({"Path": c.name, "Name": c.name, "Size": size, "IsDir": c.is_dir(), "Hashes": h,
+            out.append({"Path": c.name, "Name": c.name, "Size": size, "IsDir": c.is_dir(), "Hashes": hashes(c, size),
                         "ModTime": datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc).isoformat(),
                         "MimeType": "inode/directory" if c.is_dir() else "text/markdown"})
             if "--metadata" in args and os.environ.get("FAKE_RCLONE_OWNER"):

@@ -1,5 +1,18 @@
 # Changelog
 
+## Not yet released
+
+**A full pass over rclone takes seconds, not 20 minutes** (agenda W-020). A back end reaching the
+folder through rclone read every file with its own `rclone cat`, 4 to 16 seconds each, and the front
+page alone reads every agenda item: a pass took 20 to 30 minutes, and every arriving return started
+one. A pass now lists the whole folder once (`lsjson -R` with md5s) and downloads a file only when
+its md5 is not in the back end's cache (`<work>/rclone-cache/`); every other listing and read comes
+from the listing and the cache, and writes go through rclone as before and update both. The lease is
+always read as it is now and is renewed only every two minutes; the mirror's state file is written
+only when it changed. A name Drive holds twice still fails closed, and a Google-native file is still
+never read. Every pass ends with one log line: how long it took and its rclone calls. Through a
+synced folder nothing changed. See DESIGN-0.5 section 22.
+
 ## 0.5.3 (2026-11-19)
 
 The kit dogfooded on itself, and checked the way an agent meets it: an AI agent with no context

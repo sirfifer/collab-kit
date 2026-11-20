@@ -87,6 +87,10 @@ license, third-party notices and a source pointer. Rule: never redistribute.
    secret into `$RUNNER_TEMP`, with `permissions: contents: read` and no third-party setup action.
 6. Re-check the advisories on every rclone release.
 
+**How a back end's pass uses them** (DESIGN-0.5 section 22): one `lsjson -R --hash --hash-type md5` of
+the whole folder, then `cat` only for a file whose md5 the back end's own cache lacks; writes as
+above. The minute check is one filtered `lsjson -R` of the inboxes.
+
 **Always passed by the wrapper:** `--config <conf> --ask-password=false --drive-import-formats ""
 --drive-use-trash=true`.
 
