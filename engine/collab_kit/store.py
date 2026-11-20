@@ -160,8 +160,12 @@ class Store:
         return {e.name: None for e in self.files(rel)}
 
     def read_fresh(self, rel: str) -> str | None:
-        """Read the file as it is now, never from a pass's snapshot (the lease)."""
+        """Read the file as it is now, never from a pass's snapshot (the lease, a file about to change)."""
         return self.read(rel)
+
+    def refresh(self, rel: str = "") -> bool:
+        """List a folder again, now, where a snapshot answers listings (RcloneStore). True if it did."""
+        return False
 
     INBOXES = ("_returns", "projects/*/collab-kit/_returns")
 
@@ -355,14 +359,14 @@ class ContentCache:
 
     def keep_only(self, wanted: set) -> None:
         """Drop every copy whose md5 no file in the folder has any more."""
-        if not self.folder or not self.folder.is_dir():
+        if not self.folder:
             return
-        for p in self.folder.iterdir():
-            if p.name not in wanted:
-                try:
-                    p.unlink()
-                except OSError:
-                    pass
+        try:
+            for p in list(self.folder.iterdir()):
+                if p.name not in wanted:
+                    p.unlink(missing_ok=True)
+        except OSError:
+            pass                                     # pruning is housekeeping: never fail a pass over it
 
 
 class RcloneStore(Store):
@@ -525,23 +529,10 @@ class RcloneStore(Store):
         """Read the whole folder in one listing (`lsjson -R` with md5s) and answer every listing and
         read from it until end_snapshot(); `cache` is the content cache's folder (None: memory only).
         Returns how many entries the listing held."""
-        try:
-            items = json.loads(self._run(["lsjson", "-R", "--hash", "--hash-type", "md5", self._r("")]) or "[]")
-        except StoreError as e:
-            if getattr(e, "code", None) != 3:
-                raise
-            items = []
-        tree: dict[str, dict[str, Entry]] = {"": {}}
+        items = self._list_tree("")                  # any failure, "not found" too, is a failed listing:
+        tree: dict[str, dict[str, Entry]] = {"": {}}  # never an empty folder (it would empty the front page)
         self.dupes = {}
-        for it in items:
-            path = str(it.get("Path") or "").strip("/")
-            if not path:
-                continue
-            e = self._entry(it)
-            e.name = e.real = _base(path)
-            if e.is_dir:
-                tree.setdefault(path, {})
-            self._add(tree.setdefault(_parent(path), {}), _parent(path), e)
+        self._load(tree, "", items)
         try:
             contents = ContentCache(cache)
         except OSError:
@@ -549,6 +540,46 @@ class RcloneStore(Store):
         self._snap, self._cache = tree, contents
         self.cache_hits = 0
         return len(items)
+
+    def _list_tree(self, rel: str) -> list:
+        return json.loads(self._run(["lsjson", "-R", "--hash", "--hash-type", "md5", self._r(rel)]) or "[]")
+
+    def _load(self, tree: dict[str, dict[str, Entry]], prefix: str, items: list) -> None:
+        for it in items:
+            path = _join(prefix, str(it.get("Path") or ""))
+            if not path or path == prefix:
+                continue
+            e = self._entry(it)
+            e.name = e.real = _base(path)
+            if e.is_dir:
+                tree.setdefault(path, {})
+            self._add(tree.setdefault(_parent(path), {}), _parent(path), e)
+
+    def refresh(self, rel: str = "") -> bool:
+        """During a snapshot: list the folder rel again (one `lsjson -R`) and replace what the snapshot
+        holds under it, before writing there what was decided from the older listing."""
+        if self._snap is None:
+            return False
+        rel = check_rel(rel).strip("/")
+        try:
+            items = self._list_tree(rel)
+        except StoreError as e:
+            if getattr(e, "code", None) != 3 or not rel:
+                raise
+            items = None                             # the folder is gone
+        under = lambda k: k == rel or k.startswith(rel + "/") or not rel      # noqa: E731
+        for k in [k for k in self._snap if under(k)]:
+            del self._snap[k]
+        self.dupes = {k: v for k, v in self.dupes.items() if not under(k)}
+        if items is None:
+            self._snap_forget(rel)
+            return True
+        if rel:
+            self._snap_dirs(rel)
+        else:
+            self._snap[""] = {}
+        self._load(self._snap, rel, items)
+        return True
 
     def end_snapshot(self) -> None:
         """Back to one rclone call per operation; the cache keeps only what the folder still holds."""
@@ -705,6 +736,12 @@ class SubStore(Store):
 
     def read(self, rel):
         return self.base.read(self._j(rel))
+
+    def read_fresh(self, rel):
+        return self.base.read_fresh(self._j(rel))
+
+    def refresh(self, rel=""):
+        return self.base.refresh(self._j(rel))
 
     def write(self, rel, text):
         return self.base.write(self._j(rel), text)

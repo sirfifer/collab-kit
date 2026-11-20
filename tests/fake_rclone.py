@@ -5,7 +5,8 @@ and implements the six commands Collab Kit uses with rclone's output shapes. A f
 lsjson list that name twice; FAKE_RCLONE_OWNER=<email> is the owner `lsjson --metadata` reports.
 `config userinfo` is refused, as the real rclone refuses it for Google Drive. With FAKE_RCLONE_CALLS
 set to a file, every call appends one line to it: the command, "-R" for a recursive listing, and
-the remote path it names (what the tests count)."""
+the remote path it names (what the tests count). FAKE_RCLONE_TREE_EXIT=<n> makes a recursive listing
+with hashes (a pass's snapshot) fail with exit code n."""
 import datetime
 import json
 import os
@@ -55,6 +56,9 @@ def local(p):
 
 
 try:
+    if cmd == "lsjson" and "-R" in args and "--hash" in args and os.environ.get("FAKE_RCLONE_TREE_EXIT"):
+        print("ERROR : directory not found", file=sys.stderr)
+        sys.exit(int(os.environ["FAKE_RCLONE_TREE_EXIT"]))
     if cmd == "lsjson" and "-R" in args:
         import re as _re
         d = local(clean[-1])

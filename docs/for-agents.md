@@ -193,7 +193,7 @@ runs from the kit's checkout, not from a project's copy.
    problems are listed under it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
    `journalctl --user -u collab-kit-backend`), where every pass ends with one line: when, how long,
    its problems and, through rclone, its calls by command (a pass with nothing new is one `lsjson`
-   listing, a second when `account` is set, three lease reads and three writes: seconds, not minutes); `launchctl print
+   listing, a second when `account` is set, four lease reads and three writes: seconds, not minutes); `launchctl print
    gui/$(id -u)/org.collab-kit.backend` on macOS. In a project, `ck doctor` reports it as running.
 
 **Retiring a back end:** unload its schedule, then `install.py top "<folder>" --human "Sam" --setup

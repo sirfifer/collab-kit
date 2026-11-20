@@ -663,13 +663,20 @@ Through rclone, a pass now:
 - **Writes as before.** Writes, copies, moves and new folders go through rclone as they did (the
   file ids are kept), and update the listing and the cache, so the pass reads its own writes. A folder
   the listing holds is not made again.
-- **Reads are as of the listing.** A file changed elsewhere during a pass is read as listed; the next
-  pass sees the change. The lease is the exception: it is always read as it is now.
+- **Reads are as of the listing, except before a write.** A file changed elsewhere during a pass is
+  read as listed, and the next pass sees the change; a failed listing (even "not found") is never an
+  empty folder. Where a pass is about to write what it decided from the listing, it looks again: a
+  return reads each existing file it changes as it is now, and plans once more if one moved on (if it
+  keeps moving, the return waits for the next pass); a return whose content changed since the listing
+  settles again; the mirror lists its project's copy again before writing to it, so an edit made there
+  is still saved first; the start file is read again before its setup line is set; the lease is always
+  read as it is now. Each costs a call only when something is about to change.
 - **The rules stay.** A name Drive holds twice fails closed (now known for every folder at once); a
   Google-native file (size -1) is never read; a return still settles for two minutes.
-- **Fewer calls around it.** The lease is renewed before a project only once two minutes have passed
-  since it was last written (a live holder's lease cannot be taken before it expires, so a fast pass
-  needs no renewal); the mirror's state file is written only when it changed.
+- **Fewer calls around it.** Before the first project the pass reads the lease once (the backstop
+  for two runners that both read their own name back); it renews it only once two minutes have passed
+  since it was last written (a live holder's lease cannot be taken before it expires); the mirror's
+  state file is written only when it changed.
 - **The log says what a pass cost.** Every pass ends with one line: when it ended, how long it took,
   its problems, the rclone calls by command, and the reads the cache answered.
 - If the listing fails, the pass reads file by file, as before, and lists that as a problem.
@@ -678,8 +685,10 @@ Through rclone, a pass now:
   folder, and its own cache is in the machine's state folder (`<state>/rclone-cache/`). Before, a
   session brief there took 156 seconds, longer than the session hook's 30.
 
-A pass with nothing new costs the listing, the lease (three reads, two writes), the heartbeat, and the
-account check when one is set: about eight calls instead of several hundred. Through a synced folder
+A pass with nothing new costs the listing, the lease (four reads, two writes), the heartbeat, and the
+account check when one is set: about nine calls instead of several hundred. (A review of the change
+found the read-before-write gaps above and the empty-folder reading of "not found"; both are fixed
+and tested.) Through a synced folder
 nothing changed. A GitHub Actions run starts with an empty cache: it downloads each file it reads once
 per run.
 

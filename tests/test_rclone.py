@@ -344,8 +344,12 @@ class PassOverRclone(unittest.TestCase):
         for title in ("Order seeds", "Plan beds", "Top thing"):
             self.assertIn(title, pressing)
         self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"), "# site knowledge\n", "mirrored")
-        self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
-        reads = [c for c in calls if c.startswith("cat") and c != lease]
+        self.assertEqual([c for c in calls if c.startswith("lsjson")],
+                         ["lsjson -R drive:Collab Kit", "lsjson -R drive:Collab Kit/projects/site/collab-kit"],
+                         "the folder, and the site's copy again just before the first mirror writes to it")
+        start = "cat drive:Collab Kit/00-START-HERE.md"                # read again just before its setup line is set
+        self.assertEqual(calls.count(start), 2)
+        reads = [c for c in calls if c.startswith("cat") and c not in (lease, start)]
         self.assertEqual(len(reads), len(set(reads)), f"a file is downloaded at most once a pass: {reads}")
         self.assertIn("cat drive:Collab Kit/_returns/t1.md", reads)
 
@@ -354,11 +358,13 @@ class PassOverRclone(unittest.TestCase):
         self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
         self.assertEqual([c for c in calls if c.startswith("cat") and c != lease], [], "no file downloaded")
         self.assertEqual(sorted(c.split()[0] for c in calls),
-                         ["cat"] * 3 + ["lsjson"] + ["rcat"] * 3, f"the lease (3 reads, 2 writes) and the heartbeat: {calls}")
+                         ["cat"] * 4 + ["lsjson"] + ["rcat"] * 3, f"the lease (4 reads, 2 writes) and the heartbeat: {calls}")
         self.assertGreater(p.cloud.cache_hits, 3)
-        self.assertIn("rclone calls: cat 3, lsjson 1, rcat 3", p.summary(1))
+        self.assertIn("rclone calls: cat 4, lsjson 1, rcat 3", p.summary(1))
 
-        item = next(n for n in os.listdir(self.root / "projects/garden/collab-kit/agenda") if n.startswith("W-002"))
+        agenda = os.listdir(self.root / "projects/garden/collab-kit/agenda")
+        item = next(n for n in agenda if n.startswith("W-002"))
+        settled = next(n for n in agenda if n.startswith("W-001"))
         path = self.root / "projects/garden/collab-kit/agenda" / item
         path.write_text(path.read_text().replace("importance = 2", "importance = 1"))   # changed elsewhere
         self.drop("projects/garden/collab-kit/_returns/r2.md",
@@ -367,9 +373,11 @@ class PassOverRclone(unittest.TestCase):
         self.assertEqual(rc, 0, p.problems)
         self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson -R drive:Collab Kit"])
         self.assertEqual(sorted(c for c in calls if c.startswith("cat") and c != lease),
-                         [f"cat drive:Collab Kit/projects/garden/collab-kit/_returns/r2.md",
+                         ["cat drive:Collab Kit/projects/garden/collab-kit/_returns/r2.md",
+                          f"cat drive:Collab Kit/projects/garden/collab-kit/agenda/{settled}",
                           f"cat drive:Collab Kit/projects/garden/collab-kit/agenda/{item}"],
-                         "only the changed item and the new return are downloaded")
+                         "the new return, the item it changes (read as it is now before writing), the item "
+                         "changed elsewhere: nothing else")
         pressing = self.s.read("agenda/00-PRESSING.md")
         self.assertNotIn("Order seeds", pressing)
         self.assertIn("Plan beds", pressing.split("## Critical")[1])
@@ -401,6 +409,70 @@ class PassOverRclone(unittest.TestCase):
         titles, live, calls = brief()                                # the next command: the listing only
         self.assertEqual((titles, live), (["Order seeds", "Plan beds"], True))
         self.assertEqual(calls, ["lsjson -R drive:Collab Kit"])
+
+    def test_a_failed_listing_is_never_an_empty_folder(self):
+        # found by the review of W-020: "not found" (exit 3) read as an empty folder emptied the front page
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\" importance=2\nEnd.\n")
+        self.run_pass()
+        os.environ["FAKE_RCLONE_TREE_EXIT"] = "3"
+        try:
+            p, rc, calls = self.run_pass()
+        finally:
+            os.environ.pop("FAKE_RCLONE_TREE_EXIT")
+        self.assertIn("could not be read in one listing", " ".join(p.problems))
+        self.assertIn("Top thing", self.s.read("agenda/00-PRESSING.md"), "read file by file instead")
+
+    def test_a_file_edited_after_the_listing_is_not_overwritten(self):
+        # found by the review of W-020: a return applied from the listing's copy of an item would drop
+        # an edit made after the listing (kept only in _versions/)
+        from collab_kit import apply as A
+        from collab_kit.store import RcloneStore
+        self.drop("_returns/t1.md", "Project: top\nChanges v1:\nnew-item title=\"Top thing\"\nEnd.\n")
+        self.run_pass()
+        store = RcloneStore("drive:Collab Kit")
+        store.snapshot(self.t / "work" / "rclone-cache")             # the item's copy is in the cache
+        unit = Unit(store, "top", home="cloud", top=True)
+        path = next((self.root / "agenda").glob("W-001-*.md"))
+        path.write_text(path.read_text().replace("Top thing", "Top thing, edited after the listing"))
+        self.drop("_returns/t2.md", "Project: top\nChanges v1:\nlog W-001 \"Top thing\" \"a log line\"\nEnd.\n")
+        store.refresh("_returns")                                     # it arrived after the listing too
+        out = A.apply_file(unit, store.entry("_returns/t2.md"), top=unit)
+        self.assertEqual(out.status, "applied", out.message)
+        text = path.read_text()
+        self.assertIn("edited after the listing", text)
+        self.assertIn("a log line", text)
+        # a return that changed after the listing settles again rather than being applied
+        self.drop("_returns/t3.md", "Project: top\nChanges v1:\nnew-item title=\"Third\"\nEnd.\n")
+        store.refresh("_returns")
+        self.drop("_returns/t3.md", "Project: top\nChanges v1:\nnew-item title=\"Third, rewritten\"\nEnd.\n")
+        out = A.apply_file(unit, store.entry("_returns/t3.md"), top=unit)
+        self.assertEqual(out.status, "waiting", out.message)
+
+    def test_the_mirror_looks_again_before_it_writes(self):
+        # a cloud edit to a repository-homed copy, made after the listing, is still saved before the
+        # repository's version replaces it
+        from collab_kit.backend import Pass
+        from collab_kit.unit import Unit as U
+        from collab_kit.store import SubStore
+        self.run_pass()
+        p = Pass(self.cfg)
+        p.cloud.snapshot(None)
+        self.s.write("projects/site/collab-kit/knowledge/README.md", "# site knowledge, edited in the folder\n")
+        clone = self.t / "work" / "site" / "collab-kit"
+        (clone / "knowledge" / "README.md").write_text("# site knowledge, changed in the repository\n")
+        p.mirror("site", clone, U(SubStore(p.cloud, "projects/site/collab-kit"), "site", home="repo"))
+        self.assertEqual(self.s.read("projects/site/collab-kit/knowledge/README.md"),
+                         "# site knowledge, changed in the repository\n")
+        saved = [e.name for e in self.s.files("projects/site/collab-kit/_returns") if "edited-in-the-folder" in e.name]
+        self.assertEqual(len(saved), 1, "the folder's edit is kept as a return")
+
+    def test_the_first_renewal_checks_the_lease(self):
+        import json
+        from collab_kit.backend import LeaseLost, Pass
+        p = Pass(self.cfg)
+        self.s.write("_backend/lease.json", json.dumps({"holder": "other:1", "expires": "2999-01-01T00:00:00+00:00"}))
+        with self.assertRaises(LeaseLost):
+            p.renew()                                                 # at once, not two minutes later
 
     def test_a_dry_run_writes_no_cache(self):
         from collab_kit.backend import Pass

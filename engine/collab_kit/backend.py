@@ -64,7 +64,7 @@ import time
 from pathlib import Path
 
 from . import config as C
-from .apply import SETTLE_SECONDS, Outcome, apply_file, heal_duplicates, raise_item
+from .apply import SETTLE_SECONDS, Outcome, apply_file, changed_since_listed, heal_duplicates, raise_item
 from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store, run_quiet
 from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
 from .views import PRESSING, cloud_units, front_page, inactive_projects, write_front_page  # noqa: F401
@@ -216,6 +216,7 @@ class Pass:
         self.dry = dry_run
         self.held_lease = False
         self.renewed_at = time.monotonic()
+        self.lease_checked = False
         self.problems: list[str] = []
         self.log: list[str] = []
         self.top = Unit(self.cloud, "top", home="cloud", top=True)
@@ -230,11 +231,13 @@ class Pass:
     RENEW_EVERY = 120                 # seconds: well inside the lease (interval - 5 minutes) and its 300-second staleness
 
     def renew(self) -> None:
-        """Extend the lease, unless another runner has taken it (then this pass stops). Called before
-        every project; it reads and writes the lease only once RENEW_EVERY seconds have passed since
-        the last time, so a fast pass spends no calls on it (a live holder's lease cannot be taken
+        """Stop this pass if another runner holds the lease; extend it when due. Called before every
+        project. The first call of a pass always reads the lease (the backstop for two runners that
+        both read their own name back); later calls read and write it only once RENEW_EVERY seconds
+        have passed, so a fast pass spends one read on it (a live holder's lease cannot be taken
         before it expires)."""
-        if self.dry or time.monotonic() - self.renewed_at < self.RENEW_EVERY:
+        due = time.monotonic() - self.renewed_at >= self.RENEW_EVERY
+        if self.dry or (self.lease_checked and not due):
             return
         try:
             holder = json.loads(self.cloud.read_fresh(LEASE) or "{}").get("holder")
@@ -242,8 +245,10 @@ class Pass:
             holder = None
         if holder not in (None, self.me):
             raise LeaseLost(f"another runner ({holder}) took the lease; this pass stops here")
-        write_lease(self.cloud, self.me, max(self.interval - 5, 10))
-        self.renewed_at = time.monotonic()
+        self.lease_checked = True
+        if due:
+            write_lease(self.cloud, self.me, max(self.interval - 5, 10))
+            self.renewed_at = time.monotonic()
 
     # ---- inboxes
     def apply_inbox(self, unit: Unit, top: Unit | None) -> list[Outcome]:
@@ -340,8 +345,8 @@ class Pass:
             except (StoreError, OSError) as ex:
                 self.problem(f"{name}: {e.name} could not be read: {ex}")
                 continue
-            if text is None:
-                continue
+            if text is None or changed_since_listed(cloud_unit, f"{RETURNS}/{e.name}", e):
+                continue                                   # gone, or changed since the listing: it settles again
             lname = local_name(e.name)
             dest = d / "collab-kit" / RETURNS / lname
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -489,9 +494,10 @@ class Pass:
             if f"/{VERSIONS}/" in f"/{rel}" or any(part.startswith(".") for part in rel.split("/")):
                 continue
             want[rel] = p.read_bytes()
-        have = {**walk(cloud_unit.store, KNOWLEDGE), **walk(cloud_unit.store, AGENDA)}
-        if cloud_unit.store.exists(START):
-            have[START] = cloud_unit.store.md5s("").get(START)
+        have = self.cloud_copy(cloud_unit)
+        if (any(have.get(rel) != md5(data) for rel, data in want.items()) or set(have) - set(want)) \
+                and cloud_unit.store.refresh(""):     # about to write: the copy as it is now, not as listed
+            have = self.cloud_copy(cloud_unit)
         new_state: dict[str, str] = {}
         for rel, data in want.items():
             local = md5(data)
@@ -525,6 +531,14 @@ class Pass:
         state = json.dumps(new_state, indent=0, sort_keys=True)
         if state != raw:
             self.cloud.write(state_path, state)
+
+    @staticmethod
+    def cloud_copy(cloud_unit: Unit) -> dict[str, str | None]:
+        """{path: md5} of the mirrored files in a repository-homed unit's cloud copy."""
+        have = {**walk(cloud_unit.store, KNOWLEDGE), **walk(cloud_unit.store, AGENDA)}
+        if cloud_unit.store.exists(START):
+            have[START] = cloud_unit.store.md5s("").get(START)
+        return have
 
     def put(self, unit: Unit, rel: str, data: bytes) -> None:
         try:
@@ -657,7 +671,7 @@ class Pass:
         if self.dry or not have.strip().startswith(SETUP_NONE_MARK):
             return
         new = replace_block(text, "setup", SETUP_TEXT["backend"])
-        if self.cloud.read(START) == raw:
+        if self.cloud.read_fresh(START) == raw:
             write_versioned(self.top, START, new)
             self.note("the top-level start file now says a back end runs for this folder")
 

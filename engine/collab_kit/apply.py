@@ -572,6 +572,28 @@ def _run_effects(led: dict, unit: Unit, top: Unit | None) -> None:
 
 # ----------------------------------------------------------------------------- entry --
 
+def changed_since_listed(unit: Unit, rel: str, entry: Entry) -> bool:
+    """Did the file just read differ from the listing `entry` came from? A store that answers from a
+    listing taken earlier (DESIGN-0.5 section 22) downloads a file's current bytes when its copy is
+    missing: if those are not what was listed, the file changed since, and its settling starts again."""
+    if not getattr(entry, "md5", None):
+        return False
+    now_e = unit.store.entry(rel)
+    return bool(now_e and now_e.md5 and now_e.md5 != entry.md5)
+
+
+def moved_on(effects: list, unit: Unit, top: Unit | None) -> list[str]:
+    """The existing files a plan changes that are no longer what the plan read, each read as it is
+    now. A store answering from a listing taken earlier (DESIGN-0.5 section 22) reads as of that
+    listing; reading a file afresh also brings the store's copy up to date, so a second plan sees the
+    change rather than overwriting it."""
+    out = []
+    for e in effects:
+        if e.before is not None and sha_or_none(_unit_for(e.unit, unit, top).store.read_fresh(e.path)) != sha_or_none(e.before):
+            out.append(e.path)
+    return out
+
+
 def apply_file(unit: Unit, entry: Entry, *, top: Unit | None = None, now=None, force_settled=False) -> Outcome:
     """Apply one file from the unit's _returns/. Moves it to applied/, failed/, or strays/ (never
     deletes), and raises an agenda item for anything that needs a person."""
@@ -587,6 +609,8 @@ def apply_file(unit: Unit, entry: Entry, *, top: Unit | None = None, now=None, f
     if entry.size > MAX_RETURN_BYTES:
         return _set_aside(unit, entry, FAILED, f"larger than {MAX_RETURN_BYTES // 1024} KB", now, top)
     text = unit.store.read(f"{RETURNS}/{name}") or ""
+    if changed_since_listed(unit, f"{RETURNS}/{name}", entry) and not force_settled:
+        return Outcome("waiting", name, "it changed after the folder was listed (still being written?)")
     try:
         ret = R.parse(text, name)
     except R.ReturnError as e:
@@ -611,16 +635,23 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
             _archive(unit, filename, ret.id)
         return Outcome("already", ret.id, "applied before; filed away")
     if not led:
-        planner = Planner(unit, ret, top, now)
-        try:
+        for _ in range(2):                             # a file edited after it was read: plan once more
+            planner = Planner(unit, ret, top, now)
             try:
-                effects = planner.plan()
-            except (ValueError, StoreError) as e:      # e.g. an item file whose front matter is broken
-                raise Reject(f"{type(e).__name__}: {e}") from None
-        except Reject as e:
-            if filename:
-                return _set_aside(unit, Entry(filename, filename, False), FAILED, str(e), now, top)
-            return Outcome("failed", ret.id, str(e))
+                try:
+                    effects = planner.plan()
+                except (ValueError, StoreError) as e:  # e.g. an item file whose front matter is broken
+                    raise Reject(f"{type(e).__name__}: {e}") from None
+            except Reject as e:
+                if filename:
+                    return _set_aside(unit, Entry(filename, filename, False), FAILED, str(e), now, top)
+                return Outcome("failed", ret.id, str(e))
+            moved = moved_on(effects, unit, top)
+            if not moved:
+                break
+        else:
+            return Outcome("waiting", ret.id, f"{moved[0]} kept changing while this return was applied; it is "
+                                              f"applied again on the next pass")
         led = {"id": ret.id, "unit": unit.name, "grammar": R.GRAMMAR, "state": "applying",
                "applied_at": now.isoformat(), "from": planner.sender, "topic": one_line(ret.topic, 200),
                "type": one_line(ret.type, 40), "minted": planner.minted,

@@ -7,9 +7,11 @@ folder through rclone read every file with its own `rclone cat`, 4 to 16 seconds
 page alone reads every agenda item: a pass took 20 to 30 minutes, and every arriving return started
 one. A pass now lists the whole folder once (`lsjson -R` with md5s) and downloads a file only when
 its md5 is not in the back end's cache (`<work>/rclone-cache/`); every other listing and read comes
-from the listing and the cache, and writes go through rclone as before and update both. The lease is
-always read as it is now and is renewed only every two minutes; the mirror's state file is written
-only when it changed. A name Drive holds twice still fails closed, and a Google-native file is still
+from the listing and the cache, and writes go through rclone as before and update both. Before
+writing what it decided from the listing, a pass looks again: a return reads each file it changes as
+it is now (and plans again if one moved on), a return changed since the listing settles again, and the
+mirror lists its project's copy again. The lease is always read as it is now, checked once before the
+first project and renewed every two minutes; the mirror's state file is written only when it changed. A name Drive holds twice still fails closed, and a Google-native file is still
 never read. Every pass ends with one log line: how long it took and its rclone calls. Sessions on a
 machine that reaches the folder through rclone read it the same way (the cache in the machine's
 state folder), so a brief there takes seconds rather than minutes, inside the session hook's 30.

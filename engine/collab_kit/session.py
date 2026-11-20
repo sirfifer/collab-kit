@@ -38,7 +38,7 @@ from . import returns as R
 from .apply import Planner, Reject, apply_return, heal_duplicates
 from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store
 from .text import fold, slug, utcnow
-from .unit import RETURNS, Unit
+from .unit import AGENDA, RETURNS, Unit
 
 REPO_UNIT_DIR = "collab-kit"
 HEARTBEAT = "_backend/heartbeat.json"
@@ -258,6 +258,7 @@ class Project:
             result.update(applied=out.status in ("applied", "recorded", "undone"), minted=out.minted,
                           status=out.status, message=out.message)
             if out.minted:
+                target.store.refresh(AGENDA)          # another conversation's item may have landed since the listing
                 result["renumbered"] = heal_duplicates(target)
             if result["applied"]:
                 try:                                    # level 1: nobody else keeps the agenda's front page
