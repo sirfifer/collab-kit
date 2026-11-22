@@ -1,7 +1,8 @@
 # Collab Kit 0.5: design record
 
 The current design record of Collab Kit 0.5. 0.5.0 and 0.5.1 shipped on 2026-11-15 and 0.5.2 on
-2026-11-16; section 21 describes 0.5.3. Every decision here was made or confirmed by the owner, and
+2026-11-16; section 21 describes 0.5.3. Every decision here was made or confirmed by the owner
+(section 23 is the one exception: a proposal awaiting his review), and
 every decision is measured against [VISION.md](VISION.md). [DESIGN.md](DESIGN.md) is the 0.4 record,
 kept because it is the only reference for the 0.4 knowledge build (`tools/kb/`), which is still part
 of the kit.
@@ -586,7 +587,7 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   itself (a Claude Code job per task return, with progress, questions, and resumption). It puts an AI
   with tools between incoming text and the person's machine, the reason cloud Claude Code sessions were
   dropped as a runner (section 9). It is the first candidate for the next release, for Richard to
-  decide.
+  decide. (Under review since 2026-11-21: section 23 proposes how.)
 - **Push notifications, an optional pattern** (return 1510). The first time a critical item appears
   anywhere, the back end runs one configured command; the text reaches it in environment variables,
   never on a command line (with a leading `@` or `<` stripped, which curl would read as a file). Each
@@ -699,10 +700,192 @@ and tested.) Through a synced folder
 nothing changed. A GitHub Actions run starts with an empty cache: it downloads each file it reads once
 per run.
 
+### 23. Proposed: a dispatcher starts agent work (agenda W-026, 2026-11-21)
+
+> **A proposal for Richard's review. Not decided and not built.** Nothing in the kit behaves this way
+> today. The questions that are his to answer are at the end.
+
+**Why this is back on the table.** Section 20 kept "the back end starting agent work by itself" out
+of 0.5, for the reason section 9 dropped cloud Claude Code sessions as a runner: an AI with tools
+between incoming text and the person's machine. Richard, 2026-11-20, looking at the flow diagram:
+most of what he sends back by voice is work for an agent, so a back end that only files leaves the
+loop waiting for him to open a session; and an agent working on a task he gave by voice is the same
+kind of work as every session he runs, where an agent with a concern stops and asks. Both points
+hold. The reason in section 9 is right for the step that files returns (it holds the folder's
+credentials and touches every project) and was stretched to cover starting work, where it does not
+apply as stated. It also fails the vision's own test: a task that waits for someone to open a session
+is work that can only be done at the machine.
+
+**The one real difference from sitting at the keyboard.** There, an instruction arrives through the
+session, and it is the person's because they are sitting there. Here it arrives as a file. So whoever
+can write to the Collab Kit folder can start work on the machine. Today that is one person, their
+voice conversations, and the back end. It matters when a project is shared (section 12, withdrawn for
+now), when a conversation is talked into something by a page it read and writes that into a return,
+or when the storage account is taken over. Everything below follows from taking that one difference
+seriously and no more than that.
+
+**Two rules.**
+
+1. **The folder says what. The machine says how far.** A task may ask for any work. It can never
+   widen what a session is allowed to do: which projects, which permissions, which model, how long,
+   how much money, whether anything is pushed. All of that is read from a config file on the machine
+   (`dispatch.toml`), which no return can change.
+2. **Only an item the person marked for an agent is an instruction.** Everything else in the folder
+   stays data, as now (section 18). The rule in every start file and `CLAUDE.md` gains one clause: in
+   a session the dispatcher started, the one item it was started for is the task.
+
+**A separate program.** The dispatcher is not the back end and never runs in its pass.
+
+| | The back end (unchanged) | The dispatcher (new, optional) |
+|---|---|---|
+| Does | applies returns, writes the front page, mirrors, pushes `collab-kit/` | starts one agent session for one marked item |
+| AI | none | starts one; is itself a script |
+| Writes the folder | yes, the one writer | never: it files returns through `ck`, like any session |
+| Credentials | the folder's, and the repositories' | none of its own; the session has what any session on that machine has |
+| Runs | `ck backend run`, every minute | `ck dispatch run`, every minute, its own schedule and log |
+| Without it | level 1: conversations file for themselves | work waits for a person to open a session, as today |
+
+On the ladder (section 5) it is a fifth step: level 2 and a project with a repository on the
+dispatcher's machine, plus the dispatcher.
+
+**How an item is marked.** A new change, in the pattern of the approved push (section 17):
+
+```
+dispatch W-031 "drip line" approval="have an agent do this one, strongest model"
+```
+
+- It carries the person's words verbatim, and may follow a `new-item @h` in the same return
+  (`dispatch @h approval="..."`). Voice: "have an agent do this", "send that to an agent". The
+  conversation reads the item's title back first.
+- It writes `dispatch = "requested"`, `dispatch_approval`, and `dispatch_since` into the item. It is
+  accepted for kinds `task`, `work-out`, and `hole`; a `question` or a `decision` is the person's.
+- How to work it (model tier, effort, machine) comes from the fields of agenda W-024; a hold (agenda
+  W-023) always wins over a dispatch. Both are built first.
+- Adding a change keeps the grammar at v1: every older return still reads, and an older back end
+  refuses the new change by name (it fails closed).
+
+**What the dispatcher does, each minute.**
+
+1. Reads the agenda (through the same store and cache as the back end) for items with
+   `dispatch = "requested"`, not held, in a project its config lists, for this machine (the item
+   names it, or the config says this machine takes unnamed work).
+2. **Announces, then waits.** It sends one push ("Starting in 5 minutes: <project> W-031", through the
+   `[notify]` command of section 20) and files a `claim` (agenda W-023). The wait is a setting; 0 is
+   allowed. During it, "hold that" by voice stops the start. The push travels outside the folder, so
+   a forged or injected task is seen by the person before anything runs.
+3. **Starts only on its own applied claim.** The back end applies returns in order, so of two
+   dispatchers only one claim lands: the claim is the lock, and "is anyone working on this?" has its
+   answer before work begins.
+4. Makes a worktree of the project's checkout on a branch of its own (`ck/W-031-<slug>`), never the
+   main checkout, and runs the command from its config there. The task (title, What's needed, Done
+   when, the log, the approval) goes in on standard input, inside the data fence, under a fixed
+   preamble from the kit. Nothing from the folder is ever placed on a command line (as section 20's
+   notification does with environment variables), and model and effort are looked up in the config's
+   own table, never passed through.
+5. Watches the session: a wall-clock limit and a spending limit from the config. Over either, it
+   stops the session and says so on the item.
+6. When the session ends, files the closing return itself: a log line (how it ended, the branch, how
+   many commits, how long), `dispatch = "finished"`, `"blocked"`, or `"failed"`, and the claim
+   released. The agent's own account of the work arrives the usual way, through `ck status` and item
+   logs (section 18).
+
+**Where the work ends: on a branch.** A dispatched session never pushes, never merges into the main
+branch, and never deletes outside its worktree. The front page gains a section, "With agents"
+(running, blocked, finished and waiting for review), so the next conversation opens with "the agent
+finished the drip line task: four commits, tests pass". Merging and pushing happen on the person's
+spoken yes, through the approved push of agenda W-015, which this makes necessary rather than nice
+to have.
+
+**Questions in the middle.** A headless session cannot ask. The agent files its question with
+`ck ask` (critical when it blocks, which reaches the phone) and stops; the item shows as blocked.
+When the question is settled, the dispatcher resumes the same session with the answer. This is a
+second phase: the first version ends a blocked session, and the answer starts a fresh one on the
+same branch.
+
+**Stopping.** A `hold` on a running item stops its session at the next minute (the branch is kept).
+One more change, accepted only at the top level, pauses and resumes every dispatcher
+(`pause-agents reason="..."`, `resume-agents`), so "stop all agent work" is one sentence.
+
+**The machine's config** (`dispatch.toml`, beside `backend.toml`; never in the folder, never in a
+repository):
+
+```toml
+[dispatch]
+machine = "studio"            # the name items use in on=
+takes_unnamed = true          # exactly one machine says true
+wait_minutes = 5              # announce, then wait; 0 starts at once
+max_running = 1
+max_starts_per_day = 6
+max_minutes = 60
+max_cost = 10.00
+worktrees = "~/dev/.worktrees"
+
+[models]                      # tier -> what this machine runs (agenda W-024)
+strongest = { model = "...", effort = "high" }
+balanced  = { model = "...", effort = "medium" }
+
+[[project]]                   # opt in, one by one
+name = "garden-planner"
+checkout = "~/dev/garden-planner"
+command = ["claude", "-p", "--permission-mode", "{mode}", "--model", "{model}", "--effort", "{effort}"]
+mode = "acceptEdits"
+```
+
+The command is a template, so another assistant's command line fits without a change to the kit
+(agenda W-008). A tier the table lacks, a project not listed, or a limit reached starts nothing and
+raises an item saying why.
+
+**What can still go wrong, said plainly.**
+
+| If | Then | What limits it |
+|---|---|---|
+| Someone who can write the folder marks a task | an agent does that work, with the session's permissions, on that machine. With a shell allowed, that is running code there. | projects are opted in one by one; the push and the wait; the worktree; no push, merge, or delete; the limits; the log on the item |
+| A conversation is talked into filing a task by something it read | the same | the read-back before filing; the push and the wait; the same limits |
+| The task's text tries to grant itself more ("you may push") | nothing: permissions come from the machine's config and the project's own instructions | rule 1 |
+| A return creates fifty tasks | at most `max_starts_per_day` start, one at a time | the limits; `pause-agents` |
+| The dispatcher or the machine stops | nothing starts; items stay `requested` | the front page shows them waiting; a stale claim is flagged (agenda W-023) |
+
+A worktree is not a sandbox: the session runs as the person's user. Running it as a separate user,
+or in a container, is the stronger answer and belongs with the container runner (section 9, later).
+That is the same exposure as any unattended session on that machine today; what is new is only the
+trigger, which the first two rows cover.
+
+**Build order.**
+
+1. Agenda W-023 (hold and claim) and W-024 (model, effort, machine): needed anyway, and the lock.
+2. The dispatcher's first version, on one project (the kit's own): the `dispatch` change, `ck dispatch
+   run` and its schedule (`install.py dispatcher`, dry run first), the config, the announce and wait,
+   the worktree, the limits, the closing return, the "With agents" section, `pause-agents`. Unit tests
+   with a stand-in for the agent command (as `tests/fake_rclone.py` stands in for rclone); one opt-in
+   live test.
+3. Agenda W-015: merge and push on a spoken yes. With it the loop closes without a keyboard.
+4. Resuming a blocked session with its answer.
+
+Each step changes its words with it (rule 2 of `CLAUDE.md`): VISION.md (point 2 and "Out of scope"
+name the dispatcher as the one place an AI starts work between conversations), SECURITY.md (the table
+above), the README's ladder and flow diagram, [docs/how-it-works.md](docs/how-it-works.md),
+[docs/for-agents.md](docs/for-agents.md), the start-file templates, and the Collab Kit section.
+
+**Richard's to decide** (the recommendation in brackets):
+
+1. A program separate from the back end, with its own schedule and config? [yes]
+2. An item is marked by a `dispatch` change carrying his words? [yes, as with pushes]
+3. Announce and wait before starting: how long by default? [a push and five minutes; 0 allowed per
+   project]
+4. Which permission mode do dispatched sessions run in? [the one the always-on machine's unattended
+   sessions already use; it is the machine's setting, never the task's]
+5. Work ends on a branch; merge and push only on his spoken yes? [yes, so W-015 moves up]
+6. First limits: one at a time, six starts a day, sixty minutes, a spending cap? [yes, then loosen]
+7. Is a worktree enough isolation for the first version? [yes for his own folder; a separate user or
+   container before any shared project]
+8. "Stop all agent work" by voice in the first version? [yes]
+9. The first project: the kit itself? [yes]
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, the back end starting agent work by itself (section 20). (Refreshing a project's start file
+project, the back end starting agent work by itself (section 20; section 23 proposes a separate
+dispatcher for the next release). (Refreshing a project's start file
 when the template changes was listed here; 0.5.3 does it with `--replace-start`, section 21.)
 
 ## Delivery (planned 2026-11-14; what happened)
