@@ -3,7 +3,9 @@
     account      every run first checks the folder belongs to the configured Google account.
     lease        _backend/lease.json in the Collab Kit folder (written, settled, read back, renewed
                  per unit): any other runner exits.
-    top level    apply its inbox (new projects are created here).
+    top level    apply its inbox (new projects are created here). With [new_projects] set, a project
+                 started since then also gets a repository (repos.py): local first, then, with
+                 github_owner, a private one on GitHub. Off unless set.
     each project home = cloud: apply its inbox in the folder (versioning by name).
                  home = repo:  start the back end's own clone from the remote's state; bring the
                                cloud inbox in one return at a time, one commit per return; apply
@@ -53,6 +55,11 @@ Config (TOML, `ck backend run --config FILE`; default <config dir>/backend.toml)
     command = ["sh", "-c", "..."]         # run after a successful check; nothing from the folder reaches it
     every_minutes = 5                     # at most this often
 
+    [new_projects]                        # optional (DESIGN-0.5 section 25): a new project also gets a repository
+    repositories = "~/dev"                # a local git repository at <repositories>/<name>, the kit installed
+    github_owner = "sam"                  # also <owner>/<name> on GitHub, always private, first commit pushed
+    per_day = 3                           # at most this many repositories a day
+
     [[project]]                           # only projects whose home is a repository
     name = "garden-planner"
     repo = "git@github.com:sam/garden-planner.git"   # or a local path
@@ -68,6 +75,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -77,6 +85,7 @@ from pathlib import Path
 
 from . import config as C
 from . import kit_version
+from . import repos
 from .apply import SETTLE_SECONDS, Outcome, apply_file, changed_since_listed, heal_duplicates, raise_item
 from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store, run_quiet
 from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
@@ -87,7 +96,9 @@ from .unit import AGENDA, APPLIED, FAILED, KNOWLEDGE, RETURNS, START, STRAYS, VE
 
 LEASE = "_backend/lease.json"
 HEARTBEAT = "_backend/heartbeat.json"
-ACCEPTS = ["blocks"]                                  # additions to Changes v1 this back end applies (said in the heartbeat)
+# Additions to Changes v1 this back end applies (said in the heartbeat): `blocks=` on an item (section 24),
+# and a `new-project` that carries the idea itself, with no from= (section 25).
+ACCEPTS = ["blocks", "new-project-idea"]
 MIRROR_STATE = "_backend/mirror"
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".html", ".toml", ".tsv", ".svg", ".yml", ".yaml"}
 GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
@@ -234,6 +245,11 @@ class Pass:
         self.deny = [re.compile(x, re.I) for x in b.get("deny", [])]
         self.settle = float(b.get("lease_settle_seconds", 20 if self.cloud_spec.startswith("rclone:") else 2))
         self.repos = {p["name"]: p for p in cfg.get("project", [])}
+        self.new_projects, self.new_projects_why = C.new_projects(cfg)   # None, None: off (a folder only)
+        if self.new_projects and self.new_projects["repositories"] not in self.local_roots:
+            self.local_roots.append(self.new_projects["repositories"])    # names there are taken
+        self.gh_listed: bool | None = None               # did `gh repo list` answer this pass (None: not asked)
+        self.started = utcnow()
         notify = cfg.get("notify") if isinstance(cfg.get("notify"), dict) else {}
         self.notify_cmd = command_of(notify)             # None: off; a list: on; []: reported
         self.notify_status = notify.get("status") is True    # also each new status line: only when asked
@@ -728,12 +744,14 @@ class Pass:
     def repositories(self) -> None:
         """knowledge/repositories.md: every name already taken (GitHub, and local project folders)."""
         names: dict[str, str] = {}
+        self.gh_listed = False
         try:
-            res = run_quiet(["gh", "repo", "list", "--limit", "500", "--json", "name,visibility"],
+            res = run_quiet([shutil.which("gh") or "gh", "repo", "list", "--limit", "500", "--json", "name,visibility"],
                                  capture_output=True, text=True, timeout=60)
             if res.returncode == 0:
                 for r in json.loads(res.stdout):
                     names[r["name"]] = f"GitHub, {r['visibility'].lower()}"
+                self.gh_listed = True
         except (OSError, ValueError, subprocess.TimeoutExpired):
             pass
         for root in self.local_roots:
@@ -779,6 +797,7 @@ class Pass:
     def passes(self) -> None:
         self.step("the list of taken names", self.repositories)
         self.step("the top-level inbox", self.apply_inbox, self.top, None)
+        self.step("new projects' repositories", repos.run, self)
         for name, unit in self.all_units()[1:]:
             self.step("the lease", self.renew)
             if name in self.repos:

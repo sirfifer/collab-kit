@@ -91,7 +91,7 @@ def _engine_files() -> dict[str, bytes]:
         if p.is_dir() or "__pycache__" in p.parts or p.suffix in (".pyc",):
             continue
         rel = p.relative_to(ENGINE_DIR).as_posix()
-        if rel in ("installer.py", "backend.py", "migrate.py", "schedule.py"):
+        if rel in ("installer.py", "backend.py", "repos.py", "migrate.py", "schedule.py"):
             continue                       # the back end, the installer, and migration stay in the kit
         files[f"tools/collab-kit/collab_kit/{rel}"] = p.read_bytes()
     files["tools/collab-kit/collab_kit/VERSION"] = (kit_version() + "\n").encode()
@@ -137,7 +137,9 @@ def _block_into(path: Path, block: str, title: str, plan: Plan, rel: str) -> Non
 
 def install_project(root: Path, *, name: str | None = None, unit: str | None = None, home: str | None = None,
                     human: str | None = None, python: str = "", dry: bool = False, about: str = "",
-                    spoken: str = "", replace_start: bool = False) -> Plan:
+                    spoken: str = "", replace_start: bool = False, cloud_side: bool = True) -> Plan:
+    """`cloud_side=False` installs the repository side only: the back end uses it for a project whose
+    folder and catalog row it has just made itself (repos.py)."""
     root = root.resolve()
     plan = Plan(root, dry)
     pfile = root / C.PROJECT_FILE
@@ -240,7 +242,8 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
             if not (root / rel).is_file():
                 plan.write(rel, text, "a channel of the unit")
     # 6. the project's side of the Collab Kit folder: its folder there, and its row in the catalog
-    _cloud_side(root, name, unit, home, about, spoken, human, plan, dry, replace_start)
+    if cloud_side:
+        _cloud_side(root, name, unit, home, about, spoken, human, plan, dry, replace_start)
     return plan
 
 
@@ -608,6 +611,16 @@ rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/r
 # command = ["sh", "-c", "curl -fsS --max-time 10 -o /dev/null https://hc-ping.com/<your-check-id>"]
 # every_minutes = 5
 
+# Optional: a new project also gets a repository (DESIGN-0.5.md section 25). Off unless set. A project
+# started by a return then gets a git repository at <repositories>/<name>, with Collab Kit installed
+# and a first commit. With github_owner it also gets <owner>/<name> on GitHub, created private (the kit
+# never creates a public repository), and the first commit is pushed there. It needs git, and for
+# github_owner the gh command, signed in (gh auth login). `ck doctor` on this machine checks both:
+# [new_projects]
+# repositories = "~/dev"   # where repositories live on this machine
+# github_owner = "you"     # leave this line out for a local repository only
+# per_day = 3              # at most this many repositories a day
+
 # One table per project whose home is a repository:
 # [[project]]
 # name = "garden-planner"
@@ -656,7 +669,8 @@ def install_backend(config: Path | None, *, cloud: str | None, human: str | None
     elif config_only:
         print(f"{config} exists: left as it is")
     if config_only:
-        print(f"next: edit {config} (account, local_roots, deny, a [[project]] per repository-homed project), "
+        print(f"next: edit {config} (account, local_roots, deny, a [[project]] per repository-homed project; "
+              "optionally [new_projects]), "
               "then run this again with --apply to load the schedule")
         return 0
     cfg = C.load_toml(config) if config.is_file() else {"backend": {"cloud": cloud or ""}}

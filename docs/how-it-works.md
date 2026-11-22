@@ -41,8 +41,11 @@ flowchart TD
 ### 1. The conversation finds its way in
 
 The only setup on a phone is one line in the Claude app's preferences: when you talk about your work,
-open `00-START-HERE.md` in the Drive folder `Collab Kit` and follow it. That file says how to work in
-the folder. It holds no news and no state, so it almost never changes [19].
+or say "make this a project" or "save this to Collab Kit", open `00-START-HERE.md` in the Drive
+folder `Collab Kit` and follow it. That file says how to work in the folder. It holds no news and no
+state, so it almost never changes [19]. The two phrases are for a talk that began as plain
+brainstorming, with no project in mind: saying one brings the folder in, and the whole brainstorm
+goes into one return [25].
 
 ### 2. It hears what matters first
 
@@ -116,6 +119,31 @@ The grammar is small and versioned [8]: new items, `set`, `log`, `settle`, `snoo
 `reopen`, `status`, `knowledge` (a whole file), `project`, `new-project`, `push-request`, `undo`.
 A change to an existing item repeats part of its title in quotes, so a misheard number cannot touch
 the wrong item.
+
+**Starting something new** is one return too [11, 25]. In the top-level inbox, `new-project` carries
+the name you agreed, the idea as a short title, what it is about, what you call it, and, in a block
+under it, everything the talk worked out:
+
+````
+Project: top
+From: Sam
+Type: new-project
+Topic: the orchard becomes a project
+
+Changes v1:
+new-project name=orchard "Plan the orchard" about="A small orchard behind the house" spoken="the orchard"
+```
+Twelve trees fit behind the house. Apples and pears first.
+```
+End.
+````
+
+The back end creates the project's folder, with that text as its first agenda item, and says so on
+the front page. Where its machine is set to (`[new_projects]` in `backend.toml`, off by default), it
+also makes the project a git repository with the kit installed and, on GitHub, a private one with the
+first commit pushed; the catalog then says where the project lives. If that cannot be done, the
+folder project is still ready, a critical item says why, and the back end tries again on every full
+pass. The kit never creates a public repository.
 
 ### 6. The back end files it
 

@@ -57,7 +57,7 @@ Any folder may also hold `_versions/`: the earlier versions of files in it.
 | About | No single project, or several | One project |
 | Agenda | Items across everything; ideas growing into projects; the front page for the whole folder | The project's own items |
 | Knowledge | Your world of work: every project, your setup, standards, status | What this project knows |
-| Inbox | Anything about no single project; requests for new projects | Changes to this project only |
+| Inbox | Anything about no single project; new projects (one return can carry a whole brainstorm) | Changes to this project only |
 | You say | "What's on my agenda?", "I have an idea for something new" | "Let's get into the garden planner" |
 
 A project's inbox can change only that project, and its own row in the catalog [12, 19].
@@ -146,7 +146,8 @@ refreshes it; `project.toml` is the project's own and is never overwritten.
 A project's **home** is where its channels are the truth [7]:
 
 - **Home is the Collab Kit folder** (the default; works at level 1): the repository holds only the
-  tools, and agents read and write the folder.
+  tools, and agents read and write the folder. A repository the back end makes for a project
+  started by voice is of this kind [25].
 - **Home is the repository** (needs a back end): `collab-kit/` is committed there. The back end
   applies returns in the repository, commits, and mirrors the result out to the folder, so a phone
   sees the same files.

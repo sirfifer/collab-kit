@@ -69,7 +69,8 @@ the project says today.
 </p>
 
 1. **You talk.** One line in the Claude app's preferences points every conversation at the folder's
-   start file. That is the whole setup on a phone.
+   start file. That is the whole setup on a phone. A talk that began with no project in mind joins
+   in when you say "make this a project".
 2. **Claude loads only what the talk needs.** The start file, then the agenda's front page (what is
    pressing across every project), then the catalog of projects, then one project's agenda, its
    index, and the one section in question. Each is a small file with a unique name, because voice
@@ -157,7 +158,8 @@ back end on an always-on Mac since 2026-11-18.
 | Claude (voice, chat, Claude Code) with Google Drive | ChatGPT and Gemini (research in progress) |
 | A back end on macOS, run every minute; schedules for Linux and Windows | OneDrive and other storage |
 | Projects in their own git repositories, or entirely in the folder | Sharing a project with other people |
-| Starting a new project by voice | The back end starting agent work by itself (decided against for 0.5; the first candidate for the next release) |
+| Starting a new project by voice, in one return, from a brainstorm that was never written down | The back end starting agent work by itself (decided against for 0.5; the first candidate for the next release) |
+| A new project getting a repository with the kit installed, and a private one on GitHub, where you turn that on for your back end's machine (tested against a stand-in for GitHub, not yet a real account) | A public repository made by the kit (never: making one public is your own act in GitHub) |
 | A push to your phone when something critical appears (optionally, when an agent reports) | The top level in a repository of its own |
 | Hearing what finished at the start of a talk and at each change of project (or by a push you turn on) | A plot, a page, or a video reaching the phone |
 | Hearing that the back end is down: in a talk, and from outside by a dead-man ping you turn on | Being told in the middle of a talk, unasked, that something just finished |
@@ -177,8 +179,9 @@ The GitHub Actions back end is written but has not run against a live Drive. The
 
 You need Python 3.11+ and git for anything past level 1. No other packages. A back end that reaches
 Google Drive through its API uses rclone ([docs/rclone-intake.md](docs/rclone-intake.md)); one that
-pushes to GitHub uses the `gh` command (without it, every repository counts as public and nothing is
-pushed).
+pushes to GitHub, or creates a new project's repository there, uses the `gh` command, which you
+install and sign in yourself ([docs/gh-intake.md](docs/gh-intake.md); without it, every repository
+counts as public and nothing is pushed or created).
 
 ## Quick start
 
@@ -196,9 +199,10 @@ python3 install.py top "<your cloud drive>/Collab Kit" --human "Sam"
 this kit's template, keeping its setup line; the old one is kept in `_versions/`.)
 
 In the Claude app, turn on the Google Drive connector and add one line to your preferences:
-*"When I talk about my work or a project, first open 00-START-HERE.md in my Google Drive folder
-'Collab Kit' (list the folder; never search all of Drive) and follow it."* That is all a phone
-needs.
+*"When I talk about my work or a project, or say 'make this a project' or 'save this to Collab
+Kit', first open 00-START-HERE.md in my Google Drive folder 'Collab Kit' (list the folder; never
+search all of Drive) and follow it."* That is all a phone needs. The two phrases are there so that
+a talk which began as plain brainstorming opens the folder when you decide to keep it.
 
 **This machine** (where the Collab Kit folder is, whose it is, where this kit is):
 
@@ -240,6 +244,21 @@ rings the job the moment a file lands. A push to your phone when something criti
 optional, and so is a dead-man ping that lets a service outside the machine tell you when the back
 end stops ([docs/notifications.md](docs/notifications.md)).
 
+**A repository for each new project** (optional, off unless you add it). A project started by voice
+is a folder in the Collab Kit folder. To have the back end also make it a git repository with the kit
+installed, add to that machine's `backend.toml`:
+
+```toml
+[new_projects]
+repositories = "~/dev"     # where repositories live on this machine
+github_owner = "you"       # leave out for a local repository only
+```
+
+With `github_owner`, the repository is also created on GitHub, always private, and the first commit
+is pushed; that needs the `gh` command, signed in (`gh auth login`). `ck doctor` on that machine
+says whether it is ready. The kit never creates a public repository and never changes one's
+visibility ([DESIGN-0.5.md](DESIGN-0.5.md), section 25).
+
 **No machine:** `templates/actions/collab-kit-backend.yml` runs the back end hourly on GitHub Actions
 from a private repository of your own (needs a bot Google account and your own OAuth client; see
 the file's header and [docs/rclone-intake.md](docs/rclone-intake.md)).
@@ -277,7 +296,8 @@ first time they touch a project: `python3 install.py machine --user-hooks`.
 - **Git.** A repository-homed project commits its `collab-kit/` (agenda, knowledge, the ledgers of
   applied returns). The text of returns from the cloud folder stays there, out of git, unless the
   back end config says `returns_in_git = true`. The back end never pushes to a public repository
-  unless the project allows it.
+  unless the project allows it. A repository the back end creates for a new project is private, and
+  its first commit holds the kit and a README with the project's name and one-line description.
 - **Claude.** Conversations and agents send what they read to Claude, as any use of Claude does.
 
 ## Platforms
@@ -311,6 +331,7 @@ bash tests/live-curator-permissions.sh       # opt-in: the 0.4 curator's fence a
 | [SECURITY.md](SECURITY.md) | The threat model, and how to report a vulnerability |
 | [docs/notifications.md](docs/notifications.md) | A push to your phone when something critical appears or work is reported, and a dead-man ping for when the back end stops |
 | [docs/rclone-intake.md](docs/rclone-intake.md) | How the back end reaches Google Drive, and the review of that dependency |
+| [docs/gh-intake.md](docs/gh-intake.md) | What the back end asks the GitHub CLI to do, and the review of that tool |
 | [docs/prior-art-2026-11-14.md](docs/prior-art-2026-11-14.md) | What existed before, and what was taken from it |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
 | [DESIGN.md](DESIGN.md), [examples/the-lighthouse](examples/the-lighthouse/README.md) | The 0.4 knowledge build (documents split into sections, concepts, an index), still included, and its sample |

@@ -201,7 +201,9 @@ Simulation showed the first sketch was far too small for real returns. v1 as bui
 - **the project:** `project [<name>]` with `spoken=`, `about=`, `active=`, `collab-kit=`, `where=`
   changes a row of the top level's `knowledge/projects.md` (a project's inbox only its own row); a
   missing row is added only when `about=` is given (0.5.3, section 21); `new-project name= from=W-NNN
-  "part of the idea's title"`, with `about=` and `spoken=`, starts a project (section 11);
+  "part of the idea's title"`, with `about=` and `spoken=`, starts a project (section 11); since
+  2026-11-22 it may carry the idea itself instead of `from=`: the idea's title in quotes and what
+  was worked out in a fenced body (section 25);
 - **push-request** `repo= approval=` (and `branch=`): an approved push becomes an agenda task
   carrying the approval verbatim (sections 17 and 18);
 - **undo** `<return id>` of a whole earlier return;
@@ -238,8 +240,9 @@ repository-homed project that has it, and nothing flags stale concepts.
   end mints item numbers, never reused. A backup runner is advanced configuration.
 - **Cloud credentials:** a separate Google account for the bot, shared as editor on `Collab Kit/`
   only (a leak reaches that folder, not the person's Drive); creating repositories only on a machine
-  runner. Cloud runners reach the API through rclone (decided; the dependency intake review accepted
-  it with conditions on 2026-11-15, [docs/rclone-intake.md](docs/rclone-intake.md)).
+  runner (built 2026-11-22, off unless that machine turns it on; section 25). Cloud runners reach
+  the API through rclone (decided; the dependency intake review accepted it with conditions on
+  2026-11-15, [docs/rclone-intake.md](docs/rclone-intake.md)).
 - **Health is visible:** the agenda's front page (`agenda/00-PRESSING.md`) opens with the date the back
   end is current as of and anything it could not handle. (Revised 2026-11-15: not in the start file;
   section 19. Revised 2026-11-22: a time, a heartbeat the minute check keeps, and an optional
@@ -266,6 +269,11 @@ change of project; section 24.)
    day; the back end validates the name (ASCII, lowercase, a strict pattern, reserved words,
    case-insensitive uniqueness), creates everything from a resumable journal, and reports on the
    agenda: ready, or why not.
+
+Revised 2026-11-22 (section 25): step 1 is no longer required. A `new-project` change may carry the
+idea itself, so a brainstorm that was never an agenda item becomes a project in one return. And
+where the back end's machine is set to, the new project also gets a repository: local, with the
+kit installed, and on GitHub a private one.
 
 ### 12. Sharing and privacy (Decided; sharing withdrawn from 0.5, see section 17)
 
@@ -1061,6 +1069,187 @@ loses nothing (it gains the block below on its front page, and nothing else chan
 Open, for a real phone (agenda W-036): whether a voice conversation knows the time of day well
 enough to judge "ten minutes ago" at its start. Until that is known, hearing an outage by voice
 rests on the second reading, and hearing it at once rests on the dead-man ping.
+
+### 25. From a brainstorm to a project with a repository (agenda W-035, W-037, W-038; built 2026-11-22)
+
+Richard, 2026-11-22: all of the work must be possible from the phone with no exception, and that
+includes starting something new. A brainstorm that belongs to no project, then "make this a
+project", and the project exists: its folder, its repository, the first push, and a record of
+where it lives. The walk-throughs of the same day had found two gaps (capabilities C-14 and C-15):
+an idea had to be filed as an item first and made a project by a second return about three minutes
+later, and a project started by voice got no repository.
+
+Simple first (VISION.md point 8): both parts stretch what was there. `new-project` gains one form
+and no new change is added. The repository is a setting on the back end's own machine, off until a
+person turns it on. A folder with no back end, and a back end with nothing set, behave exactly as
+before.
+
+**One step (W-037).**
+
+- `new-project` may carry the idea itself: `new-project name=<name> "<the idea, as a short
+  title>" about="..." spoken="..."`, with what the conversation worked out in a fenced body under
+  it. No agenda item has to exist first. The title is one line of at most 200 characters; the body
+  is text. A body with its own `## ` headings becomes the first item as written; plain text goes
+  under "What we know so far", with `about=` (or the title) as "What's needed".
+- `from=W-NNN` works exactly as before: the quoted text is then the check against that item's
+  title, the item is carried over, and it is settled as "started as project <name>".
+- What tells the person it is ready. With `from=`, the settled idea shows on the front page
+  ("What happened in the last two days", section 24). The one-step form has no item to settle, so
+  the same return writes one line to the top level's `knowledge/status.md` ("project <name>
+  started"), which the front page shows in the same block. A refusal is a critical item, as for
+  any return.
+- Everything else about `new-project` holds for both forms: only from the top-level inbox, the
+  name rules, uniqueness against the catalog and the list of taken names, at most three a day,
+  whole or not at all, and undoable.
+- **A back end that is a release behind refuses it clearly.** The older grammar requires `from=`,
+  so the return is moved to `_returns/failed/` with a critical item that says "'new-project' needs
+  from=", and nothing is created (checked against the engine at commit 9927a66). Nothing is
+  half-made and the return's text is kept. A back end that knows the form says so in its
+  heartbeat, as section 24 did for `blocks=`: `"accepts": ["blocks", "new-project-idea"]` in
+  `_backend/heartbeat.json`. Nothing reads that word yet, because no command writes this form
+  (conversations do, from the start file). It is there so that whoever rolls a kit out can check
+  the back end before replacing a folder's start file: back end first, start file second.
+- The start file's "Starting a project" is one step: read the catalog, agree and spell back the
+  name, file one return. It also covers a talk that began with no project and no file opened:
+  when the person says "make this a project" or "save this to Collab Kit", the conversation
+  opens the start file and files one return that carries the whole brainstorm. In that case the
+  save comes first and what is pressing is said afterwards. With a back end the conversation
+  checks the name against the catalog only, since the back end checks it against every
+  repository and folder it knows and refuses a taken one: two calls fewer, in a step that takes
+  two spoken replies at about seven calls each (walk-through of 2026-11-22). A conversation
+  cannot speak first, so it asks the person to ask again in a few minutes, and then reads the
+  front page and the project's row in the catalog, which says where the project lives: a
+  repository, or "its Collab Kit folder (no repository)".
+- **A return written indented is the same return.** The start file's example sits under a
+  numbered step, and a conversation that copied its indentation wrote a return whose every line
+  was indented: the parser read it as a return with no changes and filed it as done, silently
+  (found by the same walk-through; true of any return since 0.5.0). When every line of a return
+  shares leading white space, the parser now takes it off first. A single indented line among
+  flush ones is still a continuation of the field above it. The example is also set at the left
+  edge, and the start file says to write it so.
+- The one line in the Claude app's preferences names those two phrases, so a conversation that
+  started as plain talk knows to open the folder when it hears them.
+- A brainstorm that stays a brainstorm needs nothing new (capability C-13 was judged as working):
+  it is saved as WIP notes and items like any other talk.
+- **Undo of a new project was broken, and is repaired.** Since 0.5.0 an `undo` of a `new-project`
+  return passed its checks and then failed while it ran, leaving the undo in the inbox to fail
+  again on every pass: the check on a ledger's paths allowed creating a file in a new project's
+  folder and did not allow taking one away. It now allows both, and still no change to a file
+  there. Found while testing this section.
+
+**A repository, when the machine is set to (W-035, decided in W-038).**
+
+The setting, in the back end's `backend.toml`, machine-local, off unless present:
+
+```toml
+[new_projects]
+repositories = "~/dev"      # a git repository at <repositories>/<name>
+github_owner = "sam"        # and <owner>/<name> on GitHub, private
+per_day = 3                 # at most this many repositories a day (default 3)
+```
+
+- With nothing set: the folder-only project, unchanged. With `repositories`: a local repository.
+  With `github_owner` too: a private repository on GitHub and the first push. `github_owner`
+  without `repositories` is refused. Any other key in the table is refused by name, and the
+  refusal says a repository the kit creates is always private. While the table is refused, the
+  back end makes no repository and says so on the front page.
+- **Private, always (W-038).** The one command that creates a repository is `gh repo create
+  <owner>/<name> --private`. There is no setting, no argument of a return, and no code path that
+  creates a public or internal repository or changes a repository's visibility. After creating,
+  the back end asks GitHub for the visibility and pushes only if the answer is `PRIVATE`. Making
+  a repository public is the person's own act in GitHub; nothing in the kit does it or helps.
+- What is made, in this order:
+  1. *Local.* A git repository whose folder name is the project's name, on branch `main`: the kit
+     installed by the kit's own installer (`install_project`, the repository side only, since the
+     back end has just made the folder and the catalog row itself), a short `README.md` (the
+     name, what the project is about, what the person calls it, where its Collab Kit folder is),
+     a `.gitignore`, and one commit by "Collab Kit back end". It is built in the back end's work
+     folder (`<work>/new-projects/staging/<name>`) and moved into place only when that commit
+     exists, in one rename (across file systems: copied beside the destination under a hidden
+     name, then renamed).
+  2. *Remote*, with `github_owner`: create it private, check it is private, set `origin`, push
+     `main`. The address follows the protocol `gh` is set to for github.com. Over https the push
+     asks `gh` for the credential (what `gh auth setup-git` would configure), given for that one
+     push and never written to any git config.
+- **The project's home does not change.** Its Collab Kit home stays its folder in the cloud, as
+  `new-project` makes it: `project.toml` says `home = "cloud"`, the back end needs no `[[project]]`
+  entry for it, and the repository carries no `collab-kit/` of its own. A session opened in the
+  repository is briefed from the folder. Nothing migrates. (Making the repository the home later
+  is the existing `--home repo`, a person's choice.)
+- "An agent for the new project" means exactly this: the repository has the kit installed, so a
+  session a person opens there, on a machine set up for Collab Kit (`install.py machine`), starts
+  from the project's brief. Nothing here starts agent work (section 23 is still a proposal).
+- **Which projects.** Those a top-level return started after this back end first ran with the
+  setting on. The back end reads the top level's ledgers of the last two days in each full pass
+  (the listing it already has; through rclone, files it has cached) and opens a journal for each
+  new project it has none for. The ledger is the record of what was applied, so a pass that died
+  right after applying is caught by the next one. Turning the setting on changes nothing about
+  projects that already exist, and adding `github_owner` later does not revisit a project whose
+  journal is done.
+- **The journal, and how a failure is finished.** One file per project on the back end's machine,
+  `<work>/new-projects/<name>.json`, says how far it got: `pending` (nothing at the destination),
+  `local` (the local repository is in place), `done`, `refused`, or `withdrawn`. Every full pass
+  takes each open journal one step further, so a failure is retried at least hourly, and at once
+  when any return arrives. What each failure leaves:
+  - before the move into place (the installer fails, git fails, the disk is full): nothing at
+    the destination. The staging folder is the back end's own and is rebuilt from nothing;
+  - the destination path exists: refused, and nothing in it is read or changed. Once the path is
+    moved away, the next pass makes the repository;
+  - `gh` is missing or signed out, or GitHub cannot be reached: the local repository is complete
+    and usable, the journal is `local`, and a later pass creates the remote and pushes;
+  - created but not pushed (the push failed, or the pass died): the journal records that the
+    remote was made, so a later pass pushes and does not create again. If even that record was
+    lost, an empty private repository of that name under the owner is taken up; one that is not
+    empty, or not private, is never pushed to;
+  - the project was undone before a repository was made: `withdrawn`, and none is made.
+  A person can always finish by hand (correct the cause and wait, or remove the journal file to
+  stop the attempts and do it themselves). The project's folder is usable throughout.
+- **The report, on the agenda.** When it is done: the project's row in `knowledge/projects.md`
+  says where it lives (the path, the machine, and on GitHub `<owner>/<name>`, "private at
+  creation"); one status line at the top level, from "the back end", names the place in its
+  heading, which is the part the front page shows (and the part a status push carries, where
+  those are on); and `knowledge/repositories.md` lists the name from the next pass on. There is
+  no second status line in the project: the front page shows six status lines across all units,
+  and a new project already takes two (it started; where it lives). The `repositories` folder
+  counts as a root of taken names, so a folder already there makes `new-project` refuse the name
+  before anything is made. When it cannot be done: a problem on the front page for every pass it
+  stands, and one critical item (importance 1) per kind of failure, which says what exists, why
+  the rest does not, that it is tried again, and how to stop it. When a later pass succeeds, the
+  back end settles its own item. A day's limit reached is a problem on the front page, never a
+  critical item.
+- **What may reach a command line.** The project's name, checked against the name rule again
+  where it is read from the ledger, and the configured owner, checked against GitHub's rule for
+  account names when the config is read. Each is one argument in an argument list; no shell
+  runs. Everything else a return carried (the title, `about=`, `spoken=`, the body, the sender,
+  the topic) is written as file content only: the README, the agenda item, the catalog row. The
+  `gh` commands have fixed arguments: `repo list` (as before), `repo view <owner>/<name> --json
+  visibility,isEmpty`, `repo create <owner>/<name> --private`, `config get git_protocol`, from
+  `ck doctor` `auth status` (only its exit code is used), and over https git itself calls `gh
+  auth git-credential` for the one push.
+- **Limits.** The back end's `deny` list is applied to the name and to what the project is about
+  (the text the first commit carries): a match is refused for good, with a critical item, and the
+  folder project stays. At most `per_day` repositories a day (3), counted in the journals on the
+  machine, not in the folder, so nothing written to the folder can raise it; the rest wait for
+  the next day (UTC). `new-project` itself is still limited to three a day.
+- **`gh` is the person's tool.** Optional, external, used for creation only when `github_owner`
+  is set, never bundled or installed by the kit ([docs/gh-intake.md](docs/gh-intake.md)). Each
+  full pass already asks it for the list of repositories; when that fails and `github_owner` is
+  set, the front page says so, with the fix, before anyone relies on it. `ck doctor` on the back
+  end's machine reads `backend.toml` from the config folder and checks the folder, git, `gh`, and
+  the sign-in.
+- **An undo does not remove a repository.** Undoing the `new-project` return takes the folder
+  project back; a repository already made stays, on the machine and on GitHub. Nothing in the kit
+  deletes a repository.
+
+Not built, and why: a public repository (W-038: never by the kit); GitHub hosts other than
+github.com; a description, topics, or settings on the new repository (they would put text from a
+return on a command line); a license, a security policy, or CI in the new repository (the person's
+own choice, per project); starting agent work in it (section 23).
+
+Open, for a real account: everything `gh` and GitHub do here was tested against a stand-in
+(`tests/fake_gh.py`), with git pushing to a local folder. The first real project is the person's
+to create by voice. What that will show for the first time: `gh repo create` and `gh repo view`
+against GitHub, the push over the configured protocol from a scheduled job, and how long it takes.
 
 ## Out of scope for 0.5
 

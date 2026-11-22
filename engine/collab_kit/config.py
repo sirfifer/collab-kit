@@ -19,10 +19,19 @@ Project:  <repo>/tools/collab-kit/project.toml  (committed; written by install.p
     home = "cloud"                                  # "cloud" (the folder is the truth) or "repo"
     [session]
     stop_check = true                               # ask (at most every 15 minutes, 3 times) before a session ends without a record
+
+Back end: <config dir>/backend.toml  (machine-local; every setting is in backend.py). One table of
+          it is read here too, so `ck doctor` can check it: `[new_projects]`, off unless set.
+
+    [new_projects]
+    repositories = "~/dev"                          # a new project also gets a git repository here
+    github_owner = "sam"                            # and a private GitHub repository under this account
+    per_day = 3                                     # at most this many repositories a day
 """
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -97,3 +106,80 @@ def project(root: Path) -> dict:
     p.setdefault("home", "cloud")
     cfg.setdefault("session", {}).setdefault("stop_check", True)
     return cfg
+
+
+# ------------------------------------------------- a new project's repository (off unless set) --
+
+NEW_PROJECT_KEYS = ("repositories", "github_owner", "per_day")
+REPOSITORIES_PER_DAY = 3
+GITHUB_OWNER_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+
+
+def backend_file() -> Path:
+    return config_dir() / "backend.toml"
+
+
+def new_projects(cfg: dict) -> tuple[dict | None, str | None]:
+    """The `[new_projects]` table of a back end's config (DESIGN-0.5 section 25), checked.
+
+    (None, None): not set, so a new project is a folder and nothing else, as before.
+    (None, why):  set, but not usable; nothing is made until it is corrected (never a guess).
+    (settings, None): {"repositories": Path, "github_owner": str or "", "per_day": int}.
+
+    There is no key for visibility: a repository the kit creates is private, always."""
+    t = cfg.get("new_projects")
+    if t is None:
+        return None, None
+    if not isinstance(t, dict):
+        return None, "[new_projects] must be a table"
+    extra = sorted(set(t) - set(NEW_PROJECT_KEYS))
+    if extra:
+        return None, (f"[new_projects] has no setting {', '.join(repr(k) for k in extra)} (it has: "
+                      f"{', '.join(NEW_PROJECT_KEYS)}; a repository it creates is always private)")
+    root, owner, per_day = t.get("repositories", ""), t.get("github_owner", ""), t.get("per_day", REPOSITORIES_PER_DAY)
+    if not isinstance(root, str) or not isinstance(owner, str):
+        return None, "[new_projects] repositories and github_owner are text"
+    if not root.strip():
+        if owner.strip():
+            return None, ("[new_projects] github_owner needs repositories (the folder where the local "
+                          "repository is made)")
+        return None, None
+    if owner.strip() and not GITHUB_OWNER_RE.fullmatch(owner.strip()):
+        return None, "[new_projects] github_owner is a GitHub account's name (letters, digits, single hyphens)"
+    if isinstance(per_day, bool) or not isinstance(per_day, int) or not 0 <= per_day <= 20:
+        return None, "[new_projects] per_day is a whole number from 0 to 20"
+    path = Path(expand(root.strip()))
+    if not path.is_absolute():
+        return None, "[new_projects] repositories is a full path (or starts with ~)"
+    return {"repositories": path, "github_owner": owner.strip(), "per_day": per_day}, None
+
+
+def new_projects_ready(settings: dict) -> list[str]:
+    """What stops this machine from making a new project's repository, each with its fix. Empty when
+    it is ready. With github_owner set it asks `gh` whether it is signed in (one call to GitHub)."""
+    import shutil
+    import subprocess
+    out = []
+    root = settings["repositories"]
+    if not root.is_dir():
+        out.append(f"{root} is not a folder on this machine: create it, or correct [new_projects] repositories")
+    elif not os.access(root, os.W_OK):
+        out.append(f"{root} cannot be written by the user the back end runs as")
+    if not shutil.which("git"):
+        out.append("git is not installed (or not on the back end's PATH)")
+    if settings["github_owner"]:
+        gh = shutil.which("gh")
+        if not gh:
+            out.append("the GitHub CLI, gh, is not installed (or not on the back end's PATH): install it "
+                       "(https://cli.github.com), then sign in with `gh auth login`")
+        else:
+            try:
+                res = subprocess.run([gh, "auth", "status", "--hostname", "github.com"], capture_output=True,
+                                     text=True, timeout=30)
+                ok = res.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                ok = False
+            if not ok:
+                out.append("gh is not signed in to github.com (or GitHub cannot be reached): run `gh auth login` "
+                           "on this machine, as the user the back end runs as, and check with `gh auth status`")
+    return out

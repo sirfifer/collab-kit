@@ -30,6 +30,8 @@ MAX_RETURN_BYTES = 256 * 1024
 MAX_CHANGES = 200
 SETTLE_SECONDS = 120              # a return younger than this may still be syncing
 NEW_PROJECTS_PER_DAY = 3
+MAX_TITLE = 200                   # an idea's title, when a new-project return carries the idea itself
+NO_REPOSITORY = "its Collab Kit folder (no repository)"   # where a project lives when new-project made it
 KIT_STATES = ("not set up", "requested", "live")      # the projects list's Collab Kit column
 STATUS_FILE = f"{KNOWLEDGE}/status.md"
 
@@ -284,15 +286,27 @@ class Planner:
             self.ov.write(path, new, where)
 
     def op_new_project(self, ch: R.Change):
+        """Start a project from an idea: one already on the top level's agenda (from=W-012, with part
+        of its title as a check), or one the return carries itself (its title in quotes, what was
+        worked out in a fenced body), so a brainstorm becomes a project in one step (DESIGN-0.5
+        section 25)."""
         if not self.unit.top:
             raise Reject(f"line {ch.line}: projects are started only from the top-level inbox")
         a = ch.args
         name = a["name"].strip()
         if ch.check is None:
             raise Reject(f"line {ch.line}: new-project must repeat part of the idea's title in quotes, as a check")
-        idea = self.resolve(R.Change("set", ch.line, ref=a["from"], check=ch.check))
-        if idea.kind != "project" or not idea.is_open:
-            raise Reject(f"line {ch.line}: {idea.id} is not an open idea of kind project")
+        idea = None
+        if a.get("from"):
+            idea = self.resolve(R.Change("set", ch.line, ref=a["from"], check=ch.check))
+            if idea.kind != "project" or not idea.is_open:
+                raise Reject(f"line {ch.line}: {idea.id} is not an open idea of kind project")
+            title = idea.title
+        else:
+            title = " ".join(ch.check.split())
+            if not title or len(title) > MAX_TITLE:
+                raise Reject(f"line {ch.line}: new-project needs the idea's title in quotes, one line of at most "
+                             f"{MAX_TITLE} characters (what was worked out goes in a fenced body under it)")
         taken = existing_projects(self.unit) | listed_repositories(self.unit)
         why = check_project_name(name, taken)
         if why:
@@ -300,21 +314,30 @@ class Planner:
         if recent_new_projects(self.unit, self.now) >= NEW_PROJECTS_PER_DAY:
             raise Reject(f"line {ch.line}: at most {NEW_PROJECTS_PER_DAY} projects start in one day")
         base = f"projects/{name}/collab-kit"
-        about = a.get("about") or idea.title
+        about = a.get("about") or title
         spoken = a.get("spoken", "")
         from .templates import project_start_file, returns_readme
         self.ov.write(f"{base}/{START}", project_start_file(name, about, spoken, home="cloud"))
         self.ov.write(f"{base}/{RETURNS}/README.md", returns_readme(name))
         self.ov.write(f"{base}/{KNOWLEDGE}/README.md", f"# {name}\n\n{about}\n")
         self.ov.write(f"{base}/{WIP}/README.md", "# WIP\n\nCheckpoint notes between saves. See the top-level start file.\n")
-        body = idea.body.split("\n<!-- ", 1)[0]
-        first = render_item("W-001", idea.title, kind="work-out", importance=idea.importance, due=idea.due,
-                            body=re.sub(r"(?ms)^## Log\s*$.*", "", body).strip() or idea.title,
-                            log=[f"carried over from the top level's {idea.id} {self.tag()}"])
-        self.ov.write(f"{base}/{AGENDA}/W-001-{slug(idea.title, 40)}.md", first)
-        self.ov.write(idea.path, edit_item_text(idea, {"status": "settled", "outcome": f"started as project {name}"},
-                                                f"settled: started as project {name} (its W-001) {self.tag()}"))
-        row = {"folder": name, "say": spoken, "what": about, "home": "its Collab Kit folder (no repository)",
+        if idea:
+            body = idea.body.split("\n<!-- ", 1)[0]
+            first = render_item("W-001", title, kind="work-out", importance=idea.importance, due=idea.due,
+                                body=re.sub(r"(?ms)^## Log\s*$.*", "", body).strip() or title,
+                                log=[f"carried over from the top level's {idea.id} {self.tag()}"])
+        else:
+            first = render_item("W-001", title, kind="work-out", body=idea_body(about, ch.body),
+                                log=[f"started from a conversation {self.tag()}"])
+        self.ov.write(f"{base}/{AGENDA}/W-001-{slug(title, 40)}.md", first)
+        if idea:
+            self.ov.write(idea.path, edit_item_text(idea, {"status": "settled", "outcome": f"started as project {name}"},
+                                                    f"settled: started as project {name} (its W-001) {self.tag()}"))
+        else:                                          # no item to settle: the top level's status says it started
+            self.ov.write(STATUS_FILE, add_status_entry(
+                self.ov.read(STATUS_FILE), self.unit.name, self.sender, f"project {name} started",
+                f"Project {name} started: {one_line(about, 200)}. Its first agenda item, W-001, carries the idea.", self.now))
+        row = {"folder": name, "say": spoken, "what": about, "home": NO_REPOSITORY,
                "kit": "live", "status": f"active, started {self.now.strftime('%Y-%m-%d')}"}
         text = self.ov.read(f"{KNOWLEDGE}/projects.md")
         if text is not None:
@@ -364,6 +387,17 @@ class Planner:
         self.minted.append(wid)
 
 
+def idea_body(about: str, worked_out: str | None) -> str:
+    """The first item of a project started from a conversation. Text with its own `## ` headings is
+    kept as written; plain text becomes what is known so far, under what the project is about."""
+    text = (worked_out or "").strip()
+    if not text:
+        return about
+    if re.search(r"^## ", text, re.M):
+        return text
+    return f"## What's needed\n{about}\n\n## What we know so far\n{text}\n\n## Done when\n"
+
+
 def sha_or_none(text):
     return None if text is None else sha(text)
 
@@ -371,14 +405,15 @@ def sha_or_none(text):
 _PROJECT_PATH = re.compile(r"^projects/[a-z][a-z0-9-]{0,39}/collab-kit/(?:00-START-HERE\.md|(?:agenda|knowledge|_returns|WIP)/.+)$")
 
 
-def check_effect_path(path: str, where: str, *, before=None, top_unit: bool = False) -> None:
+def check_effect_path(path: str, where: str, *, before=None, top_unit: bool = False, removes: bool = False) -> None:
     """Every file a ledger names must be one a return could have written. A ledger is a file in the
     shared folder (and, for a repository-homed project, in git), so it is checked like any other text
     from outside before it is trusted:
 
     - inside the unit's own agenda/ or knowledge/;
     - from a project, at the top level: only knowledge/projects.md (its own row: checked in op_undo);
-    - at the top level, a new project's folder, and then only to remove what new-project created.
+    - at the top level, a new project's folder: only to create a file there (`before` is None, what
+      new-project does) or to take one away again (`removes`, what its undo does), never to change one.
 
     No return writes a start file, so no ledger may restore one."""
     if where not in ("self", "top"):
@@ -397,8 +432,8 @@ def check_effect_path(path: str, where: str, *, before=None, top_unit: bool = Fa
         raise Reject(f"a project's ledger names a top-level path other than its row in the projects list: {path!r}")
     if path.startswith((f"{AGENDA}/", f"{KNOWLEDGE}/")):
         return
-    if _PROJECT_PATH.match(path) and before is None:
-        return                                           # undoing a new project removes what it created
+    if _PROJECT_PATH.match(path) and (before is None or removes):
+        return                                           # a new project's files: created, or taken away by its undo
     raise Reject(f"a ledger names a path a return never writes: {path!r}")
 
 
@@ -583,7 +618,8 @@ def _unit_for(where: str, unit: Unit, top: Unit | None) -> Unit:
 def _run_effects(led: dict, unit: Unit, top: Unit | None) -> None:
     for eff in led["effects"]:
         where = eff.get("unit", "self")
-        check_effect_path(eff["path"], where, before=eff.get("before"), top_unit=unit.top)
+        check_effect_path(eff["path"], where, before=eff.get("before"), top_unit=unit.top,
+                          removes=eff.get("after") is None)
         u = _unit_for(where, unit, top)
         cur = u.store.read(eff["path"])
         if where == "top" and not unit.top and not only_own_row(eff.get("after"), cur, unit.name):

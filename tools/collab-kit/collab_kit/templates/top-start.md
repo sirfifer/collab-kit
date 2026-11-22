@@ -221,19 +221,59 @@ project = ""             # a project folder name, if it is about one
 
 ## Starting a project
 
-When {{human}} says an idea is ready to be a project:
+A project starts from a talk: an idea already on the agenda, or a brainstorm that began as plain
+talk, with no project and nothing saved. **When {{human}} says "make this a project" (or "save this
+to Collab Kit" about something that belongs to no project yet), do this.** Everything the talk
+worked out goes into one return, so nothing has to be said twice. If you opened this file in the
+middle of a talk because {{human}} said so, do this first; what is pressing (step 2 at the top) can
+wait until the return is filed, then say it in a sentence.
+
 1. Read `knowledge/projects.md`. Is this new, part of an existing project, or related but kept
-   separate? Say what you find.
+   separate? Say what you find. (Part of an existing project: file it as items in that project's
+   inbox instead. Only to be kept as an idea for now: one top-level item of kind `project`.)
 2. Agree a folder name: 2 to 40 characters, lowercase letters, digits, and single hyphens, starting
    with a letter; not a word the kit reserves (such as `test`, `new`, `inbox`, `archive`, `temp`); and
-   unique among the projects in `knowledge/projects.md`, the repositories in
-   `knowledge/repositories.md`, and the folders in `projects/`. Spell it back.
-3. With a back end: file `new-project name=<name> from=W-NNN "<part of the idea's title>"
-   about="..." spoken="what {{human}} calls it"` in the top-level inbox. The back end creates the
-   project and reports on the agenda: ready, or why not.
-   Without one: create `projects/<name>/collab-kit/` with `00-START-HERE.md` (the shape of another
-   project's start file), `_returns/`, `agenda/`, `WIP/`, `knowledge/`; carry the idea over as the
-   project's W-001; settle the top-level item; add the project to `knowledge/projects.md`.
+   not the name of a project in `knowledge/projects.md`. Spell it back. (With a back end that is
+   check enough: it compares the name with every repository and folder it knows, and refuses a
+   taken one on the agenda. Without one, also look at `knowledge/repositories.md` and the folders
+   in `projects/`.)
+3. With a back end: file one return in the top-level inbox. Its one change is `new-project
+   name=<name>`, the idea as a short title in quotes, `about=` (what it is, in one sentence), and
+   `spoken=` (what {{human}} calls it); on the lines right under it, in a fenced block, what the talk
+   worked out, in full and in {{human}}'s words where they matter. That text becomes the project's
+   first agenda item. Write the return like this, every line starting at the left edge:
+
+````
+Project: top
+From: {{human}}
+Type: new-project
+Topic: the orchard becomes a project
+
+Changes v1:
+new-project name=orchard "Plan the orchard" about="A small orchard behind the house" spoken="the orchard"
+```
+Twelve trees fit behind the house. Apples and pears first; plums if the slope drains.
+Open: who prunes, and whether to fence against deer.
+```
+End.
+````
+
+An idea that is already an item on the agenda: name the item instead of writing a title and a
+block, `new-project name=<name> from=W-NNN "<part of the idea's title>" about="..." spoken="..."`;
+the back end carries the item over and settles it.
+
+The back end creates the project within a few minutes. Say so, and ask {{human}} to ask again in a
+few minutes: you cannot speak first. Then read the front page again. When it says the project
+started, the project's row in `knowledge/projects.md` says where it lives: a repository (where the
+back end's machine is set to make one, with Collab Kit installed; on GitHub always a private one),
+or "its Collab Kit folder (no repository)", which means the folder is all there is. Tell
+{{human}} which. If the repository could not be made, the front page says so as a critical item,
+and the folder project can be used meanwhile.
+
+Without a back end: create `projects/<name>/collab-kit/` with `00-START-HERE.md` (the shape of
+another project's start file), `_returns/`, `agenda/`, `WIP/`, `knowledge/`; write what the talk
+worked out as the project's W-001 (an idea already on the agenda: carry it over and settle the
+top-level item); add the project to `knowledge/projects.md`.
 
 ## Bringing an existing project into Collab Kit
 

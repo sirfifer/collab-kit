@@ -52,6 +52,9 @@ interest:
   makes the back end do anything its grammar does not describe;
 - a way to push anything other than a project's `collab-kit/`, to a public repository without the
   project allowing it, or past the deny-list;
+- a return (or anything else in the folder) that makes the back end create a repository that is
+  not private, create one where it was not set to, write outside the folder its machine names for
+  new repositories, or put any of its text on a command line;
 
 - anything that makes `nightly.sh` write, sync, or delete outside the project's own mirror folder
   (the ownership marker and the naming checks exist to prevent it), or into a refused account;
@@ -79,7 +82,11 @@ it can do only what the grammar describes, inside the unit it was filed in. Conc
 | A return is applied whole or not at all, and at most once (a ledger per return) | half-applied or replayed changes |
 | Every store path is relative and never climbs (`..`, `.`, a root, a drive letter, a NUL, and on Windows a backslash are refused); knowledge paths must be plain files inside `knowledge/` | writing anywhere outside the Collab Kit folder or a project's `collab-kit/` |
 | An `undo` names a return id only, and every file its ledger names must be one a return could have written (its own agenda and knowledge; from a project, at the top level only its own row of `knowledge/projects.md`, checked line by line; at the top level, a new project's folder only to remove what it created; never a start file) | a forged ledger in the shared folder turning undo into a write anywhere (found by review, 2026-11-15, before release) |
-| A project's inbox changes only that project; a project is started only from the top-level inbox, from an existing idea, at most three a day, with a validated name | one unit's inbox reaching another |
+| A project's inbox changes only that project; a project is started only from the top-level inbox, from an idea on its agenda or one the return carries itself, at most three a day, with a validated name | one unit's inbox reaching another |
+| A new project gets a repository only where the back end's own `backend.toml` says so (`[new_projects]`, absent by default), and the back end runs `git` and `gh` for it with argument lists, never a shell. The only words from outside that reach a command line are the project's name, checked again against the name rule (2 to 40 lowercase letters, digits and single hyphens, starting with a letter) where it is read from the ledger, and the configured GitHub owner, checked against GitHub's rule for account names. Every other piece of a return (title, description, spoken name, body, sender, topic) is written as file content only | a return, or a forged ledger, running a command, naming a path outside the folder for new repositories, or passing a flag to `gh` (a name cannot start with `-` or hold `/`, `.` or a space) |
+| The one command that creates a repository is `gh repo create <owner>/<name> --private`; the settings table refuses any key it does not know, by name; after creating, GitHub is asked for the visibility and the first commit is pushed only when it answers `PRIVATE`; an existing repository of that name is pushed to only when it is private and empty. Nothing in the kit changes a repository's visibility or deletes one | a return, a setting, or a wrong answer from GitHub making anything public; a first commit landing in someone's existing repository |
+| The local repository is built in the back end's own work folder and moved into place in one step; a path that already exists is refused and never read or changed | a return overwriting a folder on the machine, or a failed attempt leaving half a repository where repositories live |
+| The back end's `deny` list is applied to the new project's name and description; at most `per_day` repositories a day (3), counted in files on the machine, not in the folder; only projects started after the setting was first seen | a codename reaching GitHub in a repository's name or README; a flood of repositories; a setting turned on reaching back to old projects |
 | A change to an existing item repeats part of its title | a misheard or invented number changing the wrong item |
 | The back end commits only inside `collab-kit/`, pushes only with a standing authorization per project, never to a public repository unless the project allows it, and never a change matching the deny-list; a `push-request` only creates an agenda task | a return publishing anything |
 | The back end never deletes in the cloud: anything unexpected moves to `_returns/strays/` or `_versions/` and becomes an agenda item | a return destroying data |
@@ -161,12 +168,14 @@ the file system whether each attempt was refused; run it after upgrading Claude 
 - The kit has **no package dependencies**: Python's standard library (3.11 or later), git, and a
   POSIX shell. A back end that reaches Google Drive through its API uses rclone, an external
   program reviewed in `docs/rclone-intake.md` and pinned there. A back end may also use the GitHub
-  CLI, `gh` (optional, external): it asks `gh` whether a GitHub repository is private before pushing
-  to it, so without `gh` (or signed out) every GitHub repository counts as public and nothing is
-  pushed unless the project sets `allow_public`; and `knowledge/repositories.md`, the names a new
-  project may not take, lists GitHub repositories only from `gh repo list`. A new dependency needs a
-  deliberate review first (license, maintenance, known vulnerabilities in OSV, its own security
-  posture) and a note in the pull request; the default answer is no.
+  CLI, `gh` (optional, external, never installed by the kit; reviewed in `docs/gh-intake.md`): it
+  asks `gh` whether a GitHub repository is private before pushing to it, so without `gh` (or
+  signed out) every GitHub repository counts as public and nothing is pushed unless the project
+  sets `allow_public`; `knowledge/repositories.md`, the names a new project may not take, lists
+  GitHub repositories only from `gh repo list`; and, only where a machine's `backend.toml` sets
+  `[new_projects] github_owner`, `gh` creates a new project's private repository. A new dependency
+  needs a deliberate review first (license, maintenance, known vulnerabilities in OSV, its own
+  security posture) and a note in the pull request; the default answer is no.
 - Every release attaches a CycloneDX and an SPDX SBOM, with build provenance and SBOM attestations
   (`gh attestation verify <file> --repo <owner>/<repo>`).
 - GitHub Actions are pinned to full commit hashes and kept current by Dependabot; OSV-Scanner runs
@@ -182,8 +191,8 @@ Security is part of contributing, not an extra step:
 - workflows: actions pinned by hash, `permissions` as narrow as the job allows, no
   `pull_request_target` with untrusted code;
 - anything that touches the grammar, applying returns, the ledger, store paths, the fences, the
-  hooks, the mirror, or pushing comes with a test in `tests/` (`python3 -m unittest discover -s
-  tests`); a change to the hooks or the CLAUDE.md section also gets a run of
+  hooks, the mirror, pushing, or creating a repository comes with a test in `tests/` (`python3 -m
+  unittest discover -s tests`); a change to the hooks or the CLAUDE.md section also gets a run of
   `tests/live-native-layer.sh`;
 - anything that touches the 0.4 curator's fence comes with a test in `tests/dry-run-install.sh` and
   a run of `tests/live-curator-permissions.sh`;

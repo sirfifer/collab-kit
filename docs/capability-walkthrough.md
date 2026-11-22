@@ -39,9 +39,10 @@ kit's owner does or wants to do.
 5. **Midday.** She wants to know whether the ablation finished, to see its plot, and to watch the
    video.
 6. **An agent is stuck:** the render needs to know which narration to use. She answers by voice.
-7. **A park bench.** She starts thinking aloud about something that belongs to no project. Half an
-   hour later she says: make this a project. She expects a folder, a repository, and an agent that
-   can work in it.
+7. **A park bench.** She starts thinking aloud about something that belongs to no project, in a
+   talk that never opened the folder. Half an hour later she says: make this a project. She expects
+   a folder, a private repository, and the kit in it, so that an agent session opened there is
+   briefed, without saying any of it twice.
 8. **The back end is down for two hours** in the afternoon. She keeps working.
 9. **Seven hours in,** the conversation is long and slow. She starts a fresh one and expects it to
    know where she was.
@@ -69,9 +70,9 @@ turn them on, and the test reports each level on its own.
 | C-10 | Learn that work finished without asking | back end | works at the start of a talk and at each change of project, or by a push she turns on; not in the middle of a talk: W-030 |
 | C-11 | See a plot, a page, or a video on the phone | agents | no: W-029 |
 | C-12 | Be told an agent is stuck, and have her answer reach it | back end | works for a session that is still waiting; one that ended finds the answer in its successor's brief: W-031 |
-| C-13 | Start a brainstorm that belongs to no project, with no ceremony | folder | works |
-| C-14 | Turn an idea into a project by saying so | back end | works, in two steps |
-| C-15 | Get a repository and a working agent for the new project | agents | no: W-035 |
+| C-13 | Start a brainstorm that belongs to no project, with no ceremony | folder | works; a talk that never opened the folder joins in at "make this a project", if her preference line names the phrase (a phone test). Nothing is saved before that moment |
+| C-14 | Turn an idea into a project by saying so | back end | works, in one return that carries the whole brainstorm; two spoken replies at about seven calls each, and she asks again to hear it is ready: W-037 |
+| C-15 | Get a repository for the new project, with the kit in it, so that a session opened there is briefed (starting the agent's work is C-08) | agents | works where the back end's machine has the repository setting on (off by default: then no). The GitHub part ran only against a stand-in: unknown until a real account, W-035 |
 | C-16 | Know within minutes that the back end is down | back end | works by a dead-man ping she turns on; by voice it needs a clock or a second look: unknown, W-032 and W-036 |
 | C-17 | Hand a long conversation over to a fresh one | folder | no: W-033 |
 | C-18 | Ask "is everything saved" and get a short, true answer | folder | works, slow: W-034 |
@@ -80,6 +81,10 @@ turn them on, and the test reports each level on its own.
 | C-21 | Tell at a glance which push on the phone needs her now | back end | works with a command that picks by kind; how it looks on a lock screen is a phone test |
 
 "W-" numbers are items on the kit's own agenda.
+
+C-15 was worded "get a repository and a working agent" until the third run. It was reworded, not
+lowered in secret: nothing in the kit starts an agent's work, which is C-08 and still `typing`.
+What C-15 judges is what a new project needs before any agent can work on it.
 
 ## How each capability is judged
 
@@ -143,4 +148,5 @@ marked retired, with the reason, so the history stays readable.
 | Run | Hands-free | Typing only | Neither | Notes |
 |---|---|---|---|---|
 | 2026-11-22 (kit 0.5.3) | about 40% | about 25% | about 35% | The first run. Ten gaps; nine filed as agenda items W-026 and W-029 to W-035, with W-015. C-13 and C-21 were added afterwards and are not yet walked. Its shares were of the day; counted by capability its table gives 8 works, 1 typing, 10 no, of 19. |
+| 2026-11-22, third run (kit 0.5.3 with section 24 and the new-project work, DESIGN-0.5 section 25) | 14 of 21 (67%) with the repository setting on; 13 of 21 (62%) with nothing set | 1 of 21 (5%) | 6 of 21 (29%); 7 with nothing set | No regression. C-14 changed from two steps to one return; C-15 from no to works where the setting is on, its GitHub part unknown until a real account (held out as unknown, the count is 13 works, 1 typing, 6 no, 1 unknown). By level: folder 7 of 9, back end 6 of 6, agents 1 of 6 with the setting on (1 typing). The run found, in the work under test, that a return copied with the indentation of the start file's example was filed as done with no changes: fixed before the commit, with the step's cost (two calls fewer) and three sentences that said more than the code. Judged from the repository: the owner's back end and start files did not yet run this version. |
 | 2026-11-22, second run (kit 0.5.3 with the round-trip fixes, DESIGN-0.5 section 24) | 13 of 21 (62%) | 1 of 21 (5%) | 7 of 21 (33%) | Counted by capability ("slow" counts as works). No regression. C-10, C-12 and C-16 changed from no to works, each with a limit named in the table; C-13 and C-21 walked for the first time. By level: folder 7 of 9, back end 6 of 6 (three of them through settings that are off until turned on), agents 0 of 6 (1 typing). The way in now costs about seven calls with a back end, the limit of one spoken reply. Judged from the repository: the owner's back end and start files did not yet run this version. |

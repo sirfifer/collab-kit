@@ -77,7 +77,9 @@ Ask the person, or read it from their setup. Never guess an account.
    instead of a synced folder: `--cloud-root "rclone:<remote>:" --rclone <the pinned binary>
    --rclone-config <its config file>` (see "A back end").
 4. **The phone (the person does this).** In the Claude app, turn on the Google Drive connector and add
-   the preference line from the README's quick start. That is all a phone needs.
+   the preference line from the README's quick start. That is all a phone needs. The line names two
+   phrases ("make this a project", "save this to Collab Kit") so that a talk which began without the
+   folder opens it; a person whose line is older adds them.
 5. **Each project that has a repository:** in a branch or worktree of that repository,
 
    ```bash
@@ -96,9 +98,13 @@ Ask the person, or read it from their setup. Never guess an account.
    Collab Kit X.Y.Z"). For `--home repo`, the repository holds `collab-kit/` itself, and a back end
    must list the repository (a `[[project]]` in its `backend.toml`) before its returns are applied or
    a phone can see it.
-6. **A project with no repository:** a conversation starts it ("Starting a project" in the folder's
-   start file), or, with a back end, a `new-project` return in the top-level inbox. There is no
-   installer step: there is nothing to install into.
+6. **A project started by voice:** a conversation starts it ("Starting a project" in the folder's
+   start file); with a back end, by one `new-project` return in the top-level inbox, which can
+   carry the whole brainstorm. It is a folder in the Collab Kit folder, and there is no installer
+   step. Where the back end's machine has `[new_projects]` set ("A back end", below), the back end
+   also makes it a git repository with the kit installed, and on GitHub a private one: again no
+   installer step, since the back end runs the installer itself. Never create such a repository by
+   hand to "help" a pending one along: the back end refuses a path that exists.
 7. **Check it:** `ck doctor` in each project, and read `<folder>/agenda/00-PRESSING.md`.
 
 ## Using it from a project
@@ -167,7 +173,7 @@ runs from the kit's checkout, not from a project's copy.
    | Key | Meaning |
    |---|---|
    | `cloud` | the Collab Kit folder: a path, or `rclone:<remote>:<path>` |
-   | `work` | the back end's own folder: its clones of repositories and, through rclone, `rclone-cache/` (file contents by md5, so a pass downloads only what changed; safe to delete; sessions on the machine keep their own in the machine's state folder); never inside `~/dev` or the Collab Kit folder |
+   | `work` | the back end's own folder: its clones of repositories and, through rclone, `rclone-cache/` (file contents by md5, so a pass downloads only what changed; safe to delete; sessions on the machine keep their own in the machine's state folder) and, with `[new_projects]`, `new-projects/` (one journal per new project's repository, and the staging folder a repository is built in); never inside `~/dev` or the Collab Kit folder |
    | `interval_minutes` | the full sweep (pull, mirror, health), default 60; returns are checked every minute regardless |
    | `human` | the person's name |
    | `account` | the Google account that must own the folder (the owner of its start file); checked every run when set |
@@ -179,6 +185,9 @@ runs from the kit's checkout, not from a project's copy.
    | `[notify] command` | optional push to a phone when a critical item appears ([notifications.md](notifications.md)); the person types their own keys |
    | `[notify] status` | `true`: also one push for each new status line (default `false`) |
    | `[heartbeat] command`, `every_minutes` | optional dead-man ping after a successful check, at most every 5 minutes, so a service outside the machine notices when the back end stops ([notifications.md](notifications.md)); the person creates the check and types its address |
+   | `[new_projects] repositories` | optional, off unless set: a project started by a `new-project` return also gets a git repository at `<repositories>/<name>` on this machine (the kit installed, a README, one commit). The folder also counts as a root of taken names. Needs git |
+   | `[new_projects] github_owner` | with `repositories`: also create `<owner>/<name>` on GitHub, **always private**, and push the first commit. Needs the `gh` command, signed in as an account that may create repositories there (`gh auth login`, the person's own step; [gh-intake.md](gh-intake.md)) |
+   | `[new_projects] per_day` | at most this many repositories a day (default 3); the rest wait for the next day |
    | `[[project]]` `name`, `repo`, `branch` | one table per project whose home is a repository |
    | `[[project]]` `push` | `false`: commit in the back end's clone only; nothing reaches GitHub |
    | `[[project]]` `allow_public` | push to a public repository only if `true` (needs the `gh` command to tell; without it every repository counts as public) |
@@ -203,6 +212,16 @@ runs from the kit's checkout, not from a project's copy.
    its problems and, through rclone, its calls by command (a pass with nothing new is two `lsjson`,
    the folder's top and then all of it, four lease reads and three writes: seconds, not minutes);
    `launchctl print gui/$(id -u)/org.collab-kit.backend` on macOS. In a project, `ck doctor` reports it as running.
+7. **New projects' repositories, if `[new_projects]` is set:** `ck doctor` on this machine (it reads
+   `backend.toml` from the config folder) must say "New projects: ... ready". It checks that the
+   folder exists and can be written, that git is there, and, with `github_owner`, that `gh` is
+   installed and signed in. `[new_projects]` has no setting for visibility, and any key it does not
+   know is refused by name: the kit creates private repositories only, and never changes one's
+   visibility. How far each new project's repository got is in `<work>/new-projects/<name>.json`
+   (`pending`, `local`, `done`, `refused`, `withdrawn`); a failure is retried on every full pass and
+   raised once as a critical item, and removing that file stops the attempts. Do not test this
+   against a real account with a throwaway name unless the person asks: it creates a real
+   repository, and nothing in the kit deletes one.
 
 **Retiring a back end:** unload its schedule, then `install.py top "<folder>" --human "Sam" --setup
 none`, which also retires its heartbeat so sessions apply returns themselves again.
@@ -224,7 +243,11 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 
    This replaces the top level's start file (keeping its setup line) and the start file of each
    project homed in the folder (keeping its `Project:` line). The old ones are kept in `_versions/`:
-   compare them and carry over anything someone added by hand.
+   compare them and carry over anything someone added by hand. **The back end's machine pulls first**
+   (step 1 there, or step 5): a start file tells conversations to write what this kit's grammar
+   takes, and a back end that is a release behind refuses what it does not know (clearly, as a
+   critical item, with nothing half-made). To check, `_backend/heartbeat.json` in the folder lists
+   what the running back end accepts (`"accepts"`; a one-step `new-project` is `new-project-idea`).
 4. **Each project's repository** (skill `collab-kit-upgrade`, in a branch or worktree):
 
    ```bash
@@ -237,7 +260,9 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 5. **Each back end:** `git -C <kit> pull` on its machine, `install.py backend --apply` if the release
    notes say the schedule changed, then check the front page's first line after the next pass. A
    back end that is a release behind its sessions is safe: it says what it accepts in its
-   heartbeat, and `ck ask --blocks` writes the link as plain text until it is updated.
+   heartbeat, and `ck ask --blocks` writes the link as plain text until it is updated. One that is
+   behind the folder's start file refuses a `new-project` that carries its idea ("needs from="),
+   and the return waits in `_returns/failed/` to be filed again.
 6. **Done when** `ck version` in every project equals `<kit>/VERSION`, `ck doctor` passes in each, and
    the front page shows a pass from today with no problems.
 

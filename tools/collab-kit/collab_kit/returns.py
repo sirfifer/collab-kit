@@ -56,7 +56,7 @@ OPS: dict[str, tuple[set[str], set[str]]] = {
     "status": ({"text"}, set()),
     "knowledge": (set(), set()),
     "project": ({"spoken", "about", "active", "collab-kit", "where"}, set()),
-    "new-project": ({"name", "from", "about", "spoken"}, {"name", "from"}),
+    "new-project": ({"name", "from", "about", "spoken"}, {"name"}),
     "undo": (set(), set()),
     "push-request": ({"repo", "branch", "approval"}, {"repo", "approval"}),
 }
@@ -182,6 +182,9 @@ def parse(text: str, name: str = "") -> Return:
     never half-understood."""
     text = text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff")
     lines = text.split("\n")
+    indent = min((len(x) - len(x.lstrip(" \t")) for x in lines if x.strip()), default=0)
+    if indent:                                        # a whole return written indented (copied out of a list, say)
+        lines = [x[indent:] for x in lines]           # is the same return: never read as one with no changes
     fields: dict[str, str] = {}
     last = None
     i = 0
@@ -377,6 +380,9 @@ def _parse_change(line: str, lineno: int) -> Change:
             if not fid:
                 raise ReturnError("new-project from= names the idea's agenda item (W-012)", lineno)
             ch.args["from"] = fid
+        elif not (ch.check or "").strip():           # no item yet: the return carries the idea itself
+            raise ReturnError("new-project needs the idea: its title in quotes (and what was worked out in a "
+                              "fenced body), or from=W-012 with part of that item's title in quotes", lineno)
     elif op == "undo":
         if not words:
             raise ReturnError("'undo' needs the id of the return to undo", lineno)

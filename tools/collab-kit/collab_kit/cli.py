@@ -363,6 +363,31 @@ def cmd_version(a):
     print(f"Collab Kit {kit_version()}")
 
 
+def _doctor_new_projects() -> list[str]:
+    """On a back end's machine (one with a backend.toml in the config folder): when it is set to give
+    a new project a repository, is it ready to? Says what it found; returns what needs fixing."""
+    from . import config as C
+    f = C.backend_file()
+    if not f.is_file():
+        return []
+    try:
+        settings, why = C.new_projects(C.load_toml(f))
+    except SystemExit as e:
+        print(f"Back end config: {e}")
+        return [f"correct {f} (it is not valid TOML)"]
+    if why:
+        print(f"New projects ({f}): NOT USABLE: {why}")
+        return [f"correct {f}: {why}"]
+    if not settings:
+        print("New projects: a folder only (this machine's backend.toml has no [new_projects])")
+        return []
+    problems = C.new_projects_ready(settings)
+    what = f"a repository in {settings['repositories']}" + (
+        f", and a private one under {settings['github_owner']} on GitHub" if settings["github_owner"] else " (not on GitHub)")
+    print(f"New projects: {what}, at most {settings['per_day']} a day: {'ready' if not problems else 'NOT READY'}")
+    return [f"new projects: {x}" for x in problems]
+
+
 def cmd_doctor(a):
     """Every check, and for each failure the command that fixes it. Exit 1 when anything needs fixing."""
     from . import config as C
@@ -376,6 +401,7 @@ def cmd_doctor(a):
           f" ({'present' if have_cfg else 'MISSING'}); the kit's checkout: {kit}")
     if not have_cfg:
         fixes.append(f'{install} machine --cloud-root "<the Collab Kit folder as this machine sees it>" --human "<name>"')
+    fixes += _doctor_new_projects()
     p = Project.find()
     if not p:
         print("Not inside a Collab Kit project.")
