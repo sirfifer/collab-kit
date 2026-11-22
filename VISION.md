@@ -36,6 +36,10 @@ step (DESIGN-0.5.md, section 23).
 **Weeks or months of work without touching the back end**, including starting new projects.
 If something can only be done at the machine, the kit is not finished.
 
+The test is run, not only stated: an agent lives one demanding day as an invented user and judges,
+capability by capability, what she can and cannot get done from her phone
+([docs/capability-walkthrough.md](docs/capability-walkthrough.md)).
+
 ## What follows from it
 
 1. **The collaboration lives in plain files, in a folder the assistant can reach.** Not in any one
@@ -65,6 +69,13 @@ If something can only be done at the machine, the kit is not finished.
    (writing, music, data, planning) living entirely in the folder.
 7. **Owned by the person.** Their files, their storage, their repositories. Nothing is sent
    anywhere they did not choose.
+8. **Simple first, and the base is for everyone.** The kit leans toward the simplest thing that
+   does the job. That is a direction, not a law, and it never costs a person something they could
+   get done. A folder and a conversation give everyone the core: informed conversations, and a
+   record that lasts. Everything heavier (a back end, a push to the phone, agents started from a
+   phone, a repository created by voice) is a step a person turns on for the machines they have.
+   The kit's owner needs every one of those steps, so every one gets built; nobody else has to run
+   any of them.
 
 ## Out of scope for the base product
 

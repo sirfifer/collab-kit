@@ -24,7 +24,8 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
 - [DESIGN-0.5.md](DESIGN-0.5.md): the design record, the source of truth for behaviour.
   [VISION.md](VISION.md): why. [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), [docs/](docs/).
 - `tools/collab-kit/`, `.claude/`, and the Collab Kit section at the end of this file: the kit installed
-  in its own repository. Generated: never edit them by hand.
+  in its own repository. Generated: never edit them by hand. The one exception is
+  `.claude/skills/capability-walkthrough/`: the kit's own skill, written by hand (rule 10).
 
 ## How to work on the kit
 
@@ -57,7 +58,8 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
    which applies the deny list and the topics left out (`snapshot.toml`) and checks the result.
 7. **Releasing X.Y.Z.** `VERSION` and `KIT_VERSION` in `engine/kb.py`; the CHANGELOG section (the "Not yet released" text, dated); refresh
    the kit's own install (rule 1) and the public example (rule 6) and
-   `bash tests/refresh-example.sh` (the 0.4 sample); all tests green; commit, then tag
+   `bash tests/refresh-example.sh` (the 0.4 sample); all tests green; the capability walk-through
+   run and recorded (rule 10); commit, then tag
    `vX.Y.Z` (the release workflow attaches the SBOMs and provenance). Then bring every install up to
    date, each as its own commit: each project that has the kit (skill `collab-kit-upgrade`), each
    machine's user hooks (`install.py machine --user-hooks`), and each back end's checkout of the kit
@@ -65,6 +67,18 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
    (`knowledge/projects.md`, the Collab Kit column, and this project's `knowledge/`).
 8. **Questions and decisions** about the kit go on its agenda (`tools/collab-kit/ck ask`), as the
    section below says. Never push to a remote without the person's go-ahead.
+9. **Simple first, and the base is for everyone** ([VISION.md](VISION.md), point 8). Choose the
+   smallest mechanism that keeps the utility, and stretch an existing concept before adding one.
+   A folder and a conversation must keep working with nothing configured; anything heavier (a
+   back end feature, a push, starting agents, creating repositories) is a setting that is off
+   until a person turns it on for their own machines. It is a direction, not a law: when simple
+   and useful pull apart, say so and ask.
+10. **Capabilities are the regression test.** The unit tests check the code; the capability
+   walk-through ([docs/capability-walkthrough.md](docs/capability-walkthrough.md), skill
+   `capability-walkthrough`) checks that a person can still get the work done from a phone. Run it
+   before a release and after a change to what a conversation is told to do, to the grammar, or to
+   what the back end does with a return. When a change adds a way of working, add its capability
+   to that page in the same commit.
 
 <!-- collab-kit:begin agents -->
 ## Collab Kit

@@ -2,6 +2,17 @@
 
 ## Not yet released
 
+**The capability walk-through is the kit's end-to-end test.**
+[docs/capability-walkthrough.md](docs/capability-walkthrough.md) defines it: one invented user (a
+researcher working hands-free from a phone for a whole day), her day in ten steps, twenty-one
+capabilities with what each needs (the folder, a back end, or a machine with agents), four
+verdicts, and the result of the first run (2026-11-22: about 40% hands-free, 25% only by typing,
+35% not possible). A skill in this repository, `capability-walkthrough`, runs it the same way each
+time and records regressions first. VISION.md gains a principle, "Simple first, and the base is
+for everyone": the folder and a conversation work for everyone with nothing configured, and
+everything heavier is turned on by the person who needs it. The agent guide (CLAUDE.md, AGENTS.md)
+carries both as rules 9 and 10. No behaviour changed.
+
 **The documentation explains the project to someone new** (agenda W-022). The README now opens with
 what Collab Kit is for (long, fully informed working sessions about a complex project, hands-free, by
 voice), what a session is like, and why voice mode cannot do that alone, and says plainly what works

@@ -297,6 +297,7 @@ bash tests/live-curator-permissions.sh       # opt-in: the 0.4 curator's fence a
 | [docs/how-it-works.md](docs/how-it-works.md) | The whole loop: one session, one return's life, how fast, what is loaded when |
 | [docs/folder-structure.md](docs/folder-structure.md) | Every folder and file, who writes and reads each, and the method behind the layout |
 | [docs/for-agents.md](docs/for-agents.md) | The procedure for an AI agent: install, upgrade, check, repair |
+| [docs/capability-walkthrough.md](docs/capability-walkthrough.md) | The end-to-end test: one invented user's whole day by voice, and what she can and cannot get done |
 | [DESIGN-0.5.md](DESIGN-0.5.md) | The design record: every decision, and what is planned and not built |
 | [examples/the-kit-itself](examples/the-kit-itself/README.md) | A real project as it sits in a repository: this one, sanitized |
 | [SECURITY.md](SECURITY.md) | The threat model, and how to report a vulnerability |
