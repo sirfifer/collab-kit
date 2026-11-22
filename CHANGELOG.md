@@ -11,6 +11,9 @@ older returns, items, and back ends keep working.
   an inbox, at most six lines of each. The start files tell a conversation to read the page again
   each time the talk moves to another project and to say what is new. Opt-in, `status = true`
   under `[notify]`: one push for each new status line, under the same limits as critical items.
+  Every push now carries `COLLAB_KIT_KIND` (`critical`, `blocked`, or `status`), so a phone can
+  give each its own priority and sound ([docs/notifications.md](docs/notifications.md) has a
+  Pushover example); a command that ignores it works as before.
 - **A blocked agent's question reaches the person, and the answer reaches the agent.** The Collab
   Kit section agents read, and both skills, now say: when the work cannot go on, file the question
   as critical. `ck ask "..." --blocks W-012` does that and names the item that waits (a new,

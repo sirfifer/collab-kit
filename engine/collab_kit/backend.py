@@ -634,9 +634,11 @@ class Pass:
         appears, wherever it came from; and, only with `status = true`, each new status line (what work
         outside conversations reports: finished, blocked, started). The command gets the text in
         environment variables (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a
-        command line: titles and status lines are outside text. Each is sent once; what a pass could
-        not send (a cap, a failure) is sent by a later one; at most five a pass and twenty an hour,
-        critical items first. docs/notifications.md has examples."""
+        command line: titles and status lines are outside text. COLLAB_KIT_KIND says which kind of
+        push it is, so a phone can tell them apart: `critical`, `blocked` (a critical item that names
+        the item it blocks), or `status`. The engine sets it; it is never text from a file. Each is
+        sent once; what a pass could not send (a cap, a failure) is sent by a later one; at most five
+        a pass and twenty an hour, critical items first. docs/notifications.md has examples."""
         if not self.notify_cmd:
             raise ValueError("[notify] command must be a list of strings, e.g. [\"sh\", \"-c\", \"...\"]")
         state = self.work / "notified.json"
@@ -648,12 +650,13 @@ class Pass:
             had_status = st.get("status") is True
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             seen, times, had_status = None, [], False    # first run: remember what is there, send nothing
-        now = {}                                         # key -> (title, message, reference)
+        now = {}                                         # key -> (title, message, reference, kind)
         for name, unit in units:
             where = "top level" if name == "top" else name
             for it in unit.items():
                 if it.is_open and it.importance <= 1:
-                    now[f"{name}:{it.id}"] = (f"Collab Kit: critical in {where}", it.title, f"{where} {it.id}")
+                    kind = "blocked" if it.blocks else "critical"
+                    now[f"{name}:{it.id}"] = (f"Collab Kit: {kind} in {where}", it.title, f"{where} {it.id}", kind)
             if self.notify_status:                       # a day's worth: older lines are never news
                 since = (utcnow() - dt.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
                 try:
@@ -663,7 +666,7 @@ class Pass:
                 for at, rest in entries:
                     if len(at) > 10 and at >= since:
                         now[f"status:{name}:{at}:{sha(rest)[:8]}"] = (f"Collab Kit: status in {where}", rest,
-                                                                     f"{where} status {at} UTC")
+                                                                     f"{where} status {at} UTC", "status")
         clock = time.time()
         if seen is None:
             seen = {k: clock for k in now}
@@ -677,9 +680,10 @@ class Pass:
                 if len(times) >= self.NOTIFY_PER_HOUR:
                     self.note("push: the hourly limit is reached; the rest wait for a later pass")
                     break
-                title, text, ref = now[key]
+                title, text, ref, kind = now[key]
                 message = one_line(text, 200).lstrip("@<")        # never a curl file reference
-                env = {**os.environ, "COLLAB_KIT_TITLE": title, "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": ref}
+                env = {**os.environ, "COLLAB_KIT_TITLE": title, "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": ref,
+                       "COLLAB_KIT_KIND": kind}
                 res = run_quiet(self.notify_cmd, env=env, capture_output=True, timeout=20)
                 if res.returncode != 0:
                     raise RuntimeError(f"the notify command failed ({res.returncode}): "

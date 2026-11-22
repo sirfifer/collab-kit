@@ -595,7 +595,8 @@ rclone = ""              # with an rclone remote: the pinned binary, e.g. "~/.lo
 rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/rclone.conf"
 
 # Optional: a push notification the moment a critical item (importance 1) appears. The command gets
-# COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE and COLLAB_KIT_ITEM in its environment (docs/notifications.md):
+# COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM and COLLAB_KIT_KIND (critical, blocked, or
+# status) in its environment (docs/notifications.md):
 # [notify]
 # command = ["sh", "-c", "curl -s --max-time 10 -H \\"Title: $COLLAB_KIT_TITLE\\" --data-raw \\"$COLLAB_KIT_ITEM\\" https://ntfy.sh/<your-long-random-topic>"]
 # status = false           # true: also push each new status line (what agents report: finished, blocked)

@@ -941,6 +941,10 @@ reach the person and the answer did not reach the agent, and a back end that was
 could not be told from one between passes. Richard approved fixing all three the same day. None of
 it starts agent work, and none of it depends on section 23.
 
+Simple first (Richard, 2026-11-22; VISION.md point 8): each part is the smallest mechanism that
+does it, every new setting is off until a person turns it on, and a folder without a back end
+loses nothing (it gains the block below on its front page, and nothing else changes for it).
+
 **Saying what finished (W-030).**
 
 - The front page gains one block, "Since you last looked (the last two days)", after work in
@@ -963,6 +967,13 @@ it starts agent work, and none of it depends on section 23.
   only lines of the last day are candidates. A status line is the nearest thing to "the agent
   finished" that exists without a dispatcher. A push per settled item was left out: settling is
   mostly the person's own act.
+- Pushes can be told apart on the phone (Richard, 2026-11-22: he uses one push service for several
+  things). The command gets one more variable, `COLLAB_KIT_KIND`: `critical` (an importance 1
+  item), `blocked` (an importance 1 item that names the item it blocks, below), or `status` (a
+  status line). The engine sets it from the item's own fields, never from text in a file; a command
+  that ignores it works as before. The name is `status`, not "finished": a status line may also say
+  that work started or stopped. [docs/notifications.md](docs/notifications.md) has a Pushover
+  command that picks priority and sound by kind.
 
 **A blocked agent's question, and its answer (W-031).**
 

@@ -22,13 +22,25 @@ status line in any project sends one push, through the same command and under th
 critical items first. Lines that were already there when you turn it on are not sent. Leave it off
 if your agents report often: every line is a push.
 
-The command gets three environment variables, and nothing on its command line:
+The command gets four environment variables, and nothing on its command line:
 
 | Variable | Example |
 |---|---|
 | `COLLAB_KIT_TITLE` | `Collab Kit: critical in garden-planner` (a status line: `Collab Kit: status in garden-planner`) |
 | `COLLAB_KIT_MESSAGE` | the item's title, or the status line (outside text: it may be anything a return wrote) |
 | `COLLAB_KIT_ITEM` | `garden-planner W-012` (a status line: `garden-planner status 2026-12-01 09:15 UTC`) |
+| `COLLAB_KIT_KIND` | which kind of push this is: `critical`, `blocked`, or `status` |
+
+`COLLAB_KIT_KIND` lets a phone tell the pushes apart. It is one of three fixed words, set by the back
+end and never taken from a file:
+
+| Kind | When | What it usually means |
+|---|---|---|
+| `critical` | an importance 1 item appeared | something cannot wait: a return that could not be filed, or an item marked critical |
+| `blocked` | an importance 1 item that names the item it blocks (`ck ask --blocks`) | an agent has stopped and waits for your answer |
+| `status` | a new status line, only with `status = true` | an agent reported: often that work finished |
+
+A command that ignores the variable works as before.
 
 Always use them inside double quotes (`"$COLLAB_KIT_MESSAGE"`), never pasted into a command line by
 string building: a title or a status line is text from a file, and quoting keeps it from ever being
@@ -66,6 +78,19 @@ command = ["sh", "-c", "curl -s --max-time 10 -H \"Title: $COLLAB_KIT_TITLE\" -H
 [notify]
 command = ["sh", "-c", "curl -s --max-time 10 https://api.pushover.net/1/messages.json --form-string token=<your-app-token> --form-string user=<your-user-key> --form-string \"title=$COLLAB_KIT_TITLE\" --form-string \"message=$COLLAB_KIT_MESSAGE ($COLLAB_KIT_ITEM)\" --form-string priority=1"]
 ```
+
+**Pushover, a priority and a sound for each kind** (a blocked agent rings loudest; a status line
+arrives quietly):
+
+```toml
+[notify]
+command = ["sh", "-c", "case \"$COLLAB_KIT_KIND\" in blocked) p=1; s=siren ;; critical) p=1; s=persistent ;; *) p=0; s=magic ;; esac; curl -s --max-time 10 https://api.pushover.net/1/messages.json --form-string token=<your-app-token> --form-string user=<your-user-key> --form-string \"title=$COLLAB_KIT_TITLE\" --form-string \"message=$COLLAB_KIT_MESSAGE ($COLLAB_KIT_ITEM)\" --form-string \"priority=$p\" --form-string \"sound=$s\""]
+status = true
+```
+
+The `case` compares the kind with fixed words and sets two values of its own; the text from the
+folder still reaches curl only inside double quotes. A kind this command does not know (one a later
+kit adds) falls to the last branch.
 
 **Telegram**:
 

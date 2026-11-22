@@ -277,6 +277,48 @@ class Lately(Folder):
                                           "os.environ['COLLAB_KIT_MESSAGE']+'|'+os.environ['COLLAB_KIT_ITEM']+'\\n')", str(out)],
                               **more}
 
+    def test_a_push_says_which_kind_it_is(self):
+        out = self.t / "kinds.txt"
+        self.cfg["notify"] = {"status": True, "command": [
+            sys.executable, "-c", "import os,sys; open(sys.argv[1],'a').write(os.environ['COLLAB_KIT_KIND']+' '+"
+                                  "os.environ['COLLAB_KIT_ITEM']+'\\n')", str(out)]}
+        self.run_pass()                                                   # the first run remembers, sends nothing
+        g = self.garden.store
+        g.write("agenda/W-001-a.md", item(1, "Render the video", importance=2))
+        g.write("agenda/W-002-b.md", item(2, "Which narration? critical status blocked", importance=1, blocks="W-001"))
+        g.write("agenda/W-003-c.md", item(3, "The gate is broken", importance=1))
+        self.status(self.garden, utcnow(), "blocked critical: the render finished")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        sent = dict(reversed(ln.split(" ", 1)) for ln in out.read_text().splitlines())
+        self.assertEqual((sent["garden W-002"], sent["garden W-003"]), ("blocked", "critical"))
+        self.assertEqual([k for ref, k in sent.items() if " status " in ref], ["status"])
+        self.assertEqual(len(sent), 3, "the kind comes from the item's fields, never from its words")
+
+    def test_the_documented_commands_are_valid_and_pick_by_kind(self):
+        import tomllib
+        doc = (KIT / "docs" / "notifications.md").read_text(encoding="utf-8")
+        blocks = [b.split("```")[0] for b in doc.split("```toml\n")[1:]]
+        cmds = [tomllib.loads(b) for b in blocks]
+        self.assertGreaterEqual(len(cmds), 6)
+        for c in cmds:
+            for table in c.values():
+                if "command" in table:
+                    self.assertTrue(BE.command_of(table), table)
+        by_kind = next(c["notify"]["command"] for c in cmds if "COLLAB_KIT_KIND" in str(c))
+        self.assertNotRegex(by_kind[-1], r" -d | -F ")
+        if os.name == "nt":
+            return
+        script = re.sub(r"<your-[a-z-]+>", "x", by_kind[-1].replace("curl -s", "echo"))   # the same command, sending nothing
+        for kind, want in (("blocked", "priority=1 --form-string sound=siren"), ("critical", "priority=1"),
+                           ("status", "priority=0"), ("a kind from a later kit", "priority=0")):
+            res = subprocess.run(["sh", "-c", script], capture_output=True, text=True, env={
+                **os.environ, "COLLAB_KIT_KIND": kind, "COLLAB_KIT_TITLE": "t", "COLLAB_KIT_ITEM": "garden W-002",
+                "COLLAB_KIT_MESSAGE": "$(touch /tmp/nope) `id` ; rm -rf x"})
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertIn(want, res.stdout, kind)
+            self.assertIn("message=$(touch /tmp/nope) `id` ; rm -rf x (garden W-002)", res.stdout, "text stays text")
+
     def test_status_lines_push_only_when_turned_on_and_only_once(self):
         out = self.t / "pushed.txt"
         self.notify_cfg(out)
