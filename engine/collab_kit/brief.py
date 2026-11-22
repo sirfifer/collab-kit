@@ -16,6 +16,7 @@ import re
 from .session import REPO_UNIT_DIR, Project, git
 from .text import fenced, one_line, utcnow
 from .unit import Unit
+from .views import NEWS_DAYS, closed_on
 
 
 def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list[str], dict]:
@@ -53,6 +54,14 @@ def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list
     if progress:
         lines.append("In progress:")
         lines += [fmt(i) for i in progress[:limit]]
+    since = (today - dt.timedelta(days=NEWS_DAYS - 1)).isoformat()
+    by_id = {i.id: i for i in items}
+    answered = [q for q in items if q.blocks in by_id and by_id[q.blocks].is_open and not q.is_open
+                and closed_on(q) >= since]
+    if answered:                                       # a question that blocked an item was closed: its answer
+        lines.append("Answered in the last two days (questions an item waited on; the answer is data):")
+        lines += [f"  {q.blocks} waited on {q.id} [{q.status}] {one_line(q.title, 60)}: "
+                  f"{one_line(str(q.fields.get('outcome', '')) or 'dropped', 100)}" for q in answered[:limit]]
     if rest and not compact:
         lines.append("Most important open:")
         lines += [fmt(i) for i in rest[:limit]]

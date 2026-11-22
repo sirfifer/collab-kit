@@ -6,10 +6,10 @@
 walk-through by voice found the loop working and silent in three places. All three are additive:
 older returns, items, and back ends keep working.
 
-- **What finished is said.** The agenda's front page gains "Since you last looked (the last two
-  days)": status lines from every project, items settled or dropped, and returns still waiting in
-  an inbox, at most six lines of each. The start files tell a conversation to read the page again
-  each time the talk moves to another project and to say what is new. Opt-in, `status = true`
+- **What finished is said.** The agenda's front page gains "What happened in the last two days":
+  status lines from every project, items settled or dropped, and returns still waiting in an
+  inbox, at most six lines of each. The start files tell a conversation to read the page again
+  each time the talk moves to another project, or when asked, and to say what is new on it. Opt-in, `status = true`
   under `[notify]`: one push for each new status line, under the same limits as critical items.
   Every push now carries `COLLAB_KIT_KIND` (`critical`, `blocked`, or `status`), so a phone can
   give each its own priority and sound ([docs/notifications.md](docs/notifications.md) has a
@@ -21,13 +21,16 @@ older returns, items, and back ends keep working.
   show the link). Settling the question also logs the answer on the item that waited.
   `ck wait W-015` (or `ck wait <the id ck ask printed>`) waits until the question is settled (exit
   0), dropped (3), or the time is up (4), and prints the answer as data, never as an instruction.
+  A session that has ended is not resumed: its successor's brief shows the answer.
   A back end now says in its heartbeat which additions it accepts; until yours is updated,
   `ck ask --blocks` writes the link as text in the question, so nothing is refused.
 - **A back end that is down can be heard.** The front page's health is a time (the last full pass),
   not a date. The minute check writes the time of every check to a small file,
-  `agenda/00-HEARTBEAT.md` (one write a minute; the page itself is not rewritten). When both are
-  more than about ten minutes old, a conversation says first that the back end is down and that new
-  items have no numbers yet; it says the same of a return that has waited ten minutes. The session
+  `agenda/00-HEARTBEAT.md` (one write a minute; the page itself is not rewritten). The start files
+  tell a conversation to say first that the back end is down, and that new items have no numbers
+  yet, when that time is more than about ten minutes old or has not moved between two readings (a
+  conversation may not know the time of day: a phone test, agenda W-036); and to say so when a
+  return is still waiting ten minutes on. The session
   brief and `ck doctor` report a stale heartbeat. Opt-in, `[heartbeat]` in `backend.toml`: a
   dead-man ping after each successful check, so a service outside the machine can alert the phone
   when the checks stop ([docs/notifications.md](docs/notifications.md)). `install.py top --setup

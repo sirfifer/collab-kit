@@ -397,7 +397,7 @@ class PassOverRclone(unittest.TestCase):
                          "the new return, the item it changes (read as it is now before writing), the item "
                          "changed elsewhere: nothing else")
         pressing = self.s.read("agenda/00-PRESSING.md")
-        lately = pressing.split("## Since you last looked")[1].split("\n## ")[0]
+        lately = pressing.split("## What happened in the last two days")[1].split("\n## ")[0]
         self.assertIn("**Order seeds** (garden W-001, settled", lately)          # settled: said once, as news
         self.assertEqual(pressing.count("Order seeds"), 1)
         self.assertIn("Plan beds", pressing.split("## Critical")[1])

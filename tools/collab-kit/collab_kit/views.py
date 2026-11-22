@@ -205,9 +205,9 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
         parts.append("## In progress\n\n" + capped(busy) + "\n")
     said, closed, waiting = news([u for u in units if u[0] in read], today, unreadable, read)
     if said or closed or waiting:
-        lately = ["## Since you last looked (the last two days)\n"]      # NEWS_DAYS
+        lately = ["## What happened in the last two days\n"]             # NEWS_DAYS
         if said:
-            lately.append("Reported by work outside conversations (status lines, newest first):\n\n" + "\n".join(said) + "\n")
+            lately.append("Status lines, newest first:\n\n" + "\n".join(said) + "\n")
         if closed:
             lately.append("Settled or dropped:\n\n" + "\n".join(closed) + "\n")
         if waiting:

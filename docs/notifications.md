@@ -19,15 +19,17 @@ status = false     # true: also one push for each new status line
 **Status lines, when you want to hear that work finished.** Agents report where things stand with
 `ck status` ("the ablation finished: 3 of 4 runs beat the baseline"). With `status = true`, each new
 status line in any project sends one push, through the same command and under the same limits,
-critical items first. Lines that were already there when you turn it on are not sent. Leave it off
-if your agents report often: every line is a push.
+critical items first. The push carries the line's heading: who reported, and its topic (the first
+80 characters of a `ck status`). Lines that were already there when you turn it on are not sent,
+and neither are lines filed under your own name (a conversation's). Leave it off if your agents
+report often: every line is a push.
 
 The command gets four environment variables, and nothing on its command line:
 
 | Variable | Example |
 |---|---|
 | `COLLAB_KIT_TITLE` | `Collab Kit: critical in garden-planner` (a status line: `Collab Kit: status in garden-planner`) |
-| `COLLAB_KIT_MESSAGE` | the item's title, or the status line (outside text: it may be anything a return wrote) |
+| `COLLAB_KIT_MESSAGE` | the item's title, or the status line's heading (outside text: it may be anything a return wrote) |
 | `COLLAB_KIT_ITEM` | `garden-planner W-012` (a status line: `garden-planner status 2026-12-01 09:15 UTC`) |
 | `COLLAB_KIT_KIND` | which kind of push this is: `critical`, `blocked`, or `status` |
 
@@ -105,8 +107,9 @@ Keep tokens out of any repository: `backend.toml` lives in the machine's own con
 
 A push tells you about the folder. It cannot tell you that the back end is down, because the back
 end is what sends it. Inside the folder the silence is visible: the back end writes the time of
-every check (each minute) to `agenda/00-HEARTBEAT.md`, and a conversation that finds it more than
-about ten minutes old says so first. But that needs a conversation. For the hours between, something
+every check (each minute) to `agenda/00-HEARTBEAT.md`, and the start file tells a conversation to
+say so first when that time is more than about ten minutes old, or has not moved between two
+readings. But that needs a conversation, and one that looks. For the hours between, something
 outside the machine has to notice that the checks stopped.
 
 That is a dead-man's switch: a service you tell "still here" every few minutes, and which alerts you

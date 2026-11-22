@@ -143,9 +143,10 @@ work. The agent checks its task against that before planning. As it works:
   cannot go on without the answer, its rules tell it to say so (`ck ask "..." --blocks W-012`): the
   question is then critical and names the item that waits, so it opens your next conversation and
   can push to your phone [24].
-- You answer by voice: the conversation settles the question with your answer as its outcome. The
-  answer is also logged on the item that waited, and an agent that is still running and waiting
-  (`ck wait`) gets it within minutes, printed as data, never as an instruction.
+- You answer by voice: the conversation settles the question with your answer as its outcome. An
+  agent that is still running and waiting (`ck wait`, an hour unless told otherwise) gets it within
+  minutes, printed as data, never as an instruction. A session that has ended is not resumed: the
+  answer is logged on the item that waited, and the next session's brief shows it.
 - A second hook, at the end of a turn, notices when the session changed files and recorded nothing.
 
 All of these are returns too. One inbox, one grammar, one set of scripts, whoever is writing.
@@ -191,10 +192,12 @@ to change.
 
 When a back end exists and is late or stopped, conversations and agents still file returns; they
 wait in the inbox [21]. The front page gives the time of the back end's last full pass, and the
-heartbeat file the time of its last check. When both are more than about ten minutes old, the
-conversation tells you first that the back end is down, and what that means: new items have no
-numbers yet, so follow-ups to them wait. It says the same when a return has sat in an inbox for
-more than about ten minutes [24]. A back end that is down cannot push, so the alarm for that has to
+heartbeat file the time of its last check. The start file tells the conversation to say first that
+the back end is down, and what that means (new items have no numbers yet, so follow-ups to them
+wait), when both are more than about ten minutes old, or when the heartbeat has not moved between
+two readings; and to say so when a return is still in an inbox ten minutes on [24]. Whether a
+voice conversation knows the time of day well enough for the first test is still to be tried on a
+phone. A back end that is down cannot push, so the alarm for that has to
 come from outside the machine: an optional dead-man ping ([notifications](notifications.md)).
 
 ## The details that keep it hands-free

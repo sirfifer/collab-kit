@@ -82,7 +82,8 @@ the project says today.
 5. **Agents meet you in the middle.** In a project's repository, every agent session starts with a
    brief of what you decided and what is waiting, and records its own progress and questions through
    the same inbox. A question that blocks its work is filed as critical and names what it blocks;
-   your spoken answer reaches the agent, and what it finished is on the front page. Today you start each session yourself; having the kit start one for a task you
+   your spoken answer reaches an agent that is still waiting, or the next session's brief; and
+   what agents report is on the front page. Today you start each session yourself; having the kit start one for a task you
    marked is proposed, not built ([DESIGN-0.5.md](DESIGN-0.5.md), section 23).
 
 A return dictated on a phone was on the agenda about three minutes later (measured on the author's
@@ -158,8 +159,9 @@ back end on an always-on Mac since 2026-11-18.
 | Projects in their own git repositories, or entirely in the folder | Sharing a project with other people |
 | Starting a new project by voice | The back end starting agent work by itself (decided against for 0.5; the first candidate for the next release) |
 | A push to your phone when something critical appears (optionally, when an agent reports) | The top level in a repository of its own |
-| Hearing what finished, and that the back end is down, without asking | A plot, a page, or a video reaching the phone |
-| A blocked agent's question reaching you as critical, and your answer reaching the agent | Resuming an agent session that ended before your answer |
+| Hearing what finished at the start of a talk and at each change of project (or by a push you turn on) | A plot, a page, or a video reaching the phone |
+| Hearing that the back end is down: in a talk, and from outside by a dead-man ping you turn on | Being told in the middle of a talk, unasked, that something just finished |
+| A blocked agent's question reaching you as critical, and your answer reaching an agent that waits | Resuming an agent session that ended before your answer |
 
 The GitHub Actions back end is written but has not run against a live Drive. The design record,
 [DESIGN-0.5.md](DESIGN-0.5.md), marks everything that is planned and not built.

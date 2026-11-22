@@ -233,7 +233,7 @@ class Lately(Folder):
         self.s.write("projects/garden/collab-kit/_returns/2026-11-22-0601-half.md", "Project: garden\nChanges v1:\nstatus \"x\"\n")
         p, rc = self.run_pass()                                           # no End. yet: the pass leaves it waiting
         page = self.page()
-        lately = page.split("## Since you last looked (the last two days)")[1].split("\n## ")[0]
+        lately = page.split("## What happened in the last two days")[1].split("\n## ")[0]
         self.assertIn("garden: Claude Code in garden: The ablation finished", lately)
         self.assertIn("top level: Claude Code in garden: Disks checked", lately)
         self.assertLess(lately.index("Disks checked"), lately.index("The ablation finished"), "newest first")
@@ -244,17 +244,17 @@ class Lately(Folder):
         self.assertNotIn("Still open", lately)
         self.assertRegex(lately, r"- garden: 1 return\(s\), the oldest written \d{4}-\d\d-\d\d \d\d:\d\d UTC")
         heads = [ln for ln in page.splitlines() if ln.startswith("## ")]
-        self.assertEqual(heads[-2:], ["## Since you last looked (the last two days)", "## Important (importance 2)"])
+        self.assertEqual(heads[-2:], ["## What happened in the last two days", "## Important (importance 2)"])
         self.assertIn("Titles and status lines are quoted", page)
 
     def test_the_block_is_short_and_absent_when_there_is_nothing(self):
         self.run_pass()
-        self.assertNotIn("Since you last looked", self.page())
+        self.assertNotIn("What happened in the last two days", self.page())
         now = utcnow()
         for n in range(1, 10):
             self.status(self.garden, now - dt.timedelta(minutes=n), f"Step {n} done")
         self.run_pass()
-        lately = self.page().split("## Since you last looked")[1]
+        lately = self.page().split("## What happened in the last two days")[1]
         self.assertEqual(lately.count("\n- "), V.NEWS_CAP + 1)
         self.assertIn("- ... and 3 more", lately)
 
@@ -343,6 +343,11 @@ class Lately(Folder):
         self.assertRegex(ref, r"^garden status \d{4}-\d\d-\d\d \d\d:\d\d UTC$")
         self.run_pass()
         self.assertEqual(len(out.read_text().splitlines()), 2, "never twice")
+        from collab_kit.apply import STATUS_FILE, add_status_entry             # the person's own line, by voice
+        self.garden.store.write(STATUS_FILE, add_status_entry(self.garden.store.read(STATUS_FILE), "garden", "Sam",
+                                                              "I moved the beds", "x", utcnow() + dt.timedelta(minutes=2)))
+        self.run_pass()
+        self.assertEqual(len(out.read_text().splitlines()), 2, "her own status line is not pushed back at her")
 
     def test_a_status_push_shares_the_caps(self):
         out = self.t / "pushed.txt"
@@ -501,6 +506,10 @@ class Agent(unittest.TestCase):
         self.assertIn("importance 1, blocks W-001] Which narration?", self.ck("brief").stdout)
         self.ck("return", "--type", "decision", "--topic", "t", "--change", 'settle W-002 "narration" outcome="the calm voice"')
         self.assertIn('(Waits on W-002, "Which narration?" [settled: the calm voice].)', self.ck("show", "W-001").stdout)
+        brief = self.ck("brief").stdout                                   # the next session finds the answer unasked
+        self.assertIn("Answered in the last two days", brief)
+        self.assertIn("W-001 waited on W-002 [settled] Which narration?: the calm voice", brief)
+        self.assertLess(brief.index("<collab-kit-data"), brief.index("the calm voice"), "an answer is data: inside the fence")
 
     def test_an_older_back_end_gets_the_link_as_text_and_nothing_fails(self):
         self.back_end()                                                   # a heartbeat from before the field
@@ -617,7 +626,7 @@ class Words(unittest.TestCase):
         set_human("Sam")
         text = " ".join(top_start_file("backend").split())
         for words in ("again each time the talk moves to another project", "what finished", "agenda/00-HEARTBEAT.md",
-                      "more than about ten minutes", "no numbers", "follow-ups", "blocks ="):
+                      "more than about ten minutes", "has not moved", "no numbers", "follow-ups", "blocks ="):
             self.assertIn(words, text)
         self.assertNotIn("two or more days", text)
 

@@ -107,7 +107,7 @@ From anywhere inside the repository, `tools/collab-kit/ck` (from another folder,
 
 | Command | What it does |
 |---|---|
-| `ck brief` | what the session-start hook shows: the inbox, what is critical, due, in progress, recent status, other unmerged work, whether a newer kit exists |
+| `ck brief` | what the session-start hook shows: the inbox, what is critical, due, in progress, answers that arrived for items that waited, recent status, other unmerged work, whether a newer kit exists |
 | `ck ask "..." [--kind decision] [--importance 2] [--due 2026-12-01] [--why "..."]` | put a question or decision on the agenda |
 | `ck ask "..." --blocks W-012` | the same, when the work on W-012 cannot go on without the answer: filed as critical (importance 1), and linked to W-012 |
 | `ck wait W-015` or `ck wait <the id ck ask printed>` `[--timeout 60] [--every 60]` | wait until the item is settled (exit 0), dropped (3), or the time is up (4); 2: it cannot be told. Prints the answer as data. Run it in the background |

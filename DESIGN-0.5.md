@@ -947,7 +947,7 @@ loses nothing (it gains the block below on its front page, and nothing else chan
 
 **Saying what finished (W-030).**
 
-- The front page gains one block, "Since you last looked (the last two days)", after work in
+- The front page gains one block, "What happened in the last two days", after work in
   progress and before the important items: status lines from every unit's `knowledge/status.md`
   (the heading of each dated entry, newest first), items settled or dropped (with the outcome), and
   each inbox that still holds returns (how many, and when the oldest was written). The window is
@@ -958,13 +958,16 @@ loses nothing (it gains the block below on its front page, and nothing else chan
   agenda items were already read. A level 1 page carries the block too, since sessions rebuild it
   with the same code.
 - The start files tell a conversation to read the front page again each time the talk moves to
-  another project, and to say in a sentence what is new since it last looked; at its start, after
-  what is pressing, one sentence on what finished lately.
+  another project (and whenever the person asks whether something finished), and to say in a
+  sentence only what was not on it at the last reading; at its start, after what is pressing, one
+  sentence on what finished lately. The block is not called "since you last looked": its window is
+  fixed, and the conversation is the one that knows what it has already said.
 - A push when work finishes, off by default: `status = true` under `[notify]` also pushes each new
   status line (what sessions report with `ck status`: finished, blocked, started). It is the same
   mechanism: once per line, the same five a pass and twenty an hour (critical items first), the
   text only in environment variables. Lines already there when it is turned on are not sent, and
-  only lines of the last day are candidates. A status line is the nearest thing to "the agent
+  only lines of the last day are candidates; a line the person filed themself (a conversation's
+  own status) is never pushed back at them. A status line is the nearest thing to "the agent
   finished" that exists without a dispatcher. A push per settled item was left out: settling is
   mostly the person's own act.
 - Pushes can be told apart on the phone (Richard, 2026-11-22: he uses one push service for several
@@ -998,8 +1001,8 @@ loses nothing (it gains the block below on its front page, and nothing else chan
 - The answer reaches the item: when a question with `blocks` is settled or dropped, the same
   return also writes one line on the log of the item that waited ("W-015 (...), which this item
   waited on, was settled: ..."), if it is still open. The next session on that item finds the
-  answer where it looks first. The item's own state is not changed, and an undo takes the line
-  back.
+  answer where it looks first: the session brief lists it ("Answered in the last two days"). The
+  item's own state is not changed, and an undo takes the line back.
 - `ck wait W-015`, or `ck wait <the id ck ask printed>`: a session that can wait looks at the item
   once a minute until it is settled (exit 0), dropped (3), or the time is up (4; `--timeout`
   minutes, default 60); 2 means it cannot be told (no such item, or the return was refused). Named
@@ -1032,10 +1035,14 @@ loses nothing (it gains the block below on its front page, and nothing else chan
   schedule) keeps no heartbeat file. Its front page says instead that the back end is down when the
   page's time is more than the interval and ten minutes old.
 - What a conversation does (the start files): when the front page's time is more than about ten
-  minutes old it reads the heartbeat; when that is also more than about ten minutes old it says,
-  first and in one sentence, that the back end is down and what that means (returns wait safely;
-  what they add has no numbers yet, so follow-ups wait). It says the same of any return, its own
-  or one it finds in an inbox, that has waited more than about ten minutes.
+  minutes old, or it cannot tell, it reads the heartbeat. The back end is down when that time is
+  also more than about ten minutes old, or, for a conversation that does not know the time of day,
+  when it has not moved between two readings a few minutes apart. It then says so, first and in one
+  sentence, with what that means (returns wait safely; what they add has no numbers yet, so
+  follow-ups wait). It says the same of a return it filed that is still in the inbox ten minutes
+  on, or one it finds there that it did not just write. Cost: with a back end the way in is about
+  seven calls, the limit of one spoken reply, since full passes are hourly and the heartbeat is
+  usually read (found by the capability walk-through of 2026-11-22).
 - What a session sees: the brief says "THE BACK END IS NOT CHECKING THE INBOXES" when the heartbeat
   is more than ten minutes old, and `ck doctor` lists a stale heartbeat with what to look at.
   Where returns go does not change (section 21): they are filed, never applied here. A back end
@@ -1052,8 +1059,8 @@ loses nothing (it gains the block below on its front page, and nothing else chan
   `agenda/_versions/`.
 
 Open, for a real phone (agenda W-036): whether a voice conversation knows the time of day well
-enough to judge "ten minutes ago". The start file tells it to take the modified time of a file it
-just wrote as the time now.
+enough to judge "ten minutes ago" at its start. Until that is known, hearing an outage by voice
+rests on the second reading, and hearing it at once rests on the dead-man ping.
 
 ## Out of scope for 0.5
 

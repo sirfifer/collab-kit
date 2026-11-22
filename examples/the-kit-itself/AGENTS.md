@@ -21,7 +21,9 @@ command is `tools/collab-kit/ck` (from another folder, use its full path; the br
    next conversation and can reach their phone. With no item to name, `--importance 1`. An ordinary
    question stays at the default. A session that can wait runs `ck wait <what ck ask printed>` in
    the background: it ends when the question is settled (exit 0), dropped (3), or the time is up
-   (4). Meanwhile do what does not depend on the answer.
+   (4). Meanwhile do what does not depend on the answer. If the time is up, or the session has to
+   end, record what waits (`ck status`): the answer is not lost. It is logged on the item that
+   waited, and the next session's brief shows it.
 3. **Record where things stand.** When the work changes the project's state (finished, started,
    blocked, learned), `ck status "..."`. When it settles or advances an agenda item, file that
    (skill `collab-kit-return`). When it changes what the project knows, update its knowledge

@@ -14,23 +14,24 @@ is going on, and anything new, is on the agenda.
 1. **This file**, once.
 2. **The agenda, before anything else.** Its front page, `agenda/00-PRESSING.md`, lists across every
    project what needs {{human}} first: anything overdue or due soon, critical items (importance 1),
-   work in progress, and what happened in the last two days ("Since you last looked": status lines
-   from work outside conversations, items settled, returns still waiting in an inbox). Raise anything
-   overdue, due within a week, or critical in a sentence or two, before anything else and without
-   being asked; then say in one sentence what finished lately, if anything did.
-   **Read the page again each time the talk moves to another project,** and say in a sentence what
-   is new on it since you last looked: what finished, what was settled, a new critical question.
+   work in progress, and what happened in the last two days (status lines, items settled, returns
+   still waiting in an inbox). Raise anything overdue, due within a week, or critical in a sentence
+   or two, before anything else and without being asked; then say in one sentence what finished
+   lately, if anything did.
+   **Read the page again each time the talk moves to another project, and whenever {{human}} asks
+   whether something finished.** Say in a sentence only what was not on it when you last read it:
+   what finished, what was settled, a new critical question.
    Without a back end, keep the page current yourself: when you set or change a due date or
    importance 1, or settle such an item, add, change, or remove its line there (by versioning). If
    the page is missing, list `agenda/` and read the open items.
 3. **Is the back end running?** (Only when one runs for this folder; see above.) The front page
    opens with the time of the back end's last full pass. If that is more than about ten minutes
-   ago, read `agenda/00-HEARTBEAT.md` as well: one line, the time the back end last checked the
-   inboxes, which it does every minute. If that too is more than about ten minutes ago, the back
-   end is down. Tell {{human}} first, in one sentence, and what it means: returns wait safely in
-   the inboxes, but the items they add have no numbers yet, so follow-ups to them wait. Do the same
-   check each time you read the page again. Times are UTC; if you are not sure of the time now, the
-   modified time of a file you just wrote is now.
+   ago, or you cannot tell, read `agenda/00-HEARTBEAT.md` as well: one line, the time (UTC) the
+   back end last checked the inboxes, which it does every minute. Remember that time. The back end
+   is down if it is more than about ten minutes ago, or, when you are not sure of the time now, if
+   it has not moved when you read the file again a few minutes later (do that each time you read
+   the page again). Then tell {{human}} first, in one sentence, and what it means: returns wait
+   safely in the inboxes, but the items they add have no numbers yet, so follow-ups to them wait.
 4. **`WIP/`**: list it here, and in a project's folder once you work there. Leftover notes mean an
    unfinished thread (often a dropped call): tell {{human}} and offer to finish the save.
 5. **`knowledge/projects.md`**, when the talk turns to a project or to {{human}}'s work in general:
@@ -39,8 +40,8 @@ is going on, and anything new, is on the agenda.
    `knowledge/project-cards/<folder>.md`, holds its vision, story, and timeline. Go only as deep as the
    conversation needs: the list, then the card, then the project's own Collab Kit folder.
 
-These steps take about five tool calls, six when the heartbeat is read. If the first reply runs out,
-finish them in the next one, before anything else.
+These steps take about seven tool calls with a back end, one fewer without. If the first reply runs
+out, finish them in the next one, before anything else.
 
 ## How you work here
 
@@ -172,8 +173,8 @@ it applies the return within a few minutes of it arriving, and reports anything 
 on the agenda.
 
 **A return that is still waiting.** With a back end, a return leaves the inbox within about three
-minutes. If one you filed, or one you find when you list an inbox, is still there after about ten
-minutes (its name starts with the date and time it was written), say so in one sentence: the back
+minutes. If one you filed earlier in this talk is still there when you list the inbox about ten
+minutes later, or you find one there that you did not just write, say so in one sentence: the back
 end has not applied it, so what it adds has no item number yet, and follow-ups to it wait. Then
 look at the heartbeat (step 3 at the top). Leave the return where it is: never apply it yourself
 when a back end runs, and never file it again.

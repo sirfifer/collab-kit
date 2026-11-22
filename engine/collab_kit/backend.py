@@ -664,6 +664,8 @@ class Pass:
                 except (StoreError, OSError):
                     entries = []
                 for at, rest in entries:
+                    if rest == self.human or rest.startswith(f"{self.human}:"):
+                        continue                         # the person's own line (a conversation's): not news to them
                     if len(at) > 10 and at >= since:
                         now[f"status:{name}:{at}:{sha(rest)[:8]}"] = (f"Collab Kit: status in {where}", rest,
                                                                      f"{where} status {at} UTC", "status")

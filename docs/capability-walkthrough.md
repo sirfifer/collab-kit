@@ -66,18 +66,18 @@ turn them on, and the test reports each level on its own.
 | C-07 | Change a document by voice and hear the new text | agents | no: W-015 |
 | C-08 | Start agent work (an experiment, a render, an edit) | agents | typing: W-026 |
 | C-09 | Hear a text result when she asks | back end | works |
-| C-10 | Learn that work finished without asking | back end | no: W-030 |
+| C-10 | Learn that work finished without asking | back end | works at the start of a talk and at each change of project, or by a push she turns on; not in the middle of a talk: W-030 |
 | C-11 | See a plot, a page, or a video on the phone | agents | no: W-029 |
-| C-12 | Be told an agent is stuck, and have her answer reach it | back end | no: W-031 |
-| C-13 | Start a brainstorm that belongs to no project, with no ceremony | folder | not yet walked |
+| C-12 | Be told an agent is stuck, and have her answer reach it | back end | works for a session that is still waiting; one that ended finds the answer in its successor's brief: W-031 |
+| C-13 | Start a brainstorm that belongs to no project, with no ceremony | folder | works |
 | C-14 | Turn an idea into a project by saying so | back end | works, in two steps |
 | C-15 | Get a repository and a working agent for the new project | agents | no: W-035 |
-| C-16 | Know within minutes that the back end is down | back end | no: W-032 |
+| C-16 | Know within minutes that the back end is down | back end | works by a dead-man ping she turns on; by voice it needs a clock or a second look: unknown, W-032 and W-036 |
 | C-17 | Hand a long conversation over to a fresh one | folder | no: W-033 |
-| C-18 | Ask "is everything saved" and get a short, true answer | folder | slow: W-034 |
+| C-18 | Ask "is everything saved" and get a short, true answer | folder | works, slow: W-034 |
 | C-19 | Stop or pause running work by voice | agents | no: W-026 |
 | C-20 | Approve a merge and a push by voice, and have them happen | agents | no: W-015 |
-| C-21 | Tell at a glance which push on the phone needs her now | back end | not yet walked |
+| C-21 | Tell at a glance which push on the phone needs her now | back end | works with a command that picks by kind; how it looks on a lock screen is a phone test |
 
 "W-" numbers are items on the kit's own agenda.
 
@@ -142,4 +142,5 @@ marked retired, with the reason, so the history stays readable.
 
 | Run | Hands-free | Typing only | Neither | Notes |
 |---|---|---|---|---|
-| 2026-11-22 (kit 0.5.3) | about 40% | about 25% | about 35% | The first run. Ten gaps; nine filed as agenda items W-026 and W-029 to W-035, with W-015. C-13 and C-21 were added afterwards and are not yet walked. |
+| 2026-11-22 (kit 0.5.3) | about 40% | about 25% | about 35% | The first run. Ten gaps; nine filed as agenda items W-026 and W-029 to W-035, with W-015. C-13 and C-21 were added afterwards and are not yet walked. Its shares were of the day; counted by capability its table gives 8 works, 1 typing, 10 no, of 19. |
+| 2026-11-22, second run (kit 0.5.3 with the round-trip fixes, DESIGN-0.5 section 24) | 13 of 21 (62%) | 1 of 21 (5%) | 7 of 21 (33%) | Counted by capability ("slow" counts as works). No regression. C-10, C-12 and C-16 changed from no to works, each with a limit named in the table; C-13 and C-21 walked for the first time. By level: folder 7 of 9, back end 6 of 6 (three of them through settings that are off until turned on), agents 0 of 6 (1 typing). The way in now costs about seven calls with a back end, the limit of one spoken reply. Judged from the repository: the owner's back end and start files did not yet run this version. |
