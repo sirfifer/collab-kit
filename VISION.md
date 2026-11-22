@@ -26,8 +26,10 @@ already took your hands. Collab Kit gives the conversation the project itself: i
 loaded a piece at a time, so the context holds the talk and the few files that matter to it. It does
 this for every project at once, so moving from one project to the next is a sentence.
 
-And nothing waits. What a conversation works out is filed within minutes, the agents doing the work
-start from it, and their questions are on the agenda before the next conversation begins.
+And the aim is that nothing waits. Today, what a conversation works out is filed within minutes, the
+next agent session starts from it, and an agent's questions are on the agenda before the next
+conversation begins. Starting that agent session still takes a person; closing that gap is the next
+step (DESIGN-0.5.md, section 23).
 
 ## The test
 

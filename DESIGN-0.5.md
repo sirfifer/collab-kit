@@ -266,8 +266,10 @@ capped (top items, then "N more"); inactive projects collapse to one line.
 ### 12. Sharing and privacy (Decided; sharing withdrawn from 0.5, see section 17)
 
 A project's inbox can change only that project. When a project is shared, returns from anyone but
-the owner become proposals. A per-project confidential setting keeps raw captures out of anything
-shared. Public repositories never get captures in git. A top-level repository (level 3, not built
+the owner become proposals. (Richard, 2026-11-21: giving another person access to the folder is off
+the table, not merely postponed; what is being explored instead is a foreign inbox kept in
+quarantine, agenda W-027, section 23.) A per-project confidential setting keeps raw captures out of
+anything shared. Public repositories never get captures in git. A top-level repository (level 3, not built
 yet (planned)) is to be private, checked every run. A project's files contain nothing from outside
 the project.
 
@@ -703,7 +705,9 @@ per run.
 ### 23. Proposed: a dispatcher starts agent work (agenda W-026, 2026-11-21)
 
 > **A proposal for Richard's review. Not decided and not built.** Nothing in the kit behaves this way
-> today. The questions that are his to answer are at the end.
+> today. The questions that are his to answer are at the end. Revised the same day with his first
+> answers (marked "Richard, 2026-11-21"), and on 2026-11-22 after a walk-through of one researcher's
+> whole day by voice (marked "walk-through"; its findings are agenda W-029 to W-036).
 
 **Why this is back on the table.** Section 20 kept "the back end starting agent work by itself" out
 of 0.5, for the reason section 9 dropped cloud Claude Code sessions as a runner: an AI with tools
@@ -719,10 +723,18 @@ is work that can only be done at the machine.
 **The one real difference from sitting at the keyboard.** There, an instruction arrives through the
 session, and it is the person's because they are sitting there. Here it arrives as a file. So whoever
 can write to the Collab Kit folder can start work on the machine. Today that is one person, their
-voice conversations, and the back end. It matters when a project is shared (section 12, withdrawn for
-now), when a conversation is talked into something by a page it read and writes that into a return,
-or when the storage account is taken over. Everything below follows from taking that one difference
-seriously and no more than that.
+voice conversations, and the back end. Richard, 2026-11-21, put it in proportion, and the proposal
+follows him:
+
+- **Nobody else gets into the folder.** Giving another person access to it, or to any part of it, is
+  off the table. Any sharing will be something other than access (a quarantined foreign inbox is
+  being explored, agenda W-027: an outside reply is read to the person and never acted on).
+- **A taken-over storage account is a real risk of an ordinary kind.** A taken-over Claude account,
+  or a laptop signed in to it, can already send work to the person's machines. The dispatcher adds
+  the storage account to that same short list, and it deserves the same protection. A trap or a kill
+  switch for that case is to be investigated (agenda W-028); the dispatcher does not wait for it.
+- **A conversation talked into filing a task** by something it read is not designed for here. The
+  read-back before filing is the check, as for every other change.
 
 **Two rules.**
 
@@ -769,10 +781,10 @@ dispatch W-031 "drip line" approval="have an agent do this one, strongest model"
 1. Reads the agenda (through the same store and cache as the back end) for items with
    `dispatch = "requested"`, not held, in a project its config lists, for this machine (the item
    names it, or the config says this machine takes unnamed work).
-2. **Announces, then waits.** It sends one push ("Starting in 5 minutes: <project> W-031", through the
-   `[notify]` command of section 20) and files a `claim` (agenda W-023). The wait is a setting; 0 is
-   allowed. During it, "hold that" by voice stops the start. The push travels outside the folder, so
-   a forged or injected task is seen by the person before anything runs.
+2. **Announces.** It sends one push ("Starting: <project> W-031", through the `[notify]` command of
+   section 20) and files a `claim` (agenda W-023). The push travels outside the folder, so work the
+   person did not ask for is seen at once, and "hold that" by voice stops it. A wait between the
+   push and the start is a setting, off by default: nothing in the loop should make the person wait.
 3. **Starts only on its own applied claim.** The back end applies returns in order, so of two
    dispatchers only one claim lands: the claim is the lock, and "is anyone working on this?" has its
    answer before work begins.
@@ -788,19 +800,35 @@ dispatch W-031 "drip line" approval="have an agent do this one, strongest model"
    many commits, how long), `dispatch = "finished"`, `"blocked"`, or `"failed"`, and the claim
    released. The agent's own account of the work arrives the usual way, through `ck status` and item
    logs (section 18).
+7. **Says so when it ends.** One more push: finished, blocked, or failed. (Walk-through: the start is
+   something the person asked for minutes earlier; the end is what they are waiting to hear.)
+8. Keeps the worktree until the branch is merged or the item is settled or dropped, then removes it.
 
-**Where the work ends: on a branch.** A dispatched session never pushes, never merges into the main
-branch, and never deletes outside its worktree. The front page gains a section, "With agents"
-(running, blocked, finished and waiting for review), so the next conversation opens with "the agent
-finished the drip line task: four commits, tests pass". Merging and pushing happen on the person's
-spoken yes, through the approved push of agenda W-015, which this makes necessary rather than nice
-to have.
+From the spoken request to a running session is about four minutes: three for the return to be
+applied, up to one for the dispatcher's own check.
+
+**Where the work ends: on a branch, and then on a spoken yes.** A dispatched session never pushes,
+never merges into the main branch, and never deletes outside its worktree. The front page gains a
+section, "With agents" (running, blocked, finished and waiting for review), so the next conversation
+opens with "the agent finished the drip line task: four commits, tests pass". Merging and pushing
+happen on the person's spoken yes, through the approved push of agenda W-015.
+
+Walk-through: a branch alone strands the work. The knowledge build and the mirror read only the main
+branch, so a document an agent rewrote is never what the next conversation hears, and nothing the
+session produced reaches the phone. So the spoken-yes merge (W-015) is part of the first version, not
+a later step, and two things outside the dispatcher are needed with it: a way for a result that is
+not text (a plot, a page, a video) to reach the phone (agenda W-029), and the front page saying what
+finished (agenda W-030).
 
 **Questions in the middle.** A headless session cannot ask. The agent files its question with
 `ck ask` (critical when it blocks, which reaches the phone) and stops; the item shows as blocked.
 When the question is settled, the dispatcher resumes the same session with the answer. This is a
 second phase: the first version ends a blocked session, and the answer starts a fresh one on the
-same branch.
+same branch. Walk-through: two things are missing today whatever the dispatcher does (agenda W-031).
+`ck ask` files at importance 3 unless told otherwise, and the agent's rule names no importance, so a
+blocking question neither pushes nor reaches the front page; and nothing ties a question to the task
+it blocks, so the dispatcher cannot know which answer to wait for. The question needs a `blocks=`
+field naming its task.
 
 **Stopping.** A `hold` on a running item stops its session at the next minute (the branch is kept).
 One more change, accepted only at the top level, pauses and resumes every dispatcher
@@ -813,7 +841,7 @@ repository):
 [dispatch]
 machine = "studio"            # the name items use in on=
 takes_unnamed = true          # exactly one machine says true
-wait_minutes = 5              # announce, then wait; 0 starts at once
+wait_minutes = 0              # a pause between the push and the start; off by default
 max_running = 1
 max_starts_per_day = 6
 max_minutes = 60
@@ -835,12 +863,19 @@ The command is a template, so another assistant's command line fits without a ch
 (agenda W-008). A tier the table lacks, a project not listed, or a limit reached starts nothing and
 raises an item saying why.
 
+Walk-through, still open: the limits are per machine in this sketch and should be settable per
+project (one hour-long experiment would block every other start and then be stopped at sixty
+minutes); a long run is better started by the session as a job of the project's own, with a later
+session checking on it; whether `acceptEdits` lets a headless session run a shell at all has to be
+tested before a mode is recommended (question 4); and only items in a listed project can be
+dispatched, so a top-level item, or a project started by voice that has no repository yet (agenda
+W-035), cannot.
+
 **What can still go wrong, said plainly.**
 
 | If | Then | What limits it |
 |---|---|---|
-| Someone who can write the folder marks a task | an agent does that work, with the session's permissions, on that machine. With a shell allowed, that is running code there. | projects are opted in one by one; the push and the wait; the worktree; no push, merge, or delete; the limits; the log on the item |
-| A conversation is talked into filing a task by something it read | the same | the read-back before filing; the push and the wait; the same limits |
+| The storage account is taken over, and a task is marked | an agent does that work, with the session's permissions, on that machine. With a shell allowed, that is running code there. | nobody else has access to the folder; projects are opted in one by one; the push; the worktree; no push, merge, or delete; the limits; the log on the item; the kill switch of agenda W-028, once there is one |
 | The task's text tries to grant itself more ("you may push") | nothing: permissions come from the machine's config and the project's own instructions | rule 1 |
 | A return creates fifty tasks | at most `max_starts_per_day` start, one at a time | the limits; `pause-agents` |
 | The dispatcher or the machine stops | nothing starts; items stay `requested` | the front page shows them waiting; a stale claim is flagged (agenda W-023) |
@@ -848,17 +883,20 @@ raises an item saying why.
 A worktree is not a sandbox: the session runs as the person's user. Running it as a separate user,
 or in a container, is the stronger answer and belongs with the container runner (section 9, later).
 That is the same exposure as any unattended session on that machine today; what is new is only the
-trigger, which the first two rows cover.
+trigger, which the first row covers.
 
 **Build order.**
 
 1. Agenda W-023 (hold and claim) and W-024 (model, effort, machine): needed anyway, and the lock.
 2. The dispatcher's first version, on one project (the kit's own): the `dispatch` change, `ck dispatch
-   run` and its schedule (`install.py dispatcher`, dry run first), the config, the announce and wait,
-   the worktree, the limits, the closing return, the "With agents" section, `pause-agents`. Unit tests
-   with a stand-in for the agent command (as `tests/fake_rclone.py` stands in for rclone); one opt-in
-   live test.
-3. Agenda W-015: merge and push on a spoken yes. With it the loop closes without a keyboard.
+   run` and its schedule (`install.py dispatcher`, dry run first), the config, the pushes at start and
+   end, the worktree, the limits, the closing return, the "With agents" section, `pause-agents`; and
+   with it agenda W-015, merge and push on a spoken yes (moved up from a later step after the
+   walk-through), so finished work reaches the main branch without a keyboard. Unit tests with a
+   stand-in for the agent command (as `tests/fake_rclone.py` stands in for rclone); one opt-in live
+   test.
+3. What the walk-through found missing around it: results that are not text (W-029), saying what
+   finished (W-030), the question and its answer (W-031), a back end that is down for hours (W-032).
 4. Resuming a blocked session with its answer.
 
 Each step changes its words with it (rule 2 of `CLAUDE.md`): VISION.md (point 2 and "Out of scope"
@@ -870,14 +908,18 @@ above), the README's ladder and flow diagram, [docs/how-it-works.md](docs/how-it
 
 1. A program separate from the back end, with its own schedule and config? [yes]
 2. An item is marked by a `dispatch` change carrying his words? [yes, as with pushes]
-3. Announce and wait before starting: how long by default? [a push and five minutes; 0 allowed per
-   project]
+3. Announce before starting, and wait? [a push always; no wait by default, a wait as a per-project
+   setting. Revised 2026-11-21: the first draft said five minutes.]
 4. Which permission mode do dispatched sessions run in? [the one the always-on machine's unattended
    sessions already use; it is the machine's setting, never the task's]
-5. Work ends on a branch; merge and push only on his spoken yes? [yes, so W-015 moves up]
-6. First limits: one at a time, six starts a day, sixty minutes, a spending cap? [yes, then loosen]
-7. Is a worktree enough isolation for the first version? [yes for his own folder; a separate user or
-   container before any shared project]
+5. Work ends on a branch; merge and push only on his spoken yes? [yes, and W-015 is built with the
+   first version, or the work is stranded]
+6. First limits: one at a time, six starts a day, sixty minutes, a spending cap? [as the machine's
+   defaults, settable per project; decide how long runs are handled before the first experiment
+   project is listed]
+7. Is a worktree enough isolation for the first version? [yes: the folder is one person's, and
+   Richard, 2026-11-21, took access by anyone else off the table. A separate user or a container
+   comes with the container runner.]
 8. "Stop all agent work" by voice in the first version? [yes]
 9. The first project: the kit itself? [yes]
 

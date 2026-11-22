@@ -81,7 +81,8 @@ the project says today.
    talk to.
 5. **Agents meet you in the middle.** In a project's repository, every agent session starts with a
    brief of what you decided and what is waiting, and records its own progress and questions through
-   the same inbox.
+   the same inbox. Today you start each session yourself; having the kit start one for a task you
+   marked is proposed, not built ([DESIGN-0.5.md](DESIGN-0.5.md), section 23).
 
 A return dictated on a phone was on the agenda about three minutes later (measured on the author's
 setup, 2026-11-20). The longer walk-through, with the timing and a diagram of one return's life, is

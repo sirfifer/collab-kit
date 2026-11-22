@@ -135,11 +135,16 @@ In a project's repository, the kit installs a hook, so every agent session start
 work. The agent checks its task against that before planning. As it works:
 
 - `ck status "..."` records where things stand, for the next conversation to hear.
-- `ck ask "..."` puts a question or a decision on your agenda. If it blocks the work, it is critical,
-  and your next conversation opens with it.
+- `ck ask "..."` puts a question or a decision on your agenda. Filed as critical (`--importance 1`),
+  it opens your next conversation and can push to your phone; the agent has to say so, and by default
+  a question is filed as normal.
 - A second hook, at the end of a turn, notices when the session changed files and recorded nothing.
 
 All of these are returns too. One inbox, one grammar, one set of scripts, whoever is writing.
+
+**What starts an agent session today is a person.** You open one, at a desk or from the phone. The
+back end files a task within minutes and then the task waits. A dispatcher that starts a session for
+an item you marked is proposed and not built ([DESIGN-0.5.md](../DESIGN-0.5.md), section 23).
 
 ## How fast
 
@@ -156,7 +161,7 @@ that also keeps a synced copy of the folder can use it as a doorbell (`watch`), 
 moment a file lands.
 
 Nothing in the conversation waits for this. The conversation that wrote the return already knows
-what it says; the next one, and every agent, finds it filed.
+what it says; the next one, and every agent session that starts after it, finds it filed.
 
 ## Why the back end has no AI
 
@@ -190,7 +195,8 @@ and it tells you first [19, 21].
 - **Names and dates are read back**, and written in full.
 - **Work that needs your own hands** (a sign-in, a permission prompt) is handed over as one script
   for the machine it is for, with everything else done first [20].
-- **Pushes to GitHub** happen only on your spoken yes, recorded word for word [17].
+- **Pushes to GitHub** of project work need your spoken yes, recorded word for word. Today that yes
+  becomes an agenda task for a session to carry out; a script that does the push is not built [17].
 
 ## Where to go next
 

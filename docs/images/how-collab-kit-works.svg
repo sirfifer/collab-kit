@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1720" width="640" height="1720" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 1760" width="640" height="1760" role="img" aria-labelledby="t d">
   <title id="t">How Collab Kit works</title>
   <desc id="d">One loop in five parts. You talk. Claude, in voice mode, opens only the files the talk needs and writes back a return. The Collab Kit folder in your cloud drive holds the agenda, the knowledge, the inbox of returns and work in progress. A back end made only of scripts applies returns within minutes and keeps each project's repository in step. AI agents in your projects start every session with a brief and put their questions on your agenda.</desc>
   <defs>
@@ -23,7 +23,7 @@
     </style>
   </defs>
 
-  <rect x="0" y="0" width="640" height="1720" rx="20" fill="#FBFAF7"/>
+  <rect x="0" y="0" width="640" height="1760" rx="20" fill="#FBFAF7"/>
 
   <!-- header -->
   <text x="32" y="60" class="title">How Collab Kit works</text>
@@ -149,7 +149,7 @@
   <text x="348" y="1394" class="up">status, questions, documents</text>
 
   <!-- 5. projects and agents -->
-  <rect x="24" y="1424" width="592" height="196" rx="16" class="card"/>
+  <rect x="24" y="1424" width="592" height="228" rx="16" class="card"/>
   <circle cx="58" cy="1462" r="17" fill="#1F2430"/>
   <text x="58" y="1468" class="num">5</text>
   <text x="88" y="1470" class="h">Your projects, and their AI agents</text>
@@ -157,8 +157,9 @@
   <text x="48" y="1540" class="b">Every agent session opens with a brief: what you</text>
   <text x="48" y="1564" class="b">decided, what is waiting, what is in progress.</text>
   <text x="48" y="1598" class="b">Its questions land on your agenda, unasked.</text>
+  <text x="48" y="1632" class="s muted">Today you start each agent session yourself.</text>
 
   <!-- footer -->
-  <text x="32" y="1664" class="foot">Dictated on a phone, on the agenda about three</text>
-  <text x="32" y="1692" class="foot">minutes later. Nothing waits for a keyboard.</text>
+  <text x="32" y="1700" class="foot">Dictated on a phone, on the agenda about three</text>
+  <text x="32" y="1728" class="foot">minutes later, with no one at a keyboard.</text>
 </svg>
