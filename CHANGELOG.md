@@ -2,6 +2,10 @@
 
 ## Not yet released
 
+**An icon for the kit's pushes.** `docs/images/collab-kit-icon.svg`, with a 1024 by 1024 and a
+72 by 72 PNG: a first version, for a Pushover application of the kit's own, so its pushes are told
+from everything else on a phone at a glance. `docs/notifications.md` says how.
+
 **The round trip can be heard** (agenda W-030, W-031, W-032; DESIGN-0.5 section 24). A day's
 walk-through by voice found the loop working and silent in three places. All three are additive:
 older returns, items, and back ends keep working.

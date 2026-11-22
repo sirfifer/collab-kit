@@ -94,6 +94,13 @@ The `case` compares the kind with fixed words and sets two values of its own; th
 folder still reaches curl only inside double quotes. A kind this command does not know (one a later
 kit adds) falls to the last branch.
 
+**Telling Collab Kit's pushes from everything else on the phone.** In Pushover each application has
+its own name and icon, shown on every push it sends. Create one application for Collab Kit alone
+(pushover.net/apps/build) and give it an icon: then a push from the kit is known at a glance, before
+it is read. The kit's own icon is in this repository: `docs/images/collab-kit-icon-pushover.png`
+(72 by 72, the size Pushover asks for), made from `docs/images/collab-kit-icon.svg` (a 1024 by 1024
+`collab-kit-icon.png` is beside it). It is a first version and will be replaced.
+
 **Telegram**:
 
 ```toml
