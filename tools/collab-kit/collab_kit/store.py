@@ -180,6 +180,12 @@ class Store:
                 out.append((f"projects/{d.name}/collab-kit/_returns/{e.name}", e.mtime, e.size))
         return [x for x in out if _inbox_name_ok(x[0])]
 
+    def check_entries(self) -> tuple[list[tuple[str, float, int]], bool]:
+        """What the minute check asks, in as few calls as the store allows: (inbox_entries(), whether
+        the folder's start file is at its top). The second is the proof that this is a Collab Kit
+        folder, without which the minute check writes nothing there."""
+        return self.inbox_entries(), self.exists("00-START-HERE.md")
+
     # ---- shared helpers
     def entry(self, rel: str) -> Entry | None:
         name = _base(rel)
@@ -475,21 +481,28 @@ class RcloneStore(Store):
 
     def inbox_entries(self) -> list[tuple[str, float, int]]:
         """One rclone call for every inbox (rather than one per folder): this runs every minute."""
-        args = ["lsjson", "-R", "--files-only"]
+        return self.check_entries()[0]
+
+    def check_entries(self) -> tuple[list[tuple[str, float, int]], bool]:
+        """Every inbox and the start file at the folder's top, in the one listing."""
+        start = "00-START-HERE.md"
+        args = ["lsjson", "-R", "--files-only", "--include", f"/{start}"]
         for pat in self.INBOXES:
             args += ["--include", f"/{pat}/*"]
         try:
             items = json.loads(self._run([*args, self._r("")]) or "[]")
         except StoreError as e:
             if getattr(e, "code", None) == 3:
-                return []
+                return [], False
             raise
-        out = []
+        out, there = [], False
         for it in items:
             path = it.get("Path", "")
-            if path and _inbox_name_ok(path):
+            if path == start:
+                there = True
+            elif path and _inbox_name_ok(path):
                 out.append((path, _rclone_time(it.get("ModTime", "")), int(it.get("Size") or 0)))
-        return out
+        return out, there
 
     @staticmethod
     def _entry(it: dict) -> Entry:

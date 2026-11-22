@@ -15,6 +15,7 @@ Collab Kit/                        in your cloud drive
   00-START-HERE.md                 the way in: how to work here
   agenda/
     00-PRESSING.md                 the front page (generated)
+    00-HEARTBEAT.md                when the back end last checked (generated)
     W-003-launch-venue.md          one file per item
   knowledge/
     projects.md                    the catalog: every project you have
@@ -96,7 +97,7 @@ conversation reads, so it is where anything urgent lives.
 ```
 # What needs attention first, across everything
 
-**Up to date as of 2026-12-01 (UTC)**; the back end checks the inboxes every minute ...
+**Up to date as of 2026-12-01 09:24 UTC**: the back end's last full pass. ...
 
 ## Overdue and due in the next two weeks
 - **Which beds get the tomatoes?** (garden-planner W-007; due 2026-12-05; decision, importance 2)
@@ -105,12 +106,23 @@ conversation reads, so it is where anything urgent lives.
 - **The archive export fails on issues before 2019** (newsletter W-012; question, importance 1)
 
 ## In progress
+## Since you last looked (the last two days)
+Reported by work outside conversations (status lines, newest first):
+- 2026-12-01 08:50 UTC, newsletter: Claude Code in newsletter (main): The archive export works
+Settled or dropped:
+- **Which venue for the launch?** (top level W-004, settled 2026-11-30): the town hall
+Still waiting in an inbox (not applied yet):
+- garden-planner: 1 return(s), the oldest written 2026-12-01 09:22 UTC
+
 ## Important (importance 2)
 ## Inactive projects
 ```
 
-Its first line is the back end's health: a date two or more days old means the back end has stopped,
-and the conversation tells you that before anything else.
+Its first line is the back end's health: the time of its last full pass. Beside the page,
+`agenda/00-HEARTBEAT.md` holds one line, the time of the back end's last check of the inboxes, which
+it makes every minute. When both times are more than about ten minutes old, the back end is down,
+and the conversation tells you that before anything else. A conversation reads the page again each
+time the talk moves to another project, and says what is new in "Since you last looked".
 
 ## In a project's repository
 

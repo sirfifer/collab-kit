@@ -48,8 +48,11 @@ the folder. It holds no news and no state, so it almost never changes [19].
 
 Right after the start file, the conversation opens the agenda's front page, `agenda/00-PRESSING.md`.
 The back end writes it from every agenda in the folder: its own health, anything it could not file,
-what is overdue or due soon, what is critical, what is in progress [10, 19]. Anything overdue, due
-within a week, or critical is raised in a sentence or two before anything else, without being asked.
+what is overdue or due soon, what is critical, what is in progress [10, 19], and what happened in the
+last two days: what agents reported, what was settled, which returns are still waiting [24].
+Anything overdue, due within a week, or critical is raised in a sentence or two before anything
+else, without being asked; then one sentence on what finished. The conversation reads the page
+again each time the talk moves to another project, and says what is new since it last looked.
 
 ### 3. It loads only what the talk needs
 
@@ -118,15 +121,16 @@ the wrong item.
 
 The back end is a scheduled job that runs the kit's scripts [9, 20, 22]:
 
-1. **Every minute** it asks one cheap question: has a return settled in any inbox?
+1. **Every minute** it asks one cheap question: has a return settled in any inbox? Then it writes
+   the time of that check to a one-line file, `agenda/00-HEARTBEAT.md` [24].
 2. If so, it makes **a full pass**: it reads the folder in one listing, applies each waiting return,
    writes each return's ledger, rebuilds the front page, mirrors repository-homed projects, and
    writes its own health.
 3. **A return is applied whole or not at all, and at most once.** The ledger holds the exact before
    and after of every file it changed, so any return can be undone.
 4. What it cannot apply is set aside, never dropped, and raised on the agenda as a critical item.
-5. The first time a critical item appears, it can send one push to your phone
-   ([notifications](notifications.md)).
+5. The first time a critical item appears, it can send one push to your phone, and, if you turn
+   that on, one for each status line an agent reports ([notifications](notifications.md)).
 
 ### 7. Agents pick it up, and answer back
 
@@ -135,9 +139,13 @@ In a project's repository, the kit installs a hook, so every agent session start
 work. The agent checks its task against that before planning. As it works:
 
 - `ck status "..."` records where things stand, for the next conversation to hear.
-- `ck ask "..."` puts a question or a decision on your agenda. Filed as critical (`--importance 1`),
-  it opens your next conversation and can push to your phone; the agent has to say so, and by default
-  a question is filed as normal.
+- `ck ask "..."` puts a question or a decision on your agenda, filed as normal. When the agent
+  cannot go on without the answer, its rules tell it to say so (`ck ask "..." --blocks W-012`): the
+  question is then critical and names the item that waits, so it opens your next conversation and
+  can push to your phone [24].
+- You answer by voice: the conversation settles the question with your answer as its outcome. The
+  answer is also logged on the item that waited, and an agent that is still running and waiting
+  (`ck wait`) gets it within minutes, printed as data, never as an instruction.
 - A second hook, at the end of a turn, notices when the session changed files and recorded nothing.
 
 All of these are returns too. One inbox, one grammar, one set of scripts, whoever is writing.
@@ -182,8 +190,12 @@ same names. Adding a back end later is one step (`install.py backend`), and noth
 to change.
 
 When a back end exists and is late or stopped, conversations and agents still file returns; they
-wait in the inbox. The front page's date tells the next conversation that the back end has stopped,
-and it tells you first [19, 21].
+wait in the inbox [21]. The front page gives the time of the back end's last full pass, and the
+heartbeat file the time of its last check. When both are more than about ten minutes old, the
+conversation tells you first that the back end is down, and what that means: new items have no
+numbers yet, so follow-ups to them wait. It says the same when a return has sat in an inbox for
+more than about ten minutes [24]. A back end that is down cannot push, so the alarm for that has to
+come from outside the machine: an optional dead-man ping ([notifications](notifications.md)).
 
 ## The details that keep it hands-free
 

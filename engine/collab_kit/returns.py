@@ -46,8 +46,8 @@ FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 # op -> (allowed keys, required keys)
 OPS: dict[str, tuple[set[str], set[str]]] = {
-    "new-item": ({"title", "kind", "importance", "status", "due", "project"}, {"title"}),
-    "set": (set(ITEM_FIELDS) - {"status"} | {"status"}, set()),
+    "new-item": ({"title", "kind", "importance", "status", "due", "project", "blocks"}, {"title"}),
+    "set": (set(ITEM_FIELDS) | {"blocks"}, set()),
     "log": ({"text"}, set()),
     "settle": ({"outcome"}, {"outcome"}),
     "snooze": ({"until"}, {"until"}),
@@ -412,6 +412,12 @@ def _validate_values(ch: Change) -> None:
         if ch.op == "set" and s in ("settled", "dropped"):
             raise ReturnError(f"use 'settle' or 'withdraw' to make an item {s}", ch.line)
         a["status"] = s
+    if a.get("blocks"):                       # the item whose work waits for this one; "" clears it
+        wid = item_id(a["blocks"])
+        if not wid:
+            raise ReturnError(f"blocks= names the item whose work waits for this one, by number (got '{a['blocks'][:40]}')",
+                              ch.line)
+        a["blocks"] = wid
     for k in ("due", "until"):
         if k in a and a[k] != "":
             d = check_date(a[k])
@@ -424,7 +430,7 @@ def _validate_values(ch: Change) -> None:
             raise ReturnError("active= is yes or no", ch.line)
         a["active"] = v in ("yes", "true")
     if ch.op == "set" and not a:
-        raise ReturnError("'set' needs at least one field (title, kind, importance, status, due, project)", ch.line)
+        raise ReturnError("'set' needs at least one field (title, kind, importance, status, due, project, blocks)", ch.line)
     if ch.op in ("status",) and not (ch.text or ch.body):
         pass   # checked after the body is attached (apply time)
     for k, v in a.items():

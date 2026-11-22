@@ -538,6 +538,13 @@ def install_top(folder: Path, *, human: str, dry: bool = False, replace_start: b
         plan.note("retire _backend/heartbeat.json (renamed, kept)", "sessions apply returns themselves again")
         if not dry:
             beat.rename(beat.with_name(f"heartbeat.retired-{stamp()}.json"))
+    pulse = folder / "agenda" / "00-HEARTBEAT.md"         # the minute check's own file: kept, in _versions/
+    if setup == "none" and pulse.is_file():
+        from .text import stamp
+        plan.note("retire agenda/00-HEARTBEAT.md (moved to agenda/_versions/, kept)", "no back end checks the inboxes now")
+        if not dry:
+            (pulse.parent / "_versions").mkdir(exist_ok=True)
+            pulse.rename(pulse.parent / "_versions" / f"00-HEARTBEAT.{stamp()}.md")
     if replace_start and start.is_file():                  # each project homed here: its start file too
         from .store import FolderStore, StoreError, SubStore
         from .templates import HOME_NOTES, project_start_file
@@ -591,6 +598,14 @@ rclone_config = ""       # and its own config file, e.g. "~/.config/collab-kit/r
 # COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE and COLLAB_KIT_ITEM in its environment (docs/notifications.md):
 # [notify]
 # command = ["sh", "-c", "curl -s --max-time 10 -H \\"Title: $COLLAB_KIT_TITLE\\" --data-raw \\"$COLLAB_KIT_ITEM\\" https://ntfy.sh/<your-long-random-topic>"]
+# status = false           # true: also push each new status line (what agents report: finished, blocked)
+
+# Optional: a dead-man ping, so something outside this machine notices when the back end stops. The
+# command runs after a successful check, at most every every_minutes; point it at a service that
+# alerts you when the pings stop (docs/notifications.md). Nothing from the folder reaches it:
+# [heartbeat]
+# command = ["sh", "-c", "curl -fsS --max-time 10 -o /dev/null https://hc-ping.com/<your-check-id>"]
+# every_minutes = 5
 
 # One table per project whose home is a repository:
 # [[project]]

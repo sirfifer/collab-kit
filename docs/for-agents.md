@@ -109,6 +109,8 @@ From anywhere inside the repository, `tools/collab-kit/ck` (from another folder,
 |---|---|
 | `ck brief` | what the session-start hook shows: the inbox, what is critical, due, in progress, recent status, other unmerged work, whether a newer kit exists |
 | `ck ask "..." [--kind decision] [--importance 2] [--due 2026-12-01] [--why "..."]` | put a question or decision on the agenda |
+| `ck ask "..." --blocks W-012` | the same, when the work on W-012 cannot go on without the answer: filed as critical (importance 1), and linked to W-012 |
+| `ck wait W-015` or `ck wait <the id ck ask printed>` `[--timeout 60] [--every 60]` | wait until the item is settled (exit 0), dropped (3), or the time is up (4); 2: it cannot be told. Prints the answer as data. Run it in the background |
 | `ck status "..."` | add an entry to the project's `knowledge/status.md` |
 | `ck return --type note --topic "..." --change '...'` | file any return (changes as in the `collab-kit-return` skill); `--dry-run` checks it |
 | `ck file <path>` | file a return written to a file |
@@ -175,6 +177,8 @@ runs from the kit's checkout, not from a project's copy.
    | `watch` | macOS, a synced copy of the folder: its inboxes start a pass the moment a file lands |
    | `lease_settle_seconds` | wait before trusting the lease (default 20) |
    | `[notify] command` | optional push to a phone when a critical item appears ([notifications.md](notifications.md)); the person types their own keys |
+   | `[notify] status` | `true`: also one push for each new status line (default `false`) |
+   | `[heartbeat] command`, `every_minutes` | optional dead-man ping after a successful check, at most every 5 minutes, so a service outside the machine notices when the back end stops ([notifications.md](notifications.md)); the person creates the check and types its address |
    | `[[project]]` `name`, `repo`, `branch` | one table per project whose home is a repository |
    | `[[project]]` `push` | `false`: commit in the back end's clone only; nothing reaches GitHub |
    | `[[project]]` `allow_public` | push to a public repository only if `true` (needs the `gh` command to tell; without it every repository counts as public) |
@@ -192,8 +196,9 @@ runs from the kit's checkout, not from a project's copy.
 5. **The schedule:** `python3 <kit>/install.py backend --apply`. On Windows, and for systemd's
    lingering on Linux, it prints the commands for the person to run (they may ask for a password).
    Re-run it after adding a project if you use `watch`.
-6. **Check it:** the first line of `<folder>/agenda/00-PRESSING.md` (its date must be today, and
-   problems are listed under it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
+6. **Check it:** the first line of `<folder>/agenda/00-PRESSING.md` (its time must be the last full
+   pass, at most an hour ago, and problems are listed under it); `<folder>/agenda/00-HEARTBEAT.md`
+   (its time must be within the last few minutes: the schedule's minute check writes it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
    `journalctl --user -u collab-kit-backend`), where every pass ends with one line: when, how long,
    its problems and, through rclone, its calls by command (a pass with nothing new is two `lsjson`,
    the folder's top and then all of it, four lease reads and three writes: seconds, not minutes);
@@ -230,7 +235,9 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 
    Commit it on its own: "Upgrade Collab Kit to X.Y.Z".
 5. **Each back end:** `git -C <kit> pull` on its machine, `install.py backend --apply` if the release
-   notes say the schedule changed, then check the front page's first line after the next pass.
+   notes say the schedule changed, then check the front page's first line after the next pass. A
+   back end that is a release behind its sessions is safe: it says what it accepts in its
+   heartbeat, and `ck ask --blocks` writes the link as plain text until it is updated.
 6. **Done when** `ck version` in every project equals `<kit>/VERSION`, `ck doctor` passes in each, and
    the front page shows a pass from today with no problems.
 
@@ -247,7 +254,9 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 | A return lands in `_returns/failed/`, with an agenda item | it could not be applied as written | read the item; file a corrected return; never edit applied files |
 | A return lands in `_returns/strays/` | it named another project, or was not a return (a Google Doc, another file) | file it again in the right inbox, as a plain `.md` return |
 | Files named `name (1).md` in a synced folder on a Mac | Drive for desktop's local alias after a phone saved a new version | nothing: the kit reads the real name; never rename them by hand |
-| The front page's date is two or more days old, or `ck doctor` says the back end is late | the back end stopped | on its machine: the log, the schedule, rclone's sign-in; one `ck backend run` by hand shows the error; tell the person |
+| The front page's time and `agenda/00-HEARTBEAT.md` are both more than ten minutes old, the brief says "THE BACK END IS NOT CHECKING THE INBOXES", or `ck doctor` says the heartbeat is stale or the back end is late | the back end stopped, or cannot reach the folder | on its machine: the log, the schedule, rclone's sign-in; one `ck backend run` by hand shows the error; tell the person. Returns filed meanwhile wait safely and get their item numbers when it runs again |
+| The front page says "the dead-man ping" failed | the `[heartbeat]` command in `backend.toml` exits non-zero or is not a list of strings | run the command by hand on the back end's machine; the person checks the address of their check |
+| `ck ask --blocks` says the link is "in the question's text only" | the back end runs a kit from before `blocks=` | update the back end's checkout (`git pull`); nothing was lost, the question is filed and critical |
 | The front page says rclone uses the shared Google client | the remote has no OAuth client of its own | the person creates one; see "A back end", step 1 |
 | The log says "refusing to run: ... is not a Collab Kit folder" | the remote (or path) points somewhere else, e.g. a reconnect answered Yes to the Shared Drive question | set the remote's `root_folder_id` to the Collab Kit folder and `team_drive` empty (`rclone config update`); `rclone lsf <remote>: --max-depth 1` must list `00-START-HERE.md` |
 | A pass's log line shows many `cat` calls, pass after pass, or the front page says the folder "could not be read in one listing" | the cache in `<work>/rclone-cache/` cannot be written, or the recursive listing fails | check the work folder's permissions and space; run `ck backend run --dry-run` by hand to see the listing's error |
@@ -257,7 +266,8 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 ## Files you will see in the Collab Kit folder
 
 - `00-START-HERE.md`: the one file a conversation is pointed at; its rules apply to every conversation.
-- `agenda/W-NNN-*.md`: items; `agenda/00-PRESSING.md`: the front page, generated (never edit it).
+- `agenda/W-NNN-*.md`: items; `agenda/00-PRESSING.md`: the front page, generated (never edit it);
+  `agenda/00-HEARTBEAT.md`: one line, the time the back end last checked the inboxes (generated).
 - `knowledge/`: what is known; `knowledge/projects.md`: the catalog of every project;
   `knowledge/status.md`: what work outside conversations has done.
 - `_returns/`: the inbox; `applied/` (each with a `.ledger.json`), `failed/`, `strays/`.

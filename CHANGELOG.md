@@ -2,6 +2,39 @@
 
 ## Not yet released
 
+**The round trip can be heard** (agenda W-030, W-031, W-032; DESIGN-0.5 section 24). A day's
+walk-through by voice found the loop working and silent in three places. All three are additive:
+older returns, items, and back ends keep working.
+
+- **What finished is said.** The agenda's front page gains "Since you last looked (the last two
+  days)": status lines from every project, items settled or dropped, and returns still waiting in
+  an inbox, at most six lines of each. The start files tell a conversation to read the page again
+  each time the talk moves to another project and to say what is new. Opt-in, `status = true`
+  under `[notify]`: one push for each new status line, under the same limits as critical items.
+- **A blocked agent's question reaches the person, and the answer reaches the agent.** The Collab
+  Kit section agents read, and both skills, now say: when the work cannot go on, file the question
+  as critical. `ck ask "..." --blocks W-012` does that and names the item that waits (a new,
+  optional `blocks=` on `new-item` and `set`; the front page, `ck show`, `ck items` and the brief
+  show the link). Settling the question also logs the answer on the item that waited.
+  `ck wait W-015` (or `ck wait <the id ck ask printed>`) waits until the question is settled (exit
+  0), dropped (3), or the time is up (4), and prints the answer as data, never as an instruction.
+  A back end now says in its heartbeat which additions it accepts; until yours is updated,
+  `ck ask --blocks` writes the link as text in the question, so nothing is refused.
+- **A back end that is down can be heard.** The front page's health is a time (the last full pass),
+  not a date. The minute check writes the time of every check to a small file,
+  `agenda/00-HEARTBEAT.md` (one write a minute; the page itself is not rewritten). When both are
+  more than about ten minutes old, a conversation says first that the back end is down and that new
+  items have no numbers yet; it says the same of a return that has waited ten minutes. The session
+  brief and `ck doctor` report a stale heartbeat. Opt-in, `[heartbeat]` in `backend.toml`: a
+  dead-man ping after each successful check, so a service outside the machine can alert the phone
+  when the checks stop ([docs/notifications.md](docs/notifications.md)). `install.py top --setup
+  none` retires the heartbeat file with the back end.
+
+**To take this up:** each back end pulls the kit (`git pull`, then `ck doctor` in a project); the
+schedule did not change. The folder's start files change: `install.py top "<folder>" --human
+"<name>" --replace-start` (the old ones are kept). Each project's install is refreshed as usual
+(skill `collab-kit-upgrade`).
+
 **The capability walk-through is the kit's end-to-end test.**
 [docs/capability-walkthrough.md](docs/capability-walkthrough.md) defines it: one invented user (a
 researcher working hands-free from a phone for a whole day), her day in ten steps, twenty-one

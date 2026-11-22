@@ -99,7 +99,7 @@ class BackEnd(unittest.TestCase):
         self.assertNotIn("Someday", pressing)
         # the front page: the back end's health first, then deadlines, critical, important
         from collab_kit.text import utcnow
-        self.assertIn(f"**Up to date as of {utcnow().date().isoformat()} (UTC)**", pressing)
+        self.assertRegex(pressing, rf"\*\*Up to date as of {utcnow().date().isoformat()} \d\d:\d\d UTC\*\*")   # a time, not a date
         sections = [line for line in pressing.splitlines() if line.startswith("## ")]
         self.assertEqual(sections, ["## Overdue and due in the next two weeks", "## Critical (importance 1)",
                                     "## Important (importance 2)", "## Inactive projects"], pressing)
@@ -547,11 +547,15 @@ class BackEnd(unittest.TestCase):
         import tomllib
         from collab_kit.installer import BACKEND_TEMPLATE
         text = BACKEND_TEMPLATE.format(cloud='"x"', work='"y"', human='"Sam"')
-        lines = [ln[2:] if ln.startswith("# [notify]") or ln.startswith("# command =") else ln for ln in text.splitlines()]
+        on = ("# [notify]", "# [heartbeat]", "# command =", "# status =", "# every_minutes =")
+        lines = [ln[2:] if ln.startswith(on) else ln for ln in text.splitlines()]
         cfg = tomllib.loads("\n".join(lines))
         cmd = cfg["notify"]["command"]
         self.assertIn("--data-raw", cmd[-1])
         self.assertNotIn(" -d ", cmd[-1])
+        self.assertIs(cfg["notify"]["status"], False)                    # off unless a person turns it on
+        self.assertEqual(BE.command_of(cfg["heartbeat"])[:2], ["sh", "-c"])
+        self.assertEqual(cfg["heartbeat"]["every_minutes"], 5)
 
     def test_catalog_collab_kit_status(self):
         self.s.write("knowledge/projects.md", "| Folder | Say | What it is | Where | Status | Collab Kit |\n"

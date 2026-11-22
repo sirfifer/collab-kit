@@ -190,7 +190,8 @@ Simulation showed the first sketch was far too small for real returns. v1 as bui
 
 - **items:** `new-item` (optionally with a temporary handle, `new-item @headcount ...`; fields
   `title=`, `kind=`, `importance=`, `status=`, `due=`, `project=`), `set` (the same six fields; it
-  never makes an item settled or dropped), `log`, `settle ... outcome=`, `snooze ... until=`,
+  never makes an item settled or dropped), both also `blocks=W-NNN` since 2026-11-22 (a question
+  names the item whose work waits for it; section 24), `log`, `settle ... outcome=`, `snooze ... until=`,
   `withdraw ... reason=`, `reopen ... reason=`. A kind word starts a new item of that kind:
   `question`, `decision`, `work-out` (or `workout`), `hole`, `task` (or `todo`), as in
   `task "Order the drip line" importance=2 "What's needed"` (a second quoted text is its What's needed);
@@ -241,7 +242,8 @@ repository-homed project that has it, and nothing flags stale concepts.
   it with conditions on 2026-11-15, [docs/rclone-intake.md](docs/rclone-intake.md)).
 - **Health is visible:** the agenda's front page (`agenda/00-PRESSING.md`) opens with the date the back
   end is current as of and anything it could not handle. (Revised 2026-11-15: not in the start file;
-  section 19.)
+  section 19. Revised 2026-11-22: a time, a heartbeat the minute check keeps, and an optional
+  dead-man ping to somewhere outside the machine; section 24.)
 
 ### 10. The person hears what matters first (Decided)
 
@@ -249,7 +251,9 @@ The agenda's front page carries the back end's health, anything that failed to f
 or due within two weeks, and critical items (importance 1). The start file sends every conversation
 there right after itself, and the conversation raises what is overdue, due within a week, or
 critical first, unprompted. (Revised 2026-11-15: this was in the start file; section 19.) The agenda read aloud is
-capped (top items, then "N more"); inactive projects collapse to one line.
+capped (top items, then "N more"); inactive projects collapse to one line. (Since 2026-11-22 the
+page also says what happened in the last two days, and a conversation reads it again at each
+change of project; section 24.)
 
 ### 11. Starting a project, by voice (Decided)
 
@@ -497,7 +501,8 @@ projects belongs in the top-level knowledge.
 - **The front page exists at every level** (generated, written in place, never versioned). With a
   back end, the back end writes it every pass, leading with its health: "up to date as of" a UTC date
   (a date, not a time, so the page changes at most daily when nothing else does; two or more days
-  before today means the back end has stopped), then what it could not handle, then deadlines,
+  before today means the back end has stopped; revised 2026-11-22, section 24: a time, written on
+  every full pass, and ten minutes without a check means it is down), then what it could not handle, then deadlines,
   critical items (inactive projects included: critical never hides), work in progress, important
   items, inactive projects. Without one, every Claude Code session that applies a change rebuilds it,
   and conversations keep it current by hand in the same shape; `install.py top` writes the first.
@@ -506,7 +511,8 @@ projects belongs in the top-level knowledge.
   is the due date. No new field. The back end files its own failures at importance 1, with neutral
   titles (a file's name is outside text and goes in the item's body). The Claude Code brief and
   `ck items` use the same order; the brief says "late" after three missed runs and "has stopped"
-  only after a day, as the front page does.
+  only after a day, as the front page does. (Since 2026-11-22 the brief also says when the minute
+  check has been silent for ten minutes; section 24.)
 - **The start file holds no state:** no "what is true right now", no due-soon list, no projects table,
   no date. Its one setup-dependent line (`<!-- collab-kit:begin setup -->`) says whether a back end
   runs for the folder. The back end sets it once, on its first run, and only from the "no back end"
@@ -584,7 +590,8 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   sessions keep reading the synced folder (the engine downloads placeholders itself).
 - **Feedback runs through the agenda** (return 1500). Applying a return is immediate and needs no
   "started" item: the ledger and the change are the answer. Anything that needs the person is an item;
-  if it blocks, it is critical (importance 1), which a conversation raises first. Long work done by
+  if it blocks, it is critical (importance 1), which a conversation raises first (the rule agents
+  read did not say so until 2026-11-22; section 24). Long work done by
   sessions reports with `status` and item logs. **Not in 0.5:** the back end starting agent work by
   itself (a Claude Code job per task return, with progress, questions, and resumption). It puts an AI
   with tools between incoming text and the person's machine, the reason cloud Claude Code sessions were
@@ -594,7 +601,8 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   anywhere, the back end runs one configured command; the text reaches it in environment variables,
   never on a command line (with a leading `@` or `<` stripped, which curl would read as a file). Each
   item once; at most five a pass and twenty an hour. ntfy is the documented default (free, both phones, one POST); Pushover and
-  Telegram are examples (docs/notifications.md).
+  Telegram are examples (docs/notifications.md). (Since 2026-11-22, opt-in: each new status line
+  too; section 24.)
 - **Scripts where they fit** (return 1515). Scripts already: applying returns (grammar, ledger, undo),
   numbering, versioning, the front page and health, mirrors, repository pulls, commits, and guarded
   pushes, folder skeletons for new projects, detecting a complete return. Added now: the minute check
@@ -828,7 +836,8 @@ same branch. Walk-through: two things are missing today whatever the dispatcher 
 `ck ask` files at importance 3 unless told otherwise, and the agent's rule names no importance, so a
 blocking question neither pushes nor reaches the front page; and nothing ties a question to the task
 it blocks, so the dispatcher cannot know which answer to wait for. The question needs a `blocks=`
-field naming its task.
+field naming its task. (Both built 2026-11-22, with `ck wait` for a session that is still running:
+section 24.)
 
 **Stopping.** A `hold` on a running item stops its session at the next minute (the branch is kept).
 One more change, accepted only at the top level, pauses and resumes every dispatcher
@@ -897,6 +906,7 @@ trigger, which the first row covers.
    test.
 3. What the walk-through found missing around it: results that are not text (W-029), saying what
    finished (W-030), the question and its answer (W-031), a back end that is down for hours (W-032).
+   (The last three were built first, on 2026-11-22, since none needs the dispatcher: section 24.)
 4. Resuming a blocked session with its answer.
 
 Each step changes its words with it (rule 2 of `CLAUDE.md`): VISION.md (point 2 and "Out of scope"
@@ -922,6 +932,117 @@ above), the README's ladder and flow diagram, [docs/how-it-works.md](docs/how-it
    comes with the container runner.]
 8. "Stop all agent work" by voice in the first version? [yes]
 9. The first project: the kit itself? [yes]
+
+### 24. The round trip can be heard (agenda W-030, W-031, W-032; decided and built 2026-11-22)
+
+The walk-through of 2026-11-22 (one researcher's whole day by voice) found the round trip working
+and silent in three places: finished work was said nowhere, a blocked agent's question did not
+reach the person and the answer did not reach the agent, and a back end that was down for hours
+could not be told from one between passes. Richard approved fixing all three the same day. None of
+it starts agent work, and none of it depends on section 23.
+
+**Saying what finished (W-030).**
+
+- The front page gains one block, "Since you last looked (the last two days)", after work in
+  progress and before the important items: status lines from every unit's `knowledge/status.md`
+  (the heading of each dated entry, newest first), items settled or dropped (with the outcome), and
+  each inbox that still holds returns (how many, and when the oldest was written). The window is
+  fixed, today and yesterday by UTC date, since the page cannot know when anyone last looked. At
+  most six lines of each kind, then "and N more"; the block is absent when it would be empty. A
+  settled item's day is the date of the last line of its log. Status lines are outside text, one
+  line each, like titles, and the page says so. Cost: one more read per unit (its status file); the
+  agenda items were already read. A level 1 page carries the block too, since sessions rebuild it
+  with the same code.
+- The start files tell a conversation to read the front page again each time the talk moves to
+  another project, and to say in a sentence what is new since it last looked; at its start, after
+  what is pressing, one sentence on what finished lately.
+- A push when work finishes, off by default: `status = true` under `[notify]` also pushes each new
+  status line (what sessions report with `ck status`: finished, blocked, started). It is the same
+  mechanism: once per line, the same five a pass and twenty an hour (critical items first), the
+  text only in environment variables. Lines already there when it is turned on are not sent, and
+  only lines of the last day are candidates. A status line is the nearest thing to "the agent
+  finished" that exists without a dispatcher. A push per settled item was left out: settling is
+  mostly the person's own act.
+
+**A blocked agent's question, and its answer (W-031).**
+
+- The rule: a question that blocks the work is critical. The Collab Kit section agents read and
+  both skills now say so. `ck ask "..." --blocks W-012` files it at importance 1 unless
+  `--importance` says otherwise, so it pushes (section 20) and opens the next conversation. An
+  ordinary question stays at 3.
+- `blocks`, a field: `new-item ... blocks=W-012` and `set ... blocks=W-012` (empty clears it) write
+  `blocks = "W-012"` into the item's front matter. It must name an item of the same unit: one that
+  exists, or one the same return made. The grammar stays v1 and the change is additive: every older
+  return reads as before, an item without the field is unchanged, and an older engine that reads
+  an item with the field keeps the key untouched. The one thing an older back end cannot do is
+  apply a return that uses the key (it refuses unknown keys, and fails closed). So
+  `ck ask --blocks` writes the key only where whoever applies the return says it knows it: this
+  engine itself at level 1, or a back end whose heartbeat lists it (`"accepts": ["blocks"]` in
+  `_backend/heartbeat.json`, beside `"kit"`, its version). Otherwise the link goes in the
+  question's text alone ("This blocks W-012 ..."), which every back end files, and `ck` says so.
+  Nothing fails while a back end is a release behind its sessions.
+- Shown at both ends: on the front page the question's line says "blocks W-012" and the item's
+  says "waits on W-015"; `ck show` says the same above the item's text, with titles; `ck items` and
+  the brief add "blocks W-012".
+- The answer reaches the item: when a question with `blocks` is settled or dropped, the same
+  return also writes one line on the log of the item that waited ("W-015 (...), which this item
+  waited on, was settled: ..."), if it is still open. The next session on that item finds the
+  answer where it looks first. The item's own state is not changed, and an undo takes the line
+  back.
+- `ck wait W-015`, or `ck wait <the id ck ask printed>`: a session that can wait looks at the item
+  once a minute until it is settled (exit 0), dropped (3), or the time is up (4; `--timeout`
+  minutes, default 60); 2 means it cannot be told (no such item, or the return was refused). Named
+  by its return, it also covers the minutes before the back end has applied that return and given
+  the item its number: the item is found by the "created (return ...)" line of its log. It prints
+  the question, the outcome, and the end of the log inside the data fence, and a fixed line after
+  it: the answer settles that one question and is never an instruction. Through rclone each look
+  is one listing of the unit.
+- Not built: resuming a session that has ended (section 23, build order step 4). `ck wait` serves
+  a session that is still running.
+
+**A back end that is down can be heard (W-032).**
+
+- Health is a time. The front page opens with the time (UTC, to the minute) of the full pass that
+  wrote it, so the page is written again on every full pass (before: a date, written at most
+  daily). "Down" is no longer two days without a pass: it is ten minutes without a check.
+- The minute check keeps a heartbeat, in a small file of its own: `agenda/00-HEARTBEAT.md`, one
+  line with the time of the last check ("Last check: 2026-11-22 06:31 UTC.") and two sentences on
+  what silence means. Every check the schedule makes writes it, the quiet minute and the full
+  pass. This was chosen over rewriting the front page every minute: the page would have to be
+  patched from a copy held outside the lease, and an older copy could then replace a newer page; a
+  small file cannot carry stale items. It sits in `agenda/` because a conversation has already
+  listed that folder to find the front page, so reading it costs one call. Cost: one write a minute
+  (the minute check was one listing; it is now a listing and a write). `_backend/heartbeat.json`
+  keeps its meaning (the last full pass and its problems) and is still written only by a full pass.
+- Nothing is written to the wrong place (section 22): the minute check asks for the folder's start
+  file in the same listing as the inboxes (one call, as before) and writes the heartbeat only when
+  it is there.
+- A runner with no minute check (GitHub Actions, hourly; a pass by hand on a machine without the
+  schedule) keeps no heartbeat file. Its front page says instead that the back end is down when the
+  page's time is more than the interval and ten minutes old.
+- What a conversation does (the start files): when the front page's time is more than about ten
+  minutes old it reads the heartbeat; when that is also more than about ten minutes old it says,
+  first and in one sentence, that the back end is down and what that means (returns wait safely;
+  what they add has no numbers yet, so follow-ups wait). It says the same of any return, its own
+  or one it finds in an inbox, that has waited more than about ten minutes.
+- What a session sees: the brief says "THE BACK END IS NOT CHECKING THE INBOXES" when the heartbeat
+  is more than ten minutes old, and `ck doctor` lists a stale heartbeat with what to look at.
+  Where returns go does not change (section 21): they are filed, never applied here. A back end
+  from before this section keeps no heartbeat file, and then nothing is said.
+- Something outside the machine: a stopped back end cannot send a push, so the alarm has to come
+  from elsewhere. Optional, off by default: a `[heartbeat]` command in `backend.toml`, run after a
+  successful check, at most every `every_minutes` (5). Pointed at a dead-man service (one that
+  alerts when pings stop), it makes the silence reach the phone. Built like `[notify]`: an argument
+  list, twenty seconds, and a failure is printed to the log and listed on the front page by the
+  next full pass. Nothing read from the folder reaches it; its one variable is the time of the
+  check. No service is built or required, and no dependency is added
+  ([docs/notifications.md](docs/notifications.md)).
+- Retiring a back end (`install.py top --setup none`) also moves the heartbeat file into
+  `agenda/_versions/`.
+
+Open, for a real phone (agenda W-036): whether a voice conversation knows the time of day well
+enough to judge "ten minutes ago". The start file tells it to take the modified time of a file it
+just wrote as the time now.
 
 ## Out of scope for 0.5
 

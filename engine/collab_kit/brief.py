@@ -42,6 +42,7 @@ def _items_section(unit: Unit, limit: int, ck: str, compact: bool) -> tuple[list
     def fmt(i, extra=""):
         d = f", due {one_line(i.due, 12)}" if i.due else ""
         p = ", in progress" if i.status == "in-progress" else ""      # an item shows once, under its first heading
+        p += f", blocks {i.blocks}" if i.blocks else ""
         return f"  {i.id} [{one_line(i.kind, 12)}, importance {i.importance}{d}{p}{extra}] {one_line(i.title, 90)}"
     if due:
         lines.append("Overdue or due within a week:")
@@ -131,7 +132,10 @@ def build(project: Project, *, limit: int = 5, compact: bool = False, cwd: str |
     route = project.route()[0]
     if be.get("stopped"):                              # a back end ran here once and has not run since
         head.append(f"THE BACK END HAS STOPPED ({be['say']}): tell {who} first.")
-    if be["live"]:
+    elif be.get("quiet"):                              # its minute check has been silent for over ten minutes
+        head.append(f"THE BACK END IS NOT CHECKING THE INBOXES (silent for {be['quiet_minutes']} minutes): tell {who} "
+                    f"first. Returns filed now get no item numbers until it runs again, so follow-ups to them wait.")
+    if be["live"] and not be.get("quiet"):
         head.append(f"Back end: {be['say']}. `{ck} ask/status/return` file returns; it applies them. Never edit "
                     f"the agenda or status files by hand.")
     elif route == "cloud" and be.get("configured"):

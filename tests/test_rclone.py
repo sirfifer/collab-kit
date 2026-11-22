@@ -125,6 +125,19 @@ class Rclone(unittest.TestCase):
         self.assertEqual(sorted(p for p, _, _ in got), ["_returns/a.md", "projects/garden/collab-kit/_returns/b.md"])
         self.assertTrue(all(abs(m - time.time()) < 120 and s == 2 for _, m, s in got), got)
 
+    def test_the_minute_check_sees_the_start_file_in_the_same_listing(self):
+        # the minute check writes its heartbeat only into a folder whose start file it has just seen
+        self.store.write("_returns/a.md", "x\n")
+        self.store.write("projects/garden/collab-kit/00-START-HERE.md", "a project's, not the folder's\n")
+        self.assertEqual(self.store.check_entries(), ([("_returns/a.md", self.store.check_entries()[0][0][1], 2)], False))
+        self.store.write("00-START-HERE.md", "start\n")
+        log = self.t / "calls.log"
+        os.environ["FAKE_RCLONE_CALLS"] = str(log)
+        entries, there = self.store.check_entries()
+        self.assertEqual(([p for p, _, _ in entries], there), (["_returns/a.md"], True))
+        self.assertEqual(log.read_text().splitlines(), ["lsjson -R drive:Collab Kit"], "one call, as before")
+        self.assertEqual(RcloneStore("drive:Nowhere", rclone=self.rclone).check_entries(), ([], False))
+
     def test_pinned_version_only(self):
         os.environ["FAKE_RCLONE_VERSION"] = "v1.70.0"
         with self.assertRaises(StoreError):
@@ -359,11 +372,13 @@ class PassOverRclone(unittest.TestCase):
         self.assertEqual(rc, 0, p.problems)
         self.assertEqual([c for c in calls if c.startswith("lsjson")], ["lsjson drive:Collab Kit", "lsjson -R drive:Collab Kit"])
         self.assertEqual([c for c in calls if c.startswith("cat") and c != lease], [], "no file downloaded")
-        self.assertEqual(sorted(c.split()[0] for c in calls),
+        page = "rcat drive:Collab Kit/agenda/00-PRESSING.md"          # written again only when its time (to the
+        steady = [c for c in calls if c != page]                       # minute) differs from the pass before
+        self.assertEqual(sorted(c.split()[0] for c in steady),
                          ["cat"] * 4 + ["lsjson"] * 2 + ["rcat"] * 3,
                          f"the top, the folder, the lease (4 reads, 2 writes) and the heartbeat: {calls}")
         self.assertGreater(p.cloud.cache_hits, 3)
-        self.assertIn("rclone calls: cat 4, lsjson 2, rcat 3", p.summary(1))
+        self.assertRegex(p.summary(1), r"rclone calls: cat 4, lsjson 2, rcat [34]")
 
         agenda = os.listdir(self.root / "projects/garden/collab-kit/agenda")
         item = next(n for n in agenda if n.startswith("W-002"))
@@ -382,7 +397,9 @@ class PassOverRclone(unittest.TestCase):
                          "the new return, the item it changes (read as it is now before writing), the item "
                          "changed elsewhere: nothing else")
         pressing = self.s.read("agenda/00-PRESSING.md")
-        self.assertNotIn("Order seeds", pressing)
+        lately = pressing.split("## Since you last looked")[1].split("\n## ")[0]
+        self.assertIn("**Order seeds** (garden W-001, settled", lately)          # settled: said once, as news
+        self.assertEqual(pressing.count("Order seeds"), 1)
         self.assertIn("Plan beds", pressing.split("## Critical")[1])
 
     def test_a_session_reads_one_listing(self):

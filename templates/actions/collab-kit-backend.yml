@@ -9,7 +9,8 @@
 # COLLAB_KIT_HUMAN (the person's name). See docs/rclone-intake.md.
 #
 # It runs hourly with no minute-by-minute check, so returns are applied within the hour, not within
-# minutes as on a machine.
+# minutes as on a machine, and it keeps no heartbeat file (agenda/00-HEARTBEAT.md): the front page
+# gives the time of the last run, and says the back end is down when that is over 70 minutes old.
 #
 # Put this file in a PRIVATE repository of your own (the runner repository) as
 # .github/workflows/collab-kit-backend.yml. It runs the kit at a pinned commit; it handles units whose

@@ -39,6 +39,7 @@ from .apply import Planner, Reject, apply_return, heal_duplicates
 from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store
 from .text import fold, slug, utcnow
 from .unit import AGENDA, RETURNS, Unit
+from .views import HEARTBEAT_PAGE, STALE_MINUTES, read_heartbeat
 
 REPO_UNIT_DIR = "collab-kit"
 HEARTBEAT = "_backend/heartbeat.json"
@@ -108,17 +109,35 @@ def backend_state(c: Store | None, human: str = "the owner") -> dict:
         return {"known": True, "live": False, "configured": True, "stopped": True,
                 "say": "its heartbeat file is unreadable"}
     live = age_min <= max(3 * every, 90)            # routing: file only while it is keeping up
-    stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day, as on the front page
+    stopped = age_min > max(3 * every, 24 * 60)        # said loudly only after a day
     when = last.strftime("%Y-%m-%d %H:%M UTC")
     problems = hb.get("problems") or []
-    say = (f"running (it checks the inboxes every minute; last full pass {when}, at least one every {every} minutes)"
-           if live else f"stopped: its last full pass was {when}" if stopped else
-           f"late: its last full pass was {when}, and one is due at least every {every} minutes")
+    # The minute check's own heartbeat (agenda/00-HEARTBEAT.md), where the back end keeps one: silent
+    # for more than ten minutes means it is down now, long before a full pass is overdue. A back end
+    # from before that file existed has none, and nothing is said.
+    checked, quiet, quiet_min = None, False, 0
+    try:
+        checked = read_heartbeat(c.read(HEARTBEAT_PAGE))
+    except (StoreError, OSError):
+        checked = None
+    if checked:
+        quiet_min = int((utcnow() - max(checked, last)).total_seconds() // 60)
+        quiet = quiet_min > STALE_MINUTES
+    if live and quiet:
+        say = (f"not checking: its last check of the inboxes was {max(checked, last).strftime('%Y-%m-%d %H:%M UTC')}, "
+               f"{quiet_min} minutes ago, and it checks every minute, so it is down or cannot reach the folder")
+    else:
+        say = (f"running (it checks the inboxes every minute; last full pass {when}, at least one every {every} minutes)"
+               if live else f"stopped: its last full pass was {when}" if stopped else
+               f"late: its last full pass was {when}, and one is due at least every {every} minutes")
     if problems and isinstance(problems, list):
         say += f"; {len(problems)} problem(s) listed at the top of agenda/00-PRESSING.md"
-    if not live:
+    if not live or quiet:
         say += f"; returns wait in the inbox until it runs again: tell {human}"
-    return {"known": True, "live": live, "configured": True, "stopped": stopped, "say": say, "last": when}
+    accepts = [str(x) for x in hb.get("accepts", [])] if isinstance(hb.get("accepts"), list) else []
+    return {"known": True, "live": live, "configured": True, "stopped": stopped, "say": say, "last": when,
+            "quiet": quiet, "quiet_minutes": quiet_min, "accepts": accepts,
+            "checked": checked.strftime("%Y-%m-%d %H:%M UTC") if checked else ""}
 
 
 class Project:

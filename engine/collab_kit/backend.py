@@ -16,11 +16,15 @@
                                cloud edit to a copy is saved first; the first mirror keeps what it
                                replaces).
     views        agenda/00-PRESSING.md at the top level, the agenda's front page: the back end's own
-                 health first (the date it is current as of, and anything it could not handle), then
-                 every unit's deadlines, critical items, work in progress, and important items. Start
-                 files are never reports: the back end only sets the top-level start file's setup line,
-                 once, the first time it runs for the folder.
+                 health first (the time of this pass, and anything it could not handle), then every
+                 unit's deadlines, critical items, work in progress, what happened lately (status
+                 lines, items settled, returns still waiting), and important items. Start files are
+                 never reports: the back end only sets the top-level start file's setup line, once,
+                 the first time it runs for the folder.
     heartbeat    _backend/heartbeat.json: when it ran, what failed. Written whatever happened.
+                 agenda/00-HEARTBEAT.md: the time of the last check, written by every check the
+                 schedule makes (each minute), full pass or not: one small file, never the page.
+                 Then the optional [heartbeat] command (a dead-man ping to somewhere outside).
 
 Through rclone a pass reads the folder from one listing taken after the lease (RcloneStore.snapshot):
 a file is downloaded only when its md5 is not in the work folder's cache (DESIGN-0.5 section 22).
@@ -40,6 +44,14 @@ Config (TOML, `ck backend run --config FILE`; default <config dir>/backend.toml)
     local_roots = ["~/dev", "~/projects"]  # folder names there count as taken project names
     deny = ["secret-codename"]            # never push a change that contains these (regexes)
     lease_settle_seconds = 20             # wait before trusting the lease (a synced folder is eventually consistent)
+
+    [notify]                              # optional (docs/notifications.md)
+    command = ["sh", "-c", "..."]         # run the first time a critical item appears
+    status = false                        # true: also for each new status line (finished work)
+
+    [heartbeat]                           # optional: a dead-man ping, so something outside notices a stop
+    command = ["sh", "-c", "..."]         # run after a successful check; nothing from the folder reaches it
+    every_minutes = 5                     # at most this often
 
     [[project]]                           # only projects whose home is a repository
     name = "garden-planner"
@@ -64,15 +76,18 @@ import time
 from pathlib import Path
 
 from . import config as C
+from . import kit_version
 from .apply import SETTLE_SECONDS, Outcome, apply_file, changed_since_listed, heal_duplicates, raise_item
 from .store import FolderStore, RcloneStore, Store, StoreError, SubStore, open_store, run_quiet
 from .templates import SETUP_NONE_MARK, SETUP_TEXT, get_block, replace_block, set_human
-from .views import PRESSING, cloud_units, front_page, inactive_projects, write_front_page  # noqa: F401
+from .views import (HEARTBEAT_PAGE, PRESSING, STALE_MINUTES, cloud_units, front_page, heartbeat_text,  # noqa: F401
+                    inactive_projects, status_entries, write_front_page)
 from .text import one_line, sha, stamp, utcnow
 from .unit import AGENDA, APPLIED, FAILED, KNOWLEDGE, RETURNS, START, STRAYS, VERSIONS, Unit, write_versioned
 
 LEASE = "_backend/lease.json"
 HEARTBEAT = "_backend/heartbeat.json"
+ACCEPTS = ["blocks"]                                  # additions to Changes v1 this back end applies (said in the heartbeat)
 MIRROR_STATE = "_backend/mirror"
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".html", ".toml", ".tsv", ".svg", ".yml", ".yaml"}
 GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
@@ -194,8 +209,19 @@ def walk(store: Store, prefix: str) -> dict[str, str | None]:
 
 # ----------------------------------------------------------------------- one pass --
 
+def command_of(section) -> list[str] | None:
+    """The command of a [notify] or [heartbeat] table: None when there is none, [] when it is not a
+    list of strings (reported, never run). Only its first word is expanded (~)."""
+    cmd = section.get("command") if isinstance(section, dict) else None
+    if cmd is None:
+        return None
+    if isinstance(cmd, list) and cmd and all(isinstance(a, str) for a in cmd):
+        return [C.expand(a) if i == 0 else a for i, a in enumerate(cmd)]
+    return []
+
+
 class Pass:
-    def __init__(self, cfg: dict, dry_run: bool = False):
+    def __init__(self, cfg: dict, dry_run: bool = False, minute: bool = False):
         b = cfg.get("backend", {})
         self.cfg = cfg
         self.cloud_spec = C.expand(b["cloud"])
@@ -208,10 +234,11 @@ class Pass:
         self.deny = [re.compile(x, re.I) for x in b.get("deny", [])]
         self.settle = float(b.get("lease_settle_seconds", 20 if self.cloud_spec.startswith("rclone:") else 2))
         self.repos = {p["name"]: p for p in cfg.get("project", [])}
-        cmd = cfg.get("notify", {}).get("command")      # None: off; a list: on; anything else: reported
-        self.notify_cmd = (None if cmd is None else
-                           [C.expand(a) if i == 0 else a for i, a in enumerate(cmd)]
-                           if isinstance(cmd, list) and cmd and all(isinstance(a, str) for a in cmd) else [])
+        notify = cfg.get("notify") if isinstance(cfg.get("notify"), dict) else {}
+        self.notify_cmd = command_of(notify)             # None: off; a list: on; []: reported
+        self.notify_status = notify.get("status") is True    # also each new status line: only when asked
+        self.minute = minute                             # the schedule's minute check keeps agenda/00-HEARTBEAT.md
+        self.lost = False
         self.me = f"{socket.gethostname()}:{os.getpid()}"
         self.dry = dry_run
         self.held_lease = False
@@ -590,23 +617,26 @@ class Pass:
         """The optional push first (so a failure reaches the page), then the agenda's front page
         (views.py), the back end's health first."""
         self.step("the top-level start file", self.start_file_setup)
-        today = utcnow().date()
+        now = utcnow()
         units = self.all_units()
         if self.notify_cmd is not None and not self.dry:
-            self.step("the push notification", self.notify_critical, units)
-        text = front_page(units, today=today, human=self.human, inactive=inactive_projects(self.cloud),
-                          interval=self.interval, problems=self.problems, unreadable=self.problem)
+            self.step("the push notification", self.notify, units)
+        text = front_page(units, today=now.date(), human=self.human, inactive=inactive_projects(self.cloud),
+                          interval=self.interval, problems=self.problems, unreadable=self.problem,
+                          now=now, heartbeat=self.minute)
         if not self.dry and write_front_page(self.cloud, text):
             self.note("the agenda's front page was rebuilt")
 
     NOTIFY_PER_PASS, NOTIFY_PER_HOUR = 5, 20
 
-    def notify_critical(self, units) -> None:
+    def notify(self, units) -> None:
         """Optional ([notify] command): tell the person the moment a critical item (importance 1) first
-        appears, wherever it came from. The command gets the text in environment variables
-        (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a command line: titles are
-        outside text. Each item is sent once; what a pass could not send (a cap, a failure) is sent by
-        a later one; at most five a pass and twenty an hour. docs/notifications.md has examples."""
+        appears, wherever it came from; and, only with `status = true`, each new status line (what work
+        outside conversations reports: finished, blocked, started). The command gets the text in
+        environment variables (COLLAB_KIT_TITLE, COLLAB_KIT_MESSAGE, COLLAB_KIT_ITEM), never on a
+        command line: titles and status lines are outside text. Each is sent once; what a pass could
+        not send (a cap, a failure) is sent by a later one; at most five a pass and twenty an hour,
+        critical items first. docs/notifications.md has examples."""
         if not self.notify_cmd:
             raise ValueError("[notify] command must be a list of strings, e.g. [\"sh\", \"-c\", \"...\"]")
         state = self.work / "notified.json"
@@ -615,38 +645,52 @@ class Pass:
             seen = {k: float(v) for k, v in st["seen"].items()} if isinstance(st["seen"], dict) \
                 else {k: time.time() for k in st["seen"]}
             times = [float(x) for x in st.get("times", [])]
+            had_status = st.get("status") is True
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
-            seen, times = None, []                       # first run: remember what is there, send nothing
-        now = {}
+            seen, times, had_status = None, [], False    # first run: remember what is there, send nothing
+        now = {}                                         # key -> (title, message, reference)
         for name, unit in units:
+            where = "top level" if name == "top" else name
             for it in unit.items():
                 if it.is_open and it.importance <= 1:
-                    now[f"{name}:{it.id}"] = ("top level" if name == "top" else name, it)
+                    now[f"{name}:{it.id}"] = (f"Collab Kit: critical in {where}", it.title, f"{where} {it.id}")
+            if self.notify_status:                       # a day's worth: older lines are never news
+                since = (utcnow() - dt.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+                try:
+                    entries = status_entries(unit)
+                except (StoreError, OSError):
+                    entries = []
+                for at, rest in entries:
+                    if len(at) > 10 and at >= since:
+                        now[f"status:{name}:{at}:{sha(rest)[:8]}"] = (f"Collab Kit: status in {where}", rest,
+                                                                     f"{where} status {at} UTC")
         clock = time.time()
         if seen is None:
             seen = {k: clock for k in now}
-        else:                                            # forgotten a week after it was last seen critical
+        else:                                            # forgotten a week after it was last seen
             seen = {k: (clock if k in now else v) for k, v in seen.items() if k in now or clock - v < 7 * 86400}
+            if self.notify_status and not had_status:    # status lines just turned on: those already there are not news
+                seen.update({k: clock for k in now if k.startswith("status:")})
         times = [x for x in times if x > time.time() - 3600]
         try:
-            for key in sorted(set(now) - set(seen))[: self.NOTIFY_PER_PASS]:
+            for key in sorted(set(now) - set(seen), key=lambda k: (k.startswith("status:"), k))[: self.NOTIFY_PER_PASS]:
                 if len(times) >= self.NOTIFY_PER_HOUR:
                     self.note("push: the hourly limit is reached; the rest wait for a later pass")
                     break
-                where, it = now[key]
-                message = one_line(it.title, 200).lstrip("@<")    # never a curl file reference
-                env = {**os.environ, "COLLAB_KIT_TITLE": f"Collab Kit: critical in {where}",
-                       "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": f"{where} {it.id}"}
+                title, text, ref = now[key]
+                message = one_line(text, 200).lstrip("@<")        # never a curl file reference
+                env = {**os.environ, "COLLAB_KIT_TITLE": title, "COLLAB_KIT_MESSAGE": message, "COLLAB_KIT_ITEM": ref}
                 res = run_quiet(self.notify_cmd, env=env, capture_output=True, timeout=20)
                 if res.returncode != 0:
                     raise RuntimeError(f"the notify command failed ({res.returncode}): "
                                        f"{res.stderr.decode('utf-8', 'replace').strip()[:200]}")
                 seen[key] = time.time()
                 times.append(time.time())
-                self.note(f"pushed: {where} {it.id}")
+                self.note(f"pushed: {ref}")
         finally:
             self.work.mkdir(parents=True, exist_ok=True)
-            state.write_text(json.dumps({"seen": dict(sorted(seen.items())), "times": times}), encoding="utf-8")
+            state.write_text(json.dumps({"seen": dict(sorted(seen.items())), "times": times,
+                                         "status": self.notify_status}), encoding="utf-8")
 
     def write_if_changed(self, unit: Unit, rel: str, text: str) -> None:
         if unit.store.read(rel) != text:
@@ -776,9 +820,15 @@ class Pass:
         self.start_snapshot()
         lost = False
         try:
+            note = self.work / PING_PROBLEM            # a dead-man ping that failed since the last pass
+            if note.is_file():
+                self.problem(note.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            pass
+        try:
             self.passes()
         except LeaseLost as ex:
-            lost = True                                # another runner owns the folder now: write nothing more
+            lost = self.lost = True                    # another runner owns the folder now: write nothing more
             print(f"collab-kit back end: {ex}")
         finally:
             if isinstance(self.cloud, RcloneStore):
@@ -787,7 +837,8 @@ class Pass:
                 try:
                     self.cloud.write(HEARTBEAT, json.dumps({
                         "last_run": utcnow().isoformat(), "interval_minutes": self.interval, "host": socket.gethostname(),
-                        "problems": self.problems, "applied": len(self.log)}, indent=1))
+                        "problems": self.problems, "applied": len(self.log), "kit": kit_version(),
+                        "accepts": ACCEPTS, "minute_check": self.minute}, indent=1))
                 except Exception as ex:               # noqa: BLE001
                     print(f"PROBLEM: could not write the heartbeat: {ex}")
                 drop_lease(self.cloud, self.me)
@@ -840,30 +891,100 @@ def load_config(path: str | None) -> dict:
 
 LAST_PASS = "last-pass"                               # in the work folder: when the last full pass ended
 INBOX_PRINT = "inbox-fingerprint.json"                # what the inboxes held, settled, after that pass
+LAST_CHECK = "last-check"                             # when the schedule's check last wrote the heartbeat
+LAST_PING = "last-ping"                               # when the [heartbeat] command last ran
+PING_PROBLEM = "ping-problem.txt"                     # why it failed, for the next full pass to report
+PING_EVERY = 5                                        # minutes, unless [heartbeat] every_minutes says
 
 
-def settled_inbox(store: Store) -> list:
+def settled_inbox(store: Store, entries=None) -> list:
     """The inboxes' settled files as [path, mtime, size]: a return still settling is left out until it
     has settled, so it starts exactly one pass; a return a pass leaves in place (a failed push, no End.
     yet) is in it and starts no more."""
     from .apply import SETTLE_SECONDS
     now = time.time()
-    return sorted([p, int(m), s] for p, m, s in store.inbox_entries() if not m or now - m >= SETTLE_SECONDS)
+    entries = store.inbox_entries() if entries is None else entries
+    return sorted([p, int(m), s] for p, m, s in entries if not m or now - m >= SETTLE_SECONDS)
+
+
+def _younger(path: Path, seconds: float) -> bool:
+    try:
+        return time.time() - path.stat().st_mtime < seconds
+    except OSError:
+        return False
+
+
+def beat(cfg: dict, store: Store, work: Path, minute: bool) -> None:
+    """A check succeeded (a quiet minute, or a full pass): say so. With `minute` (the schedule's
+    check, every minute), write the time to agenda/00-HEARTBEAT.md: one small file, in place, so
+    the front page is not rewritten every minute. Then the optional [heartbeat] command. Neither
+    failing stops anything: it is printed to the log, and a failed command is reported by the next
+    full pass."""
+    now = utcnow()
+    if minute:
+        try:
+            store.write(HEARTBEAT_PAGE, heartbeat_text(now, cfg.get("backend", {}).get("human", "the owner")))
+            work.mkdir(parents=True, exist_ok=True)
+            (work / LAST_CHECK).write_text(now.isoformat() + "\n", encoding="utf-8")
+        except (StoreError, OSError) as ex:
+            print(f"PROBLEM: could not write {HEARTBEAT_PAGE}: {ex}")
+            return                                    # no ping either: the folder could not be written
+    ping(cfg, work, now)
+
+
+def ping(cfg: dict, work: Path, now) -> None:
+    """Optional ([heartbeat] command): a dead-man ping. A back end that has stopped cannot say so, so
+    something outside has to notice the silence: the command tells a service of the person's choosing
+    "still here" after a successful check, at most every `every_minutes` (5), and that service
+    raises the alarm when the pings stop. Nothing read from the folder reaches the command: its one
+    variable, COLLAB_KIT_CHECKED, is the time of the check."""
+    section = cfg.get("heartbeat", {})
+    cmd = command_of(section)
+    if cmd is None:
+        return
+    note = work / PING_PROBLEM
+    try:
+        if not cmd:
+            raise ValueError("[heartbeat] command must be a list of strings, e.g. [\"sh\", \"-c\", \"...\"]")
+        every = max(int(section.get("every_minutes", PING_EVERY)), 1)
+        if _younger(work / LAST_PING, every * 60 - 30):
+            return
+        res = run_quiet(cmd, env={**os.environ, "COLLAB_KIT_CHECKED": now.isoformat()}, capture_output=True, timeout=20)
+        if res.returncode != 0:
+            raise RuntimeError(f"the [heartbeat] command failed ({res.returncode}): "
+                               f"{res.stderr.decode('utf-8', 'replace').strip()[:200]}")
+        work.mkdir(parents=True, exist_ok=True)
+        (work / LAST_PING).write_text(now.isoformat() + "\n", encoding="utf-8")
+        note.unlink(missing_ok=True)
+    except (ValueError, TypeError, RuntimeError, OSError, subprocess.TimeoutExpired) as ex:
+        msg = one_line(f"the dead-man ping: {type(ex).__name__}: {ex}", 300)
+        print(f"PROBLEM: {msg}")
+        try:
+            work.mkdir(parents=True, exist_ok=True)
+            note.write_text(msg, encoding="utf-8")
+        except OSError:
+            pass
 
 
 def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: bool = False) -> int:
     """One pass. With if_waiting (what the schedule runs, every minute and on a file event), first ask
     one cheap question, whether the inboxes hold anything new since the last pass (one listing), and do
     the full pass only if they do or the last full pass is older than interval_minutes (the sweep,
-    which also pulls and mirrors)."""
+    which also pulls and mirrors). Either way a check that succeeded says so (beat): the quiet minute
+    only when the same listing showed the folder's start file, so nothing is written to a folder that
+    is not a Collab Kit folder."""
     cfg = load_config(path)
     b = cfg["backend"]
     work = Path(C.expand(b.get("work", str(C.state_dir().parent / "backend"))))
     stamp_file, print_file = work / LAST_PASS, work / INBOX_PRINT
     before = None                                    # the inboxes as this pass starts (settled files)
+    store, start_there = None, False
+    minute = if_waiting or _younger(work / LAST_CHECK, STALE_MINUTES * 60)   # a pass by hand beside the schedule
     if not dry_run:
         try:
-            before = settled_inbox(open_store(C.expand(b["cloud"])))
+            store = open_store(C.expand(b["cloud"]))
+            entries, start_there = store.check_entries()
+            before = settled_inbox(store, entries)
         except (StoreError, OSError):
             before = None                            # the full pass says what is wrong, on the agenda
     if if_waiting and not dry_run and before is not None:
@@ -877,8 +998,10 @@ def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: 
         except (OSError, ValueError):
             last = None
         if fresh and before == last:
+            if start_there:
+                beat(cfg, store, work, minute=True)
             return 0
-    p = Pass(cfg, dry_run=dry_run)
+    p = Pass(cfg, dry_run=dry_run, minute=minute)
     rc = p.run()
     if not dry_run and p.held_lease:
         try:
@@ -889,4 +1012,6 @@ def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: 
             print_file.write_text(json.dumps(seen), encoding="utf-8")
         except (OSError, StoreError):
             pass
+        if not p.lost:
+            beat(cfg, p.cloud, work, minute=minute)
     return rc

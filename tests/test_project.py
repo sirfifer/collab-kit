@@ -448,9 +448,12 @@ class ProjectSide(unittest.TestCase):
     def test_retiring_the_back_end_lets_sessions_apply_again(self):
         self.install()
         FolderStore(self.cloud).write("_backend/heartbeat.json", json.dumps({"last_run": "2026-11-01T03:00:00+00:00"}))
+        FolderStore(self.cloud).write("agenda/00-HEARTBEAT.md", "**Last check: 2026-11-01 03:00 UTC.**\n")
         installer.install_top(self.cloud, human="Sam", setup="none")
         self.assertFalse((self.cloud / "_backend/heartbeat.json").exists())
         self.assertTrue(list((self.cloud / "_backend").glob("heartbeat.retired-*.json")))
+        self.assertFalse((self.cloud / "agenda/00-HEARTBEAT.md").exists(), "the minute check's file goes too")
+        self.assertTrue(list((self.cloud / "agenda/_versions").glob("00-HEARTBEAT.*.md")), "kept, never deleted")
         self.ck("ask", "Applied again")
         self.assertTrue(any((self.cloud / "projects/garden/collab-kit/agenda").glob("W-*-applied-again.md")))
 

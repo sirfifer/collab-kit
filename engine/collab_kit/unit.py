@@ -70,6 +70,12 @@ class Item:
     def kind(self) -> str:
         return str(self.fields.get("kind", "task"))
 
+    @property
+    def blocks(self) -> str:
+        """The item whose work waits for this one (a question an agent is blocked on), or ""."""
+        m = re.fullmatch(r"W-?(\d{1,5})", str(self.fields.get("blocks", "") or "").strip(), re.I)
+        return f"W-{int(m.group(1)):03d}" if m else ""
+
 
 class Unit:
     def __init__(self, store: Store, name: str, *, home: str = "cloud", top: bool = False):
@@ -142,9 +148,12 @@ class Unit:
 # ------------------------------------------------------------------- editing item files --
 
 def render_item(wid: str, title: str, *, kind="task", importance=3, status="open", due="", project="",
-                body: str | None = None, log: list[str] | None = None) -> str:
-    fm = set_front_matter("", {"id": wid, "title": title, "kind": kind, "importance": int(importance),
-                              "status": status, "due": due or "", "project": project or ""})
+                body: str | None = None, log: list[str] | None = None, blocks: str = "") -> str:
+    fields = {"id": wid, "title": title, "kind": kind, "importance": int(importance),
+              "status": status, "due": due or "", "project": project or ""}
+    if blocks:                                    # only a question that blocks an item carries the field
+        fields["blocks"] = blocks
+    fm = set_front_matter("", fields)
     if body and re.search(r"^## ", body, re.M):
         text = body.strip() + "\n"
     else:

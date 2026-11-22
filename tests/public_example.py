@@ -20,6 +20,9 @@ someone else's repository. Two kinds of file live there:
         the cloud drive lists but cannot read yet (Drive for desktop sometimes cannot fetch a file a
         phone wrote). Read the diff before committing: rules catch accounts and named private words,
         not every private thought.
+    python3 tests/public_example.py regenerate
+        Rewrites only the generated files (what the installer writes), after a change to the templates
+        or the installer. The snapshot is not touched and nothing is read from any Collab Kit folder.
 
 Sanitizing rules come in two layers. The generic ones (accounts, local paths, Drive ids) are below and
 public. The private ones (words that must never be published, and their replacements) are in a file
@@ -458,10 +461,24 @@ def refresh(src: Path, fill: Path | None = None, example: Path = EXAMPLE, requir
     return notes
 
 
+def regenerate(example: Path = EXAMPLE) -> list[str]:
+    """Write the generated files again (what the installer writes now); the snapshot stays as it is.
+    Returns the paths that changed."""
+    changed = []
+    for rel, data in generated(manifest(example)).items():
+        p = example / rel
+        if not p.is_file() or p.read_bytes() != data:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(data)
+            changed.append(rel)
+    return changed
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check")
+    sub.add_parser("regenerate")
     r = sub.add_parser("refresh")
     r.add_argument("--from", dest="src", required=True, type=Path)
     r.add_argument("--fill", type=Path)
@@ -470,6 +487,9 @@ def main(argv=None) -> int:
     if a.cmd == "refresh":
         for n in refresh(a.src.expanduser(), a.fill, require_rules=not a.no_private_rules):
             print(n)
+    if a.cmd == "regenerate":
+        for rel in regenerate():
+            print(f"rewritten: {rel}")
     problems = check()
     for p in problems:
         print(p)

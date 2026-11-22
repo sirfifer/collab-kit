@@ -158,25 +158,53 @@ class Planner:
             raise Reject(f"line {ch.line}: a project's inbox can only add items to that project")
         if ch.ref and ch.ref in self.handles:
             raise Reject(f"line {ch.line}: {ch.ref} is used twice")
+        self.check_blocks(ch)
         num = self.next_number()
         wid = f"W-{num:03d}"
         path = f"{AGENDA}/{wid}-{slug(a['title'], 40)}.md"
         text = render_item(wid, a["title"], kind=a.get("kind", "task"), importance=a.get("importance", 3),
                            status=a.get("status", "open"), due=a.get("due", ""), project=a.get("project", ""),
-                           body=ch.body, log=[f"created {self.tag()}"])
+                           body=ch.body, log=[f"created {self.tag()}"], blocks=a.get("blocks", ""))
         self.ov.write(path, text)
         if ch.ref:
             self.handles[ch.ref] = path
         self.minted.append(wid)
 
-    def _edit(self, ch: R.Change, fields: dict, log: str):
+    def check_blocks(self, ch: R.Change, own: str = "") -> None:
+        """blocks= names an item of this unit (one that exists, or one this return made earlier)."""
+        wid = ch.args.get("blocks")
+        if not wid:
+            return
+        if wid == own:
+            raise Reject(f"line {ch.line}: an item cannot block itself")
+        if wid not in self.minted and not any(i.id == wid for i in self.unit.items()):
+            raise Reject(f"line {ch.line}: blocks= names {wid}, and there is no item {wid} in {self.unit.name}")
+
+    def _edit(self, ch: R.Change, fields: dict, log: str) -> Item:
         item = self.resolve(ch)
         self.ov.write(item.path, edit_item_text(item, fields, f"{log} {self.tag()}"))
+        return item
+
+    def tell_blocked(self, item: Item, what: str) -> None:
+        """A question that blocked an item is closed: write the answer on that item's log too, so the
+        session that works on it next finds it there. The text is the person's answer, quoted: data."""
+        found = [i for i in self.unit.items() if i.id == item.blocks] if item.blocks else []
+        if len(found) != 1 or found[0].path == item.path:
+            return
+        text = self.ov.read(found[0].path)
+        if text is None:
+            return
+        waiting = _item_from_text(found[0].path, text)
+        if waiting.is_open:
+            self.ov.write(waiting.path, edit_item_text(
+                waiting, {}, f"{item.id} (\"{one_line(item.title, 80)}\"), which this item waited on, {what} {self.tag()}"))
 
     def op_set(self, ch: R.Change):
         if self.unit.top is False and ch.args.get("project") not in (None, "", self.unit.name):
             raise Reject(f"line {ch.line}: a project's inbox cannot move items to another project")
         desc = ", ".join(f"{k} to {v if v != '' else '(none)'}" for k, v in ch.args.items())
+        if ch.args.get("blocks"):
+            self.check_blocks(ch, own=self.resolve(ch).id)
         self._edit(ch, dict(ch.args), f"set {desc}")
 
     def op_log(self, ch: R.Change):
@@ -187,14 +215,16 @@ class Planner:
         self.ov.write(item.path, edit_item_text(item, {}, f"{text.strip()} {self.tag()}"))
 
     def op_settle(self, ch: R.Change):
-        self._edit(ch, {"status": "settled", "outcome": ch.args["outcome"]}, f"settled: {ch.args['outcome']}")
+        item = self._edit(ch, {"status": "settled", "outcome": ch.args["outcome"]}, f"settled: {ch.args['outcome']}")
+        self.tell_blocked(item, f"was settled: {ch.args['outcome']}")
 
     def op_snooze(self, ch: R.Change):
         self._edit(ch, {"snoozed_until": ch.args["until"]}, f"snoozed until {ch.args['until']}")
 
     def op_withdraw(self, ch: R.Change):
         why = ch.args.get("reason", "")
-        self._edit(ch, {"status": "dropped"}, f"withdrawn{': ' + why if why else ''}")
+        item = self._edit(ch, {"status": "dropped"}, f"withdrawn{': ' + why if why else ''}")
+        self.tell_blocked(item, f"was dropped{': ' + why if why else ''}")
 
     def op_reopen(self, ch: R.Change):
         why = ch.args.get("reason", "")

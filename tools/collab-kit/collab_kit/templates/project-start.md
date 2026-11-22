@@ -9,6 +9,10 @@ Project: **{{name}}**. {{human}} calls it {{spoken}}. {{about}}
 - `agenda/`: what needs {{human}}, one file per item (`W-NNN-...`). **Read it first**, before anything
   else here: it is the one source kept up to date. Anything overdue, due within a week, or critical
   (importance 1) is raised first.
+- **When the talk moves here from another project,** read the top level's `agenda/00-PRESSING.md`
+  again first, and say in a sentence what finished since you last looked. If its time is more than
+  about ten minutes old, read `agenda/00-HEARTBEAT.md` beside it too (the top-level start file,
+  step 3, says what a silent back end means).
 - `WIP/`: checkpoint notes between saves. List it next: leftovers mean an unfinished thread.
 - `knowledge/`: what the project knows (read these to answer questions). If it has `01-INDEX.md`,
   start there: it lists every concept, answer, and document section by name. `knowledge/status.md`

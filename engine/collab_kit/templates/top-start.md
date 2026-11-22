@@ -14,22 +14,33 @@ is going on, and anything new, is on the agenda.
 1. **This file**, once.
 2. **The agenda, before anything else.** Its front page, `agenda/00-PRESSING.md`, lists across every
    project what needs {{human}} first: anything overdue or due soon, critical items (importance 1),
-   work in progress. Raise anything overdue, due within a week, or critical in a sentence or two,
-   before anything else and without being asked. When a back end runs, it writes the page with its
-   own health at the top: if the date there is two or more days before today, the back end has
-   stopped, so tell {{human}} first. Without a back end, keep the page current yourself: when you set
-   or change a due date or importance 1, or settle such an item, add, change, or remove its line there
-   (by versioning). If the page is missing, list `agenda/` and read the open items.
-3. **`WIP/`**: list it here, and in a project's folder once you work there. Leftover notes mean an
+   work in progress, and what happened in the last two days ("Since you last looked": status lines
+   from work outside conversations, items settled, returns still waiting in an inbox). Raise anything
+   overdue, due within a week, or critical in a sentence or two, before anything else and without
+   being asked; then say in one sentence what finished lately, if anything did.
+   **Read the page again each time the talk moves to another project,** and say in a sentence what
+   is new on it since you last looked: what finished, what was settled, a new critical question.
+   Without a back end, keep the page current yourself: when you set or change a due date or
+   importance 1, or settle such an item, add, change, or remove its line there (by versioning). If
+   the page is missing, list `agenda/` and read the open items.
+3. **Is the back end running?** (Only when one runs for this folder; see above.) The front page
+   opens with the time of the back end's last full pass. If that is more than about ten minutes
+   ago, read `agenda/00-HEARTBEAT.md` as well: one line, the time the back end last checked the
+   inboxes, which it does every minute. If that too is more than about ten minutes ago, the back
+   end is down. Tell {{human}} first, in one sentence, and what it means: returns wait safely in
+   the inboxes, but the items they add have no numbers yet, so follow-ups to them wait. Do the same
+   check each time you read the page again. Times are UTC; if you are not sure of the time now, the
+   modified time of a file you just wrote is now.
+4. **`WIP/`**: list it here, and in a project's folder once you work there. Leftover notes mean an
    unfinished thread (often a dropped call): tell {{human}} and offer to finish the save.
-4. **`knowledge/projects.md`**, when the talk turns to a project or to {{human}}'s work in general:
+5. **`knowledge/projects.md`**, when the talk turns to a project or to {{human}}'s work in general:
    every one of {{human}}'s projects, in Collab Kit or not, with what it is, what {{human}} calls it,
    where it lives, its state, and whether Collab Kit is set up for it. A project's card,
    `knowledge/project-cards/<folder>.md`, holds its vision, story, and timeline. Go only as deep as the
    conversation needs: the list, then the card, then the project's own Collab Kit folder.
 
-These steps take about five tool calls. If the first reply runs out, finish them in the next one,
-before anything else.
+These steps take about five tool calls, six when the heartbeat is read. If the first reply runs out,
+finish them in the next one, before anything else.
 
 ## How you work here
 
@@ -160,6 +171,13 @@ number), then move the return into `_returns/applied/`, and keep the agenda's fr
 it applies the return within a few minutes of it arriving, and reports anything it could not file
 on the agenda.
 
+**A return that is still waiting.** With a back end, a return leaves the inbox within about three
+minutes. If one you filed, or one you find when you list an inbox, is still there after about ten
+minutes (its name starts with the date and time it was written), say so in one sentence: the back
+end has not applied it, so what it adds has no item number yet, and follow-ups to it wait. Then
+look at the heartbeat (step 3 at the top). Leave the return where it is: never apply it yourself
+when a back end runs, and never file it again.
+
 ## The agenda (`agenda/`)
 
 One file per item, `W-NNN-short-slug.md`:
@@ -176,6 +194,7 @@ project = ""             # a project folder name, if it is about one
 # set by changes, when they apply:
 # outcome = "..."          settle, withdraw: what was decided (or why it was dropped)
 # snoozed_until = "YYYY-MM-DD"   snooze: the item is not raised before that date
+# blocks = "W-012"         a question: the work on W-012 cannot go on without its answer
 +++
 
 ## What's needed
@@ -188,6 +207,11 @@ project = ""             # a project folder name, if it is about one
 - **Importance 1 means critical:** it is raised at the start of every conversation until it is
   settled, so keep it for what truly cannot wait. Urgency is the due date: anything overdue or due
   within a week is raised the same way.
+- **A question that blocks work.** An agent that cannot go on files its question as critical, with
+  `blocks = "W-012"` naming the item whose work waits (the front page shows "blocks W-012"). When
+  you raise it, say what it holds up. When {{human}} answers, settle the question with the answer
+  as its outcome (`settle W-015 "narration" outcome="the calm voice"`): that is how the answer
+  reaches the agent, so write it in full, in {{human}}'s words.
 - Ideas that may become projects are items of kind `project`, named or not.
 - **Moving an item to the right project:** a `new-item` in that project's inbox (its log line names
   where it came from), and `settle` the old item with outcome "moved to <project> W-NNN".
