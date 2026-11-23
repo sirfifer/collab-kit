@@ -21,8 +21,8 @@
   <rect x="0" y="0" width="480" height="884" rx="20" fill="#FBFAF7"/>
 
   <text x="24" y="52" class="title">One day, round the loop</text>
-  <text x="24" y="80" class="sub">What you say on a walk reaches the agents doing</text>
-  <text x="24" y="101" class="sub">the work, and their questions come back to you.</text>
+  <text x="24" y="80" class="sub">What you work out on a walk is filed. Agents on</text>
+  <text x="24" y="101" class="sub">the project start from it, and ask you back.</text>
 
   <!-- the line -->
   <line x1="40" y1="146" x2="40" y2="776" stroke="#D8D3C8" stroke-width="3"/>

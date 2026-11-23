@@ -38,6 +38,46 @@ By default the project's agenda and knowledge stay in the Collab Kit folder, whi
 end. With `--home repo` they live in the repository instead, in a `collab-kit/` folder that is
 committed with the code; that needs a back end whose settings list the repository.
 
+### A project with a lot of written material: the document index
+
+For a project with many documents (chapters, design documents, research notes), the kit can split
+each one into sections and write an index, so a conversation opens one section instead of a whole
+document. This is the oldest part of the kit (it was the whole of version 0.4), and its setup is
+not yet one command. It works only for a project whose home is its repository, and the documents must be
+Markdown files: they are split at their headings. The steps below were run end to end on
+2026-11-23:
+
+```bash
+python3 install.py project <repo> --home repo --about "what it is" --spoken "what you call it"
+```
+
+```bash
+python3 install.py init <repo> --name "<Project Name>" --slug <short-id> --mirror none --captures-in-git no --out-dir collab-kit/knowledge --author-path <folder with your documents>
+```
+
+Repeat `--author-path` for each folder that holds documents. Then:
+
+1. Open `tools/kb/config.toml` in the repository and add the line `agenda = false` under
+   `[knowledge]`. Without it you get a second agenda inside the knowledge folder.
+2. Run `python3 install.py apply <repo>`.
+3. List your documents in `tools/kb/manifest.toml`: a `[[documents]]` entry for one file (`code`,
+   `title`, `source`, `tier`, `about`), or a `[[collections]]` entry for a whole folder (`pattern`,
+   `prefix`, `tier`, `about`). The file has examples. An empty list builds an empty index and says
+   nothing.
+4. Run `python3 install.py apply <repo>` once more, then, in the repository,
+   `python3 tools/kb/kb.py build` and `python3 tools/kb/kb.py check`. Commit the result.
+
+The sections and `01-INDEX.md` are now under `collab-kit/knowledge/`. After you change a document,
+run the build again and commit. A back end whose settings list the repository does that on every
+pass, and copies the result to your Collab Kit folder, which is where a voice conversation reads it.
+Without a back end the sections stay in the repository.
+
+Two things to know. The build also writes `collab-kit/knowledge/CLAUDE.md`, a start file from the
+older layout: ignore it, the project's start file is `collab-kit/00-START-HERE.md`. And `install.py
+project` does not keep `tools/kb/` current: after upgrading the kit, run `install.py apply <repo>`
+as well. The design of the build is in [DESIGN.md](../DESIGN.md); a finished sample is
+[examples/the-lighthouse](../examples/the-lighthouse/README.md).
+
 ### What an agent working there then sees
 
 Any session in that repository works with Collab Kit without being asked:

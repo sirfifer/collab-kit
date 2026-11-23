@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 664" width="480" height="664" role="img" aria-labelledby="t d">
-  <title id="t">Why a big project fits in a voice talk</title>
-  <desc id="d">Two bars, each standing for what one conversation can hold; an illustration, not a measurement. In the first, a whole attached document fills the bar and runs past its end: it is a snapshot from the day it was attached and leaves little room for the talk. In the second, with Collab Kit, five small files take up a small part of the bar: the start file, what is pressing, the project's agenda, a list of what it knows, and one file. The rest is room for the talk, the files are read as they are today, and it grows one small file at a time.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 692" width="480" height="692" role="img" aria-labelledby="t d">
+  <title id="t">What is in Claude's context</title>
+  <desc id="d">Two bars, each standing for Claude's context: what it can hold in mind at once. An illustration, not a measurement. In the first, a whole attached document takes up the whole bar: it is a copy from the day it was attached, and mostly pages this talk does not need, which makes the answers worse. In the second, with Collab Kit, five small files take up a small part of the bar: the start file, what is pressing, the project's agenda, a list of what it knows, and the piece the talk needs. The rest is room for the talk, the files are read as they are today, and it grows one small file at a time.</desc>
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1F2430; }
@@ -19,49 +19,50 @@
     </pattern>
   </defs>
 
-  <rect x="0" y="0" width="480" height="664" rx="20" fill="#FBFAF7"/>
+  <rect x="0" y="0" width="480" height="692" rx="20" fill="#FBFAF7"/>
 
-  <text x="24" y="52" class="title">Why a big project fits</text>
-  <text x="24" y="86" class="title">in a voice talk</text>
-  <text x="24" y="116" class="sub">Each bar is what one conversation can hold.</text>
+  <text x="24" y="52" class="title">What is in context</text>
+  <text x="24" y="82" class="sub">Each bar is Claude's context: what it can hold</text>
+  <text x="24" y="103" class="sub">in mind at once, the talk included.</text>
 
   <!-- attached document -->
-  <rect x="16" y="140" width="448" height="196" rx="16" class="card"/>
+  <rect x="16" y="140" width="448" height="224" rx="16" class="card"/>
   <text x="36" y="176" class="h">A document, attached</text>
   <rect x="36" y="194" width="408" height="46" rx="8" fill="url(#hatch)" stroke="#C2410C" stroke-width="1.5"/>
-  <polygon points="444,194 460,217 444,240" fill="#C2410C"/>
   <rect x="140" y="204" width="200" height="26" rx="13" fill="#FFFFFF"/>
   <text x="240" y="222" class="s" text-anchor="middle" style="font-weight:700;fill:#9A3412">the whole document</text>
   <circle cx="42" cy="269" r="4" fill="#C2410C"/>
-  <text x="56" y="274" class="b">A snapshot from the day you attached it.</text>
+  <text x="56" y="274" class="b">A copy from the day you attached it.</text>
   <circle cx="42" cy="297" r="4" fill="#C2410C"/>
-  <text x="56" y="302" class="b">Little room left for the talk itself.</text>
+  <text x="56" y="302" class="b">Mostly pages this talk does not need.</text>
+  <circle cx="42" cy="325" r="4" fill="#C2410C"/>
+  <text x="56" y="330" class="b">The more of those, the worse the answers.</text>
 
   <!-- collab kit -->
-  <rect x="16" y="352" width="448" height="272" rx="16" class="card"/>
-  <text x="36" y="388" class="h">With Collab Kit</text>
-  <rect x="36" y="406" width="408" height="46" rx="8" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.5"/>
-  <rect x="42" y="412" width="20" height="34" rx="5" fill="#E7E3DA"/>
-  <text x="52" y="434" class="num">1</text>
-  <rect x="66" y="412" width="20" height="34" rx="5" fill="#E7E3DA"/>
-  <text x="76" y="434" class="num">2</text>
-  <rect x="90" y="412" width="20" height="34" rx="5" fill="#E7E3DA"/>
-  <text x="100" y="434" class="num">3</text>
-  <rect x="114" y="412" width="20" height="34" rx="5" fill="#E7E3DA"/>
-  <text x="124" y="434" class="num">4</text>
-  <rect x="138" y="412" width="30" height="34" rx="5" fill="#C7D2FE"/>
-  <text x="153" y="434" class="num">5</text>
-  <text x="300" y="434" class="s muted" text-anchor="middle" style="font-style:italic">room for the talk</text>
+  <rect x="16" y="380" width="448" height="272" rx="16" class="card"/>
+  <text x="36" y="416" class="h">With Collab Kit</text>
+  <rect x="36" y="434" width="408" height="46" rx="8" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.5"/>
+  <rect x="42" y="440" width="20" height="34" rx="5" fill="#E7E3DA"/>
+  <text x="52" y="462" class="num">1</text>
+  <rect x="66" y="440" width="20" height="34" rx="5" fill="#E7E3DA"/>
+  <text x="76" y="462" class="num">2</text>
+  <rect x="90" y="440" width="20" height="34" rx="5" fill="#E7E3DA"/>
+  <text x="100" y="462" class="num">3</text>
+  <rect x="114" y="440" width="20" height="34" rx="5" fill="#E7E3DA"/>
+  <text x="124" y="462" class="num">4</text>
+  <rect x="138" y="440" width="30" height="34" rx="5" fill="#C7D2FE"/>
+  <text x="153" y="462" class="num">5</text>
+  <text x="300" y="462" class="s muted" text-anchor="middle" style="font-style:italic">room for the talk</text>
 
-  <text x="36" y="480" class="s"><tspan style="font-weight:700">1</tspan> start file  <tspan dx="6" style="font-weight:700">2</tspan> what's pressing  <tspan dx="6" style="font-weight:700">3</tspan> the agenda</text>
-  <text x="36" y="503" class="s"><tspan style="font-weight:700">4</tspan> what it knows, by name  <tspan dx="6" style="font-weight:700">5</tspan> one file</text>
+  <text x="36" y="508" class="s"><tspan style="font-weight:700">1</tspan> start file  <tspan dx="6" style="font-weight:700">2</tspan> what's pressing  <tspan dx="6" style="font-weight:700">3</tspan> the agenda</text>
+  <text x="36" y="531" class="s"><tspan style="font-weight:700">4</tspan> a list of what it knows  <tspan dx="6" style="font-weight:700">5</tspan> the piece</text>
 
-  <circle cx="42" cy="535" r="4" fill="#0F766E"/>
-  <text x="56" y="540" class="b">Small files, opened one at a time.</text>
   <circle cx="42" cy="563" r="4" fill="#0F766E"/>
-  <text x="56" y="568" class="b">Read as they are today, not as attached.</text>
+  <text x="56" y="568" class="b">Only the pieces this talk needs.</text>
   <circle cx="42" cy="591" r="4" fill="#0F766E"/>
-  <text x="56" y="596" class="b">It grows one small file at a time.</text>
+  <text x="56" y="596" class="b">Read as they are today, not as attached.</text>
+  <circle cx="42" cy="619" r="4" fill="#0F766E"/>
+  <text x="56" y="624" class="b">It grows one small file at a time.</text>
 
-  <text x="24" y="648" class="s" style="fill:#3F4756">An illustration, not a measurement.</text>
+  <text x="24" y="676" class="s" style="fill:#3F4756">An illustration, not a measurement.</text>
 </svg>

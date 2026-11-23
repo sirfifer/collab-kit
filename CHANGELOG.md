@@ -2,6 +2,16 @@
 
 ## Not yet released
 
+**The home page says plainly what this is, and leads with the work it is for.** Collab Kit is not an
+app: a person talks to Claude in the Claude app, in its built-in voice mode, and the kit is the files
+and scripts behind that conversation. The README now opens with that, then the reason voice mode
+needs it (a voice session runs as a cloud service that can see nothing on the phone or computer),
+then context, explained plainly. The session it shows is a doctoral student working through a chapter
+of her dissertation, in place of a light exchange about a garden planner; the same example runs
+through `docs/how-it-works.md` and `docs/folder-structure.md`. VISION.md gains two clarifications to
+the same effect: the voice is the assistant's own, and in the conversation the person's thinking
+leads.
+
 **The repository is on GitHub, and its CI runs green on every system.** `github.com/sirfifer/collab-kit`
 is public from 2026-11-23; until then it had never been pushed, so the CI matrix had never run. Its
 first run found what only other systems show: Windows checked text out with CRLF line endings (a new

@@ -1,7 +1,8 @@
 # How Collab Kit works
 
-The [README](../README.md) says what Collab Kit is for. This page follows one working session all the
-way round the loop: what is read, what is written, who does each step, and how long it takes. The
+The [README](../README.md) says what Collab Kit is for. Collab Kit is not an app: the conversation
+is with Claude, in the Claude app, in the voice mode built into it (or in typed chat). This page
+follows one working session all the way round the loop: what is read, what is written, who does each step, and how long it takes. The
 layout of the folder has its own page: [the folder and the method](folder-structure.md). Every
 statement here comes from the design record, [DESIGN-0.5.md](../DESIGN-0.5.md); section numbers in
 brackets point into it.
@@ -57,19 +58,20 @@ flowchart TD
     S["00-START-HERE.md<br/>how to work here, read once"]
     P["agenda/00-PRESSING.md<br/>what needs you, across everything"]
     K["knowledge/projects.md<br/>one row for every project"]
-    C["project-cards/garden-planner.md<br/>its vision, story, timeline"]
-    A["garden-planner: agenda/<br/>its open items, one file each"]
-    I["garden-planner: knowledge/<br/>what it knows, in small named files"]
+    C["project-cards/dissertation.md<br/>its vision, story, timeline"]
+    A["dissertation: agenda/<br/>its open items, one file each"]
+    I["dissertation: knowledge/<br/>what it knows, in small named files"]
     D["one file<br/>the part the talk is about"]
     S --> P --> K --> C --> A --> I --> D
 ```
 
-Three facts about voice shaped this [6, 17, DESIGN.md]:
+Three facts about voice mode shaped this [6, 17, DESIGN.md]:
 
-- **Voice can only open whole files, by name, by listing a folder.** So everything is a small file
+- **Voice mode can only open whole files, by name, by listing a folder.** So everything is a small file
   with a unique name: one agenda item per file, one section of a document per file.
-- **Context is finite.** A project's documents, loaded whole, would crowd out the conversation. Small
-  files with telling names let the conversation fetch one piece; for a project with many documents,
+- **Context is limited, and what is in it matters.** A project's documents, loaded whole, would put
+  mostly unneeded pages in context, and the answers get worse for it. Small files with telling names
+  let the conversation fetch one piece; for a project with many documents,
   an index names every concept, answer, and section.
 - **One spoken reply can make only about seven tool calls.** So the way in is short (about seven
   calls with a back end, one fewer without), and large saves are split across replies without asking.
@@ -77,11 +79,11 @@ Three facts about voice shaped this [6, 17, DESIGN.md]:
 The index is an extra, for a project with many documents: the knowledge build splits the project's
 own documents into those sections and writes the index ([DESIGN.md](../DESIGN.md);
 sample: [examples/the-lighthouse](../examples/the-lighthouse/README.md)). It works for a project whose
-home is its repository, is installed there separately (`install.py init` and `apply`), and is run by
-a machine back end on every pass [8]. Every other project keeps its knowledge as a few plain files,
+home is its repository, is installed there separately ([setup.md](setup.md) has the steps), and is run
+by a machine back end on every pass [8]. Every other project keeps its knowledge as a few plain files,
 which a conversation lists and opens by name.
 
-Switching projects is the same walk from the catalog down. That is why "switch to the newsletter"
+Switching projects is the same walk from the catalog down. That is why "switch to the other project"
 works mid-conversation: every project is shaped the same way.
 
 ### 4. You work
@@ -96,14 +98,14 @@ up) the conversation writes what was worked out as a **return**: one small text 
 the project it is about.
 
 ```
-Project: garden-planner
-From: Sam
+Project: dissertation
+From: Maya
 Type: decision
-Topic: tomatoes go in the south beds
+Topic: chapter three argues from the three cases
 Changes v1:
-settle W-007 "tomato" outcome="south-1 and south-2; the north beds get too much shade"
-question "Does the drip line reach south-2?" importance=2
-status "Bed plan decided; drip line still open."
+settle W-012 "chapter three" outcome="a narrower claim: what the vote did where the two explanations come apart, if the minutes bear it out"
+question "Did Mill Row keep board minutes at all?" importance=2
+status "Chapter three recast around the three cases; the minutes are still to check."
 End.
 ```
 
@@ -118,14 +120,14 @@ under it, everything the talk worked out:
 
 ````
 Project: top
-From: Sam
+From: Maya
 Type: new-project
-Topic: the orchard becomes a project
+Topic: the field season becomes a project
 
 Changes v1:
-new-project name=orchard "Plan the orchard" about="A small orchard behind the house" spoken="the orchard"
+new-project name=field-season "Plan the summer field season" about="Six weeks in three city archives" spoken="the field season"
 ```
-Twelve trees fit behind the house. Apples and pears first.
+Three archives, two weeks each. Harbor Street first: the board minutes for every year, not one.
 ```
 End.
 ````
@@ -207,7 +209,7 @@ The same choice makes the back end testable: the unit tests run every operation 
 
 ## Without a back end
 
-Level 1 is the folder alone, and it is a complete product [5, 16]. The conversation writes the return
+Level 1 is the folder alone, and it is complete in itself [5, 16]. The conversation writes the return
 first, applies the changes itself, then moves the return to `applied/`: the same operations, by the
 same names. Adding a back end later is one step (`install.py backend`), and nothing in the folder has
 to change.

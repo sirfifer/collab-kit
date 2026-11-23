@@ -17,23 +17,23 @@ Collab Kit/                        in your cloud drive
   agenda/
     00-PRESSING.md                 the front page (generated)
     00-HEARTBEAT.md                when the back end last checked (generated)
-    W-003-launch-venue.md          one file per item
+    W-003-which-conference.md          one file per item
   knowledge/
     projects.md                    the catalog: every project you have
     project-cards/<folder>.md      a project's vision, story, timeline
     status.md                      what work outside conversations did
     repositories.md                every name already taken (generated)
   _returns/                        the top-level inbox
-    2026-12-01-0915-venue.md       a return, waiting
+    2026-12-01-0915-conference.md       a return, waiting
     applied/                       applied returns, each with its ledger
     failed/                        could not be applied as written
     strays/                        files that do not belong here
   WIP/
-    2026-12-01-0900-venue-01.md    a checkpoint note
+    2026-12-01-0900-conference-01.md    a checkpoint note
     _done/                         notes from finished saves
   _backend/                        the back end's own: lease, heartbeat
   projects/
-    garden-planner/
+    dissertation/
       collab-kit/                  one project, shaped like the top
         00-START-HERE.md
         agenda/   knowledge/   _returns/   WIP/
@@ -59,7 +59,7 @@ Any folder may also hold `_versions/`: the earlier versions of files in it.
 | Agenda | Items across everything; ideas growing into projects; the front page for the whole folder | The project's own items |
 | Knowledge | Your world of work: every project, your setup, standards, status | What this project knows |
 | Inbox | Anything about no single project; new projects (one return can carry a whole brainstorm) | Changes to this project only |
-| You say | "What's on my agenda?", "I have an idea for something new" | "Let's get into the garden planner" |
+| You say | "What's on my agenda?", "I have an idea for something new" | "Let's get into the dissertation" |
 
 A project's inbox can change only that project, and its own row in the catalog [12, 19].
 
@@ -70,12 +70,12 @@ never reused.
 
 ```
 +++
-id = "W-007"
-title = "Which beds get the tomatoes?"
+id = "W-012"
+title = "What should chapter three argue?"
 kind = "decision"        # question | decision | work-out | hole | task | project
 importance = 2           # 1 critical, 2 important, 3 normal, 4 and 5 later
 status = "open"          # open | in-progress | settled | dropped
-due = "2026-12-05"       # optional
+due = "2026-12-12"       # optional
 project = ""
 +++
 
@@ -83,7 +83,7 @@ project = ""
 ## What we know so far
 ## Done when
 ## Log
-- 2026-11-28: the agent measured the shade on all four beds (return ...)
+- 2026-11-28: the committee's comment: the two explanations may not be separable (return ...)
 ```
 
 Two fields carry all the priority there is. **Importance 1 means critical**: raised at the start of
@@ -101,19 +101,19 @@ conversation reads, so it is where anything urgent lives.
 **Up to date as of 2026-12-01 09:24 UTC**: the back end's last full pass. ...
 
 ## Overdue and due in the next two weeks
-- **Which beds get the tomatoes?** (garden-planner W-007; due 2026-12-05; decision, importance 2)
+- **What should chapter three argue?** (dissertation W-012; due 2026-12-12; decision, importance 2)
 
 ## Critical (importance 1)
-- **The archive export fails on issues before 2019** (newsletter W-012; question, importance 1)
+- **The archive export fails on issues before 2019** (newsletter W-005; question, importance 1)
 
 ## In progress
 ## What happened in the last two days
 Status lines, newest first:
 - 2026-12-01 08:50 UTC, newsletter: Claude Code in newsletter (main): The archive export works
 Settled or dropped:
-- **Which venue for the launch?** (top level W-004, settled 2026-11-30): the town hall
+- **Which conference this year?** (top level W-004, settled 2026-11-30): the spring meeting
 Still waiting in an inbox (not applied yet):
-- garden-planner: 1 return(s), the oldest written 2026-12-01 09:22 UTC
+- dissertation: 1 return(s), the oldest written 2026-12-01 09:22 UTC
 
 ## Important (importance 2)
 ## Inactive projects
@@ -156,7 +156,7 @@ A project's **home** is where its channels are the truth [7]:
 ## The method: ten rules, and why
 
 **1. Everything is a file a voice conversation can open.**
-Voice reaches the folder through a connector that opens whole files, by name, by listing a folder.
+Voice mode reaches the folder through a connector that opens whole files, by name, by listing a folder.
 So a thing that is read alone is a file of its own: one agenda item, one section of a document, one
 return. Names are unique within a folder, and files are found by listing, never by searching the
 whole drive [6, 16].
