@@ -6,7 +6,7 @@
 
 **Collab Kit is not an app. You talk to Claude in the Claude app on your phone, using the voice mode
 that is already built into it. Collab Kit is a folder of plain files, and a few scripts, that give
-that voice mode the one thing it lacks: your project.**
+that voice mode the one thing it lacks: a working knowledge of your project.**
 
 With it you can have a long, fully informed working conversation about a complex project,
 hands-free: an hour on a hard problem, where every answer depends on what the project actually says.
@@ -20,9 +20,16 @@ Voice mode is different. You are talking to a service in the cloud, and it can s
 phone or your computer. It knows some of your earlier chats, and whatever you hand it.
 
 The one thing it can reach is another cloud service that you have connected to Claude, such as
-Google Drive. So Collab Kit keeps the project there, in a form voice mode can use.
+Google Drive. So that is where Collab Kit puts what voice mode needs.
 
-**The form matters, because of context.** Context is what an AI can hold in mind at once: everything
+**What it puts there is not your project.** A project's own files are made for other purposes:
+code, long documents, data, drafts. Copying them to the cloud would not help. What goes there is a
+knowledge structure: a representation of the project built for one job, which is to let Claude load
+exactly what a conversation needs. It is organised, split into small pieces, and indexed. In a
+complex project it is a fraction of what the project holds, and it is kept in step with the project
+as the work moves.
+
+**That shape matters, because of context.** Context is what an AI can hold in mind at once: everything
 it has been given to read, plus the conversation itself. It is limited. Hand over a whole
 architecture document, or a full draft, and most of the context goes to pages this conversation does
 not need. That is worse than wasted room: the more there is in context that has nothing to do with
@@ -34,11 +41,12 @@ little else.
        alt="What is in Claude's context. With a document attached, the whole document is in context: a copy from the day you attached it, and mostly pages this talk does not need. With Collab Kit, five small files are opened one at a time (the start file, what is pressing, the project's agenda, a list of what the project knows, and the piece the talk needs), read as they are today, with room left for the talk; it grows one small file at a time. An illustration, not a measurement.">
 </p>
 
-So Collab Kit keeps what a project knows as small files with telling names. For a project with a lot
-of written material, each document is split into sections, with an index that lists them. Claude
-reads that list, then opens the two or three pieces the conversation has turned to. They are kept
-current, not a copy from last week. What you work out is written back to the same place, so the next conversation starts where
-this one ended.
+So the knowledge structure is made of small pieces with telling names. For a project with a lot of
+written material, each document is split into sections, with an index that lists them. Claude reads
+that list, then opens the two or three pieces the conversation has turned to. They are kept current,
+not a copy from last week. When a talk finds the structure thin on some topic, you say so, and
+filling that gap becomes a task. And what you work out is written back to the same place, so the
+next conversation starts where this one ended.
 
 ## What a session is like
 

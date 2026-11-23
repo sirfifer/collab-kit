@@ -58,17 +58,21 @@ assistant works where the work is: it can read the documents and the project's c
 is a conversation with a service in the cloud, which can see nothing on the phone or the computer.
 It remembers some earlier chats, and it can be handed a document; then it knows only what it was
 handed, as it stood at that moment, and handing it over took the person's hands. The one thing such
-a session can reach is another cloud service connected to the assistant, so that is where the
-project has to be.
+a session can reach is another cloud service connected to the assistant, so that is where what it
+needs has to be put.
 
 There is a second limit. Context is what an AI can hold in mind at once: everything it has been
 given to read, plus the conversation itself. It is finite, and the more there is in it that has
 nothing to do with the question, the worse the answers get. A deep conversation needs the right
 pieces in context, and little else.
 
-So the aim is to give the conversation what the project knows: indexed, current, and loaded a piece
-at a time, so the context holds the talk and the few pieces that matter to it. And to do this for
-every project a person has, so that moving from one to the next takes one sentence.
+So the aim is to give the conversation a knowledge structure: a representation of the project made
+for this one purpose. It is not the project, and not a copy of it. A project's own documents are
+shaped for other uses, and may be large and all of a piece; that suits them, and it is no help to a
+conversation. The knowledge structure is thought out, indexed, kept current, and loaded a piece at a
+time, so the context holds the talk and the few pieces that matter to it. It is often a small
+fraction of the project, and it should deepen wherever the work needs it to. And the aim is to do
+this for every project a person has, so that moving from one to the next takes one sentence.
 
 ## Between conversations
 
@@ -78,7 +82,8 @@ What a conversation works out should reach whatever else works on the project: A
 programs that work in a project's files with nobody in the conversation), and any other systems the
 person runs. Sometimes that is a plain record of a decision. Sometimes it is a request from the
 person: here is a body of material, digest it, analyse it, see how it fits, make adjustments, and
-tell me what you think. And some work starts with nobody asking: a system that watches a project
+tell me what you think. Or: the knowledge is thin on this topic, fill it in; and some minutes later
+the agenda says it is there, with the depth the conversation needed. And some work starts with nobody asking: a system that watches a project
 notices that strangers have found it, or an agent finishes something and has a question.
 
 This is still collaboration, because of where it starts and where it ends. A request is the
