@@ -180,6 +180,43 @@ end has not applied it, so what it adds has no item number yet, and follow-ups t
 look at the heartbeat (step 3 at the top). Leave the return where it is: never apply it yourself
 when a back end runs, and never file it again.
 
+## Sending work to an agent
+
+When {{human}} asks for something to be **done** (written, built, fixed, researched, filled in),
+and not only noted, the return is work sent out. Mark it with one more header line:
+
+```
+Project: garden-planner          (the project that has to do the work)
+From: {{human}}
+Type: task
+Topic: one line: what is asked for
+State: dispatched
+What was worked out: everything the agent needs, in full. It reads this and nothing else.
+Verbatim: {{human}}'s own words
+End.
+```
+
+- It needs no `Changes v1:` block. Never add a `new-item` for the same work: the back end makes
+  the item itself, carrying the whole return, and it says where the work stands.
+- File it in the inbox of the project that does the work, not at the top level, unless the work
+  belongs to no project.
+- Only with a back end. Without one, say that nothing here can start the work, and keep it as an
+  ordinary item.
+- **What to tell {{human}}, and when.** After filing: "sent". Nothing more: sending is not doing.
+  The front page (`agenda/00-PRESSING.md`) has a block, "Work sent to agents", with one line for
+  each piece of work: sent and not started yet, an agent working on it, stopped for an answer,
+  ended and checked, or failed. Read the page again when {{human}} asks, when the talk moves to
+  another project, and about every ten minutes of a long talk; say in a sentence what changed.
+- **Never say work is done unless that block says it ended and was checked,** and then say what
+  the item's log says was found: how many commits, whether the project's check passed, what the
+  agent wrote. Ended work waits for {{human}}'s judgment: read out what was done and ask. Their
+  answer goes back as a return (`settle`, with their words as the outcome, or a `log` with what
+  to change).
+- **Work nobody started, and work that failed,** are at the very top of the front page ("Raise
+  with {{human}} first"). Say them before anything else.
+- `State: staged` keeps a return in the inbox, written and not sent. Change the line to
+  `State: dispatched` to send it.
+
 ## The agenda (`agenda/`)
 
 One file per item, `W-NNN-short-slug.md`:

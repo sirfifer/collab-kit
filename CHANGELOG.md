@@ -2,6 +2,34 @@
 
 ## Not yet released
 
+**Work you send is tracked truthfully, and can be started and checked for you (DESIGN-0.5 section 27).**
+Found the hard way: four returns sent by voice were each filed as done within minutes, and none of
+the work they asked for was done. Now:
+
+- A return marked `State: dispatched` is work sent out. The back end makes one agenda item that
+  carries the whole return, quoted, with `work = "received"`. The front page has a block, "Work sent
+  to agents", that says where each one stands: received, started, blocked, finished, or failed.
+  `State: staged` keeps a return in the inbox until it is sent.
+- A new change, `work W-012 "title" state=...`, records each step, with who and what was checked.
+  `finished` is never `settled`: that stays the person's.
+- Work nobody has started after `unstarted_minutes` (`[backend]`, 10), and work that failed, is
+  raised at the top of the front page on every pass, and pushed once where `[notify]` is set. Each
+  change of state is pushed once too. `COLLAB_KIT_KIND` gains `unstarted`, `started`, `finished`
+  and `failed`: a notify command that picks by kind should handle them.
+- A return that asks for nothing (no changes, not dispatched) is no longer filed without a trace:
+  the unit's status file says it was received and that nothing was asked.
+- New and optional: a dispatcher, `ck dispatch run`, with its own config (`dispatch.toml`). It
+  starts one session per piece of sent work, in a git worktree on a branch of its own, and when the
+  session ends a program checks what it left (how the command ended, its commits, the project's own
+  check, the agent's account, an open blocking question) before filing `finished`, `blocked` or
+  `failed`. Top-level work, and a project with no repository, run under the machine's home folder
+  (`home`, by default My Collab Kit). It never pushes or merges. Tested with a stand-in agent; not
+  yet run with a real one. Not built yet: merging by a spoken yes, stopping by voice, a schedule
+  from the installer, projects whose home is their repository.
+- The start files tell a conversation how to send work, to say only "sent" afterwards, and never to
+  say work is done unless the front page says it ended and was checked. Existing folders get the
+  wording with `install.py top --replace-start`.
+
 **Where the project stands, for contributors and on security.** CONTRIBUTING.md says plainly that the
 project has one author who is also its main user: bugs and fixes are always welcome, additions that
 leave the core alone are welcome, changes to how it fundamentally works are unlikely for now, and

@@ -31,10 +31,12 @@ The command gets four environment variables, and nothing on its command line:
 | `COLLAB_KIT_TITLE` | `Collab Kit: critical in newsletter` (a question that blocks work: `Collab Kit: blocked in newsletter`; a status line: `Collab Kit: status in newsletter`) |
 | `COLLAB_KIT_MESSAGE` | the item's title, or the status line's heading (outside text: it may be anything a return wrote) |
 | `COLLAB_KIT_ITEM` | `newsletter W-012` (a status line: `newsletter status 2026-12-01 09:15 UTC`) |
-| `COLLAB_KIT_KIND` | which kind of push this is: `critical`, `blocked`, or `status` |
+| `COLLAB_KIT_KIND` | which kind of push this is: `critical`, `blocked`, or `status`; and for work sent to an agent, `unstarted` (nobody took it in time), `started`, `finished`, `failed` (`blocked` here too) |
 
-`COLLAB_KIT_KIND` lets a phone tell the pushes apart. It is one of three fixed words, set by the back
-end and never taken from a file:
+`COLLAB_KIT_KIND` lets a phone tell the pushes apart. It is one of a few fixed words, set by the back
+end and never taken from a file. The three below, and for work sent to an agent `unstarted`, `started`,
+`finished` and `failed` (DESIGN-0.5 section 27; a command that does not know a kind should treat it as
+ordinary):
 
 | Kind | When | What it usually means |
 |---|---|---|

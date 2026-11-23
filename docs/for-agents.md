@@ -252,6 +252,19 @@ runs from the kit's checkout, not from a project's copy.
    against a real account with a throwaway name unless the person asks: it creates a real
    repository, and nothing in the kit deletes one.
 
+**Work sent to agents, and a dispatcher (optional).** A return whose header says `State: dispatched`
+is work: the back end makes one item that carries the whole return, with `work = "received"`, and
+the front page lists it under "Work sent to agents". One that nobody has started after
+`unstarted_minutes` (`[backend]`, default 10), and one that failed, is raised at the top of the
+front page and pushed once. A dispatcher starts that work: `engine/ck dispatch run`, every minute,
+with its own config, `dispatch.toml`, beside `backend.toml` (the settings are at the top of
+`engine/collab_kit/dispatch.py`; `--dry-run` says what it would start). Set one up only when the
+person asks for it, and ask them for every setting: the command it runs and that command's
+permissions, the limits, and which projects it serves are theirs to choose, never yours. It never
+pushes or merges. If you are the agent a dispatcher started, your task arrived on standard input:
+follow its rules, commit in the worktree you were started in, leave your account on the item with
+`ck`, and never report something done that you did not do: a program checks what you leave.
+
 **Retiring a back end:** unload its schedule, then `install.py top "<folder>" --human "Sam" --setup
 none`, which also retires its heartbeat so sessions apply returns themselves again.
 

@@ -34,7 +34,9 @@ kit's owner does or wants to do.
 1. **Morning.** She asks what is pressing, then has a long talk about one theory, drawing on her
    own sections.
 2. **She rewrites two sections** of the framework by talking, and wants to hear the result.
-3. **She starts work:** "run the ablation", "make an explainer video of this".
+3. **She starts work:** "run the ablation", "make an explainer video of this". Ten minutes later she
+   asks what happened to each, and expects a true answer: not started, running, ended and checked,
+   or failed. One of them is work that belongs to no project.
 4. **The metro.** The call drops, then there is no signal at all for ten minutes.
 5. **Midday.** She wants to know whether the ablation finished, to see its plot, and to watch the
    video.
@@ -65,7 +67,7 @@ turn them on, and the test reports each level on its own.
 | C-05 | Lose the call and lose almost nothing | folder | works |
 | C-06 | Keep capturing with no signal at all | folder | no |
 | C-07 | Change a document by voice and hear the new text | agents | no: W-015 |
-| C-08 | Start agent work (an experiment, a render, an edit) | agents | typing: W-026 |
+| C-08 | Start agent work (an experiment, a render, an edit) | agents | not yet walked since the dispatcher was built (2026-11-23, DESIGN-0.5 section 27); before: typing, W-026 |
 | C-09 | Hear a text result when she asks | back end | works |
 | C-10 | Learn that work finished without asking | back end | works at the start of a talk and at each change of project, or by a push she turns on; not in the middle of a talk: W-030 |
 | C-11 | See a plot, a page, or a video on the phone | agents | no: W-029 |
@@ -79,6 +81,9 @@ turn them on, and the test reports each level on its own.
 | C-19 | Stop or pause running work by voice | agents | no: W-026 |
 | C-20 | Approve a merge and a push by voice, and have them happen | agents | no: W-015 |
 | C-21 | Tell at a glance which push on the phone needs her now | back end | works with a command that picks by kind; how it looks on a lock screen is a phone test |
+| C-22 | Send work and never be told it is done when it is not: the agenda says received, started, ended and checked, or failed, and what was checked | back end | not yet walked (added 2026-11-23) |
+| C-23 | Be told, without asking, that work she sent was never started or failed | back end | not yet walked (added 2026-11-23) |
+| C-24 | Send work that belongs to no project and have it done somewhere | agents | not yet walked (added 2026-11-23) |
 
 "W-" numbers are items on the kit's own agenda.
 

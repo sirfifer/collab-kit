@@ -152,7 +152,31 @@ class Planner:
     def plan(self) -> list[Effect]:
         for ch in self.ret.changes:
             getattr(self, "op_" + ch.op.replace("-", "_"))(ch)
+        if self.ret.state == "dispatched":
+            self.receive_work()
         return self.ov.effects()
+
+    def receive_work(self) -> None:
+        """A dispatched return is work sent out (DESIGN-0.5 section 27): one item carries all of it,
+        quoted, and says where the work stands. Nothing here reads the text: it is copied. The item
+        starts at `received`, which says only that: nobody has started it yet."""
+        f = self.ret.fields
+        title = one_line(self.ret.topic, MAX_TITLE) or f"Work sent by {self.sender}"
+        imp = f.get("importance", "").strip()
+        quoted = "\n".join(("> " + ln).rstrip() for ln in self.ret.prose().split("\n"))
+        body = (f"## What's needed\nWork sent as return `{self.ret.id}`, copied here whole. It is quoted: "
+                f"what was asked, in the words it was asked in.\n\n{quoted}\n\n## What we know so far\n\n"
+                f"## Done when\nThe work is done, what it left was checked, and the person who sent it has "
+                f"judged the result.\n")
+        num = self.next_number()
+        wid = f"W-{num:03d}"
+        path = f"{AGENDA}/{wid}-{slug(title, 40)}.md"
+        self.ov.write(path, render_item(
+            wid, title, kind="task", importance=int(imp) if re.fullmatch(r"[1-5]", imp) else 3,
+            body=body, log=[f"received as work; no agent has started it yet {self.tag()}"],
+            extra={"work": "received", "work_return": self.ret.id, "work_at": self.now.isoformat(timespec="seconds")}))
+        self.minted.append(wid)
+        self.work_item = wid
 
     def op_new_item(self, ch: R.Change):
         a = ch.args
@@ -208,6 +232,22 @@ class Planner:
         if ch.args.get("blocks"):
             self.check_blocks(ch, own=self.resolve(ch).id)
         self._edit(ch, dict(ch.args), f"set {desc}")
+
+    def op_work(self, ch: R.Change):
+        """Where work sent to an agent stands. Written by whatever started the work (a dispatcher), or
+        by a session a person started for it. `finished` is a claim about evidence: the note says what
+        was checked. An item keeps its importance; one that is being worked shows as in progress."""
+        a = ch.args
+        item = self.resolve(ch)
+        fields = {"work": a["state"], "work_at": self.now.isoformat(timespec="seconds")}
+        for k in ("by", "branch"):
+            if a.get(k):
+                fields[f"work_{k}"] = one_line(a[k], 120)
+        if item.is_open:
+            fields["status"] = "in-progress" if a["state"] == "started" else "open"
+        note = (a.get("note") or ch.text or ch.body or "").strip()
+        by = f" by {one_line(a['by'], 60)}" if a.get("by") else ""
+        self.ov.write(item.path, edit_item_text(item, fields, f"work {a['state']}{by}{': ' + note if note else ''} {self.tag()}"))
 
     def op_log(self, ch: R.Change):
         text = ch.text or ch.body
@@ -693,6 +733,8 @@ def apply_file(unit: Unit, entry: Entry, *, top: Unit | None = None, now=None, f
         return _set_aside(unit, entry, STRAYS, f"it is addressed to '{one_line(ret.project, 60)}', not '{unit.name}'", now, top)
     if len(ret.changes) > MAX_CHANGES:
         return _set_aside(unit, entry, FAILED, f"more than {MAX_CHANGES} changes", now, top)
+    if ret.state == "staged":                      # written, not sent: it stays in the inbox until its
+        return Outcome("waiting", ret.id, "staged: it is sent when its State line says dispatched")   # State changes
     return apply_return(unit, ret, name, top=top, now=now)
 
 
@@ -715,6 +757,14 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
                 if filename:
                     return _set_aside(unit, Entry(filename, filename, False), FAILED, str(e), now, top)
                 return Outcome("failed", ret.id, str(e))
+            nothing_asked = bool(filename) and not effects and not planner.push_requests
+            if nothing_asked:                          # never silence: a return that asks for nothing is said
+                planner.ov.write(STATUS_FILE, add_status_entry(
+                    planner.ov.read(STATUS_FILE), unit.name, "the back end", ret.topic,
+                    f"A return from {planner.sender} was received and filed. It asks for no change and no work "
+                    f"(no changes, and not marked `State: dispatched`), so nothing else was done with it. "
+                    f"Its text is `_returns/applied/{one_line(filename, 160)}`.", now))
+                effects = planner.ov.effects()
             moved = moved_on(effects, unit, top)
             if not moved:
                 break
@@ -726,6 +776,7 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
                "type": one_line(ret.type, 40), "minted": planner.minted,
                "push_requests": planner.push_requests,
                "undo_of": getattr(planner, "undo_target", None),
+               "work_item": getattr(planner, "work_item", None), "nothing_asked": nothing_asked,
                "effects": [{"path": e.path, "unit": e.unit, "before": e.before, "after": e.after,
                             "before_sha": sha_or_none(e.before), "after_sha": sha_or_none(e.after)}
                            for e in effects]}
@@ -741,8 +792,14 @@ def apply_return(unit: Unit, ret: R.Return, filename: str | None, *, top: Unit |
             write_ledger(unit, old)
     if filename:
         _archive(unit, filename, ret.id)
-    status = "undone" if led.get("undo_of") else ("applied" if led["effects"] or led["push_requests"] else "recorded")
-    return Outcome(status, ret.id, f"{len(led['effects'])} file(s) changed", led["minted"], led["push_requests"])
+    status = "undone" if led.get("undo_of") else ("recorded" if led.get("nothing_asked") or not (
+        led["effects"] or led["push_requests"]) else "applied")
+    message = f"{len(led['effects'])} file(s) changed"
+    if led.get("work_item"):
+        message += f"; work received as {led['work_item']}, waiting for an agent"
+    elif led.get("nothing_asked"):
+        message += "; it asked for nothing, and the status file says so"
+    return Outcome(status, ret.id, message, led["minted"], led["push_requests"])
 
 
 def unique_dest(unit: Unit, folder: str, name: str) -> str:

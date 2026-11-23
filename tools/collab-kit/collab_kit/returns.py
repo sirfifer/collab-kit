@@ -37,6 +37,12 @@ from .text import check_date, normalise_line, straighten
 GRAMMAR = "v1"
 KINDS = ("question", "decision", "work-out", "hole", "task", "project")
 STATUSES = ("open", "in-progress", "settled", "dropped")
+# Work sent out (DESIGN-0.5 section 27). A return whose header says `State: dispatched` is work for
+# an agent: applying it makes one agenda item that carries the whole return and says where the work
+# stands. `received` (nobody has started it), `started`, `blocked` (it waits for an answer),
+# `finished` (ended, with evidence that was checked), `failed` (ended with nothing that could be checked).
+WORK_STATES = ("received", "started", "blocked", "finished", "failed")
+SEND_STATES = ("dispatched", "staged")
 ITEM_FIELDS = ("title", "kind", "importance", "status", "due", "project")
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 ITEM_RE = re.compile(r"^W-?(\d{1,5})$", re.I)
@@ -48,6 +54,7 @@ FENCE_RE = re.compile(r"^\s*(```|~~~)")
 OPS: dict[str, tuple[set[str], set[str]]] = {
     "new-item": ({"title", "kind", "importance", "status", "due", "project", "blocks"}, {"title"}),
     "set": (set(ITEM_FIELDS) | {"blocks"}, set()),
+    "work": ({"state", "by", "branch", "note"}, {"state"}),
     "log": ({"text"}, set()),
     "settle": ({"outcome"}, {"outcome"}),
     "snooze": ({"until"}, {"until"}),
@@ -60,7 +67,7 @@ OPS: dict[str, tuple[set[str], set[str]]] = {
     "undo": (set(), set()),
     "push-request": ({"repo", "branch", "approval"}, {"repo", "approval"}),
 }
-ITEM_OPS = {"set", "log", "settle", "snooze", "withdraw", "reopen"}
+ITEM_OPS = {"set", "log", "settle", "snooze", "withdraw", "reopen", "work"}
 OP_ALIASES = {"newitem": "new-item", "new_item": "new-item", "newproject": "new-project",
               "new_project": "new-project", "push": "push-request", "push_request": "push-request",
               "pushrequest": "push-request", "drop": "withdraw", "close": "settle"}
@@ -113,6 +120,27 @@ class Return:
     @property
     def topic(self) -> str:
         return self.fields.get("topic", "")
+
+    @property
+    def state(self) -> str:
+        """`dispatched` (work for an agent), `staged` (written, not sent yet), or "" (a record)."""
+        s = self.fields.get("state", "").strip().strip(".").lower()
+        return s if s in SEND_STATES else ""
+
+    def prose(self) -> str:
+        """Everything the return says before its changes, as written, without the lines that only
+        address it (Project, Id, State). What a dispatched return's item carries."""
+        out, skip = [], False
+        for raw in self.source.replace("\r\n", "\n").split("\n"):
+            norm = straighten(raw).strip()
+            if norm == "End." or re.fullmatch(r"(\*\*)?Changes v\d+:?(\*\*)?", norm, re.I):
+                break
+            m = FIELD_RE.match(straighten(raw)) if raw[:1] not in (" ", "\t") else None
+            if m:
+                skip = m.group(1).strip().lower() in ("project", "id", "state")
+            if not skip:
+                out.append(raw.rstrip())
+        return "\n".join(out).strip()
 
 
 def item_id(token: str) -> str | None:
@@ -418,6 +446,11 @@ def _validate_values(ch: Change) -> None:
         if ch.op == "set" and s in ("settled", "dropped"):
             raise ReturnError(f"use 'settle' or 'withdraw' to make an item {s}", ch.line)
         a["status"] = s
+    if ch.op == "work":
+        st = a["state"].lower()
+        if st not in WORK_STATES:
+            raise ReturnError(f"state '{a['state'][:40]}' is not one of {', '.join(WORK_STATES)}", ch.line)
+        a["state"] = st
     if a.get("blocks"):                       # the item whose work waits for this one; "" clears it
         wid = item_id(a["blocks"])
         if not wid:

@@ -26,7 +26,7 @@ brackets point into it.
 
 <p align="center">
   <img src="images/one-day-round-the-loop.svg" width="480"
-       alt="One day, round the loop. On a morning walk you ask what is pressing, and Claude tells you from the folder. Forty minutes later a decision is made out loud and Claude writes a return. About three minutes later the back end, scripts with no AI, has filed it. The agent's next session starts from a brief of what is waiting, with your question in it. When the agent is stuck, its question is filed as critical and a push reaches your phone. Your next walk opens with that question, and your answer goes back the same way. Today you start each agent session yourself.">
+       alt="One day, round the loop. On a morning walk you ask what is pressing, and Claude tells you from the folder. Forty minutes later a decision is made out loud and Claude writes a return. About three minutes later the back end, scripts with no AI, has filed it. The agent's next session starts from a brief of what is waiting, with your question in it. When the agent is stuck, its question is filed as critical and a push reaches your phone. Your next walk opens with that question, and your answer goes back the same way. You start each agent session yourself, or a dispatcher on your own machine starts one for work you sent.">
 </p>
 
 ### 1. The conversation finds its way in
@@ -175,9 +175,14 @@ work. The agent checks its task against that before planning. As it works:
 
 All of these are returns too. One inbox, one grammar, one set of scripts, whoever is writing.
 
-**What starts an agent session today is a person.** You open one, at a desk or from the phone. The
-back end files a task within minutes and then the task waits. A dispatcher that starts a session for
-an item you marked is proposed and not built ([DESIGN-0.5.md](../DESIGN-0.5.md), section 23).
+**What starts an agent session is a person, or a dispatcher you set up.** You can open a session
+yourself, at a desk or from the phone. Or a conversation sends the work: a return marked
+`State: dispatched` becomes an agenda item that carries all of it and says where it stands, and a
+dispatcher on your own machine (optional, and off until you configure it) starts a session for it in
+a branch of its own. When the session ends, a program checks what it left (its commits, your
+project's own tests, the agent's account) before the agenda says it finished, and nothing is settled
+until you have judged it. Without a dispatcher the work is still tracked: after ten minutes the
+agenda says, first, that nobody has started it ([DESIGN-0.5.md](../DESIGN-0.5.md), section 27).
 
 ## How fast
 

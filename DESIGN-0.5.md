@@ -604,7 +604,9 @@ Fourteen returns from Richard's phone and voice sessions of 2026-11-15, and two 
   itself (a Claude Code job per task return, with progress, questions, and resumption). It puts an AI
   with tools between incoming text and the person's machine, the reason cloud Claude Code sessions were
   dropped as a runner (section 9). It is the first candidate for the next release, for Richard to
-  decide. (Under review since 2026-11-21: section 23 proposes how.)
+  decide. (Under review since 2026-11-21: section 23 proposes how.
+  Built 2026-11-23 as a separate, optional dispatcher, and "needs no started item" is withdrawn for
+  work: section 27.)
 - **Push notifications, an optional pattern** (return 1510). The first time a critical item appears
   anywhere, the back end runs one configured command; the text reaches it in environment variables,
   never on a command line (with a leading `@` or `<` stripped, which curl would read as a file). Each
@@ -720,8 +722,8 @@ per run.
 
 ### 23. Proposed: a dispatcher starts agent work (agenda W-026, 2026-11-21)
 
-> **A proposal for Richard's review. Not decided and not built.** Nothing in the kit behaves this way
-> today. The questions that are his to answer are at the end. Revised the same day with his first
+> **Decided and built in part on 2026-11-23: section 27 says what was built and where it differs.**
+> This section is kept as the proposal it was. When it was written, nothing in the kit behaved this way. The questions that are his to answer are at the end. Revised the same day with his first
 > answers (marked "Richard, 2026-11-21"), and on 2026-11-22 after a walk-through of one researcher's
 > whole day by voice (marked "walk-through"; its findings are agenda W-029 to W-036).
 
@@ -1313,11 +1315,138 @@ terminal at all, for a person with only a phone; the back end's setup line flipp
 schedule is loaded, not by a pass run by hand; a guided rclone step; and a smoke test that files,
 applies and undoes one return.
 
+### 27. Work sent out, and what comes back (decided and built 2026-11-23; agenda W-026)
+
+**What went wrong.** On 2026-11-22 Richard sent four returns from a voice conversation, each asking
+for work. The back end filed all four as done within four minutes, and none of the work was done.
+Three became items with a title and nothing else, at the top level, where no agent working in the
+project ever looks. The fourth had no change lines, so it became nothing: no item, no push. Nothing
+had failed: this is what sections 8, 20 and 23 added up to. Section 8 made a return a set of agenda
+edits. Section 20 dropped the "started" item Richard had decided on 2026-11-15 ("the ledger and the
+change are the answer"), which holds only while a return is an edit. Starting agent work stayed a
+proposal (section 23), and its shape asked for a second step after the return, marking an item.
+
+**The expectation** (Richard, 2026-11-23, traced from [VISION.md](VISION.md) and his returns of
+2026-11-15). What a person sees, sitting in a voice conversation:
+
+1. They ask for something to be done; the conversation reads it back and sends it. Sending is the
+   instruction: there is no second step.
+2. Within a minute or two of the back end's pass, the agenda says it was received, carrying
+   everything that was worked out.
+3. An agent does the work. If it cannot go on, its question reaches the phone (section 24).
+4. When it ends, the agenda says what was found, and a program checked it: nothing is called
+   finished on an agent's word.
+5. If nobody starts it, or it fails, that is said first on the front page and pushed. Silence
+   never means it is being handled.
+6. Nothing is settled until the person has judged it.
+
+**A return can be work.** One header line, `State: dispatched`, marks a return as work sent out. It
+needs no `Changes v1:` block. Applying it makes one item in that unit: the title is the return's
+topic, and the body carries everything the return says before its changes, copied and quoted line by
+line (so no line of it can pass for a part of the item). The back end copies; it reads nothing
+(VISION.md, ideal 2). The item carries `work = "received"`, `work_return`, and `work_at`. An
+`Importance:` line (1 to 5) sets the item's importance; anything else leaves it at 3. Change lines in
+the same return are applied as before, and every return written to grammar v1 reads as it did.
+`State: staged` keeps a complete return in its inbox, unapplied, until the line says `dispatched`.
+
+**A return that asks for nothing is said.** A return with no changes and no `State: dispatched`
+used to be filed with no trace. Now the unit's status file gets an entry from the back end: it was
+received, it asks for no change and no work, and where its text is. It shows on the front page with
+the other status lines.
+
+**Where work stands is a field, and one change sets it.**
+
+```
+work W-031 "drip line" state=started by="studio" branch="ck/W-031-drip-line" note="..."
+```
+
+| `work` | Means | The item shows as |
+|---|---|---|
+| `received` | sent; nobody has started it | open |
+| `started` | a session is working on it | in progress |
+| `blocked` | the session ended with a question open that blocks this item | open |
+| `finished` | the session ended, and what it left was checked; the note says what was found | open: it waits for the person |
+| `failed` | it ended with nothing that could be checked, or a check failed; the note says which | open, and raised first |
+
+`finished` is not `settled`. Settling is the person's, by a return, as for every item.
+
+**The front page** gains "Work sent to agents", after the critical items: one line for each open item
+that has a `work` field, failed and blocked first. Such items are listed there and not again under
+"In progress" or "Important".
+
+**Never silence.** Each full pass looks at every open item with `work`. One that is `received` for
+longer than `unstarted_minutes` (`[backend]`, 10), and one that is `failed`, is a problem at the top
+of the front page ("Raise with ... first") on every pass until that changes: nothing to settle, and
+it clears itself when the work starts. The pass leaves the time the next one falls due in its work
+folder, and the minute check makes a full pass when that time has come. With `[notify]` set, each is
+pushed once, and so is each change to `started`, `blocked`, `finished` and `failed`
+(`COLLAB_KIT_KIND` is `unstarted` or the state). A machine with a back end and no dispatcher
+therefore says, ten minutes after work was sent, that nobody took it.
+
+**The dispatcher** (`ck dispatch run`, `engine/collab_kit/dispatch.py`). It is section 23's program,
+with these differences, each from Richard's words of 2026-11-23:
+
+- **The dispatched return is the mark.** Section 23 asked for a `dispatch` change on an existing
+  item, a second step. The person's own conversation marking its return `dispatched` is the same
+  act, done once. Section 23's two rules stand: the folder says what, the machine says how far.
+- **No claim return before starting.** A claim that waits to be applied adds minutes to every task.
+  The first version is for one dispatcher per project; its session file on the machine is the lock.
+  Several machines sharing a project need the claim of agenda W-023 first.
+- **Work waits its turn, visibly.** `max_running` (1) and `max_starts_per_day` (24) are the
+  machine's. Work over a limit stays `received`, on the front page, and is started when there is
+  room. Section 23's six a day would have refused the four returns that started this.
+- **A session's end is checked by the program.** How the command ended; the commits on its branch
+  and the files they touch; uncommitted changes left behind; whether the project's own `check`
+  command passes in the worktree; whether the agent left an account on the item's log; whether an
+  open question now blocks the item. It files `finished` only when the command ended normally, there
+  is a commit or an account, and the check (if one is set) passes. An end with nothing to check is
+  `failed`, and says so. A question that blocks the item makes it `blocked`; when that question is
+  settled or dropped, the next run starts a fresh session on the same branch (the answer is on the
+  item's log, section 24).
+- **A runner per session.** A session outlives the run that started it, so `ck dispatch session`
+  runs the command, stops it and its children at `max_minutes`, and writes how it ended for the
+  next run to read.
+
+It is off until a person writes `dispatch.toml` in the config folder of their own machine: the
+folder, the machine's name, the command that reads a task on standard input, the limits, and each
+project it serves with the folder that project lives in. Only listed projects are served. The task
+reaches the command on standard input, inside the data fence, under a fixed preamble (work only in
+this worktree; commit, never push or merge; leave an account on the item; ask with
+`ck ask --blocks` and stop). Nothing from the folder reaches a command line: the branch is `ck/`,
+the item's number, and a slug of its title.
+
+**Where top-level work happens: the home folder** (Richard, 2026-11-23). A machine has one folder
+that is the back end's side of the whole setup, named My Collab Kit by default and chosen at
+install. `[dispatch] home` names it. Work sent at the top level runs there, and a served project
+with no `dir` of its own runs in `<home>/projects/<name>`. The dispatcher makes such a folder a git
+repository (no remote, one empty first commit) the first time it is needed: the checks above read
+commits, so even a folder nobody thinks of as a repository needs a history. A project with a
+repository elsewhere names it with `dir`. Still to build: the installer offering the choice (inside
+the home folder, beside the person's other repositories, or another place), `[new_projects]` taking
+its place from that choice, and the installer refusing to put the home folder inside a synced cloud
+folder, since its name is close to the cloud folder's.
+
+**Not built yet, and said so on the agenda:**
+
+- Merging and pushing on a spoken yes (agenda W-015). Until then finished work stays on its branch on
+  the machine, and what the next conversation can hear of it is the item's log and what the agent
+  wrote with `ck`.
+- "Stop all agent work" by voice, and holding one item (section 23, agenda W-023).
+- A project whose home is its repository: the dispatcher reads and files in the Collab Kit folder
+  only, so it serves projects whose home is the folder.
+- A schedule for the dispatcher from the installer (`install.py dispatcher`).
+- Redefining the return format as work sent out, with the agenda written by the back end only
+  (Richard's correction of 2026-11-22, agenda W-060). `State: dispatched` is the first part of it.
+- Section 23's limit on spending, and results that are not text (agenda W-029).
+
+**Tests:** `tests/test_work.py` (the receipt, the states, the alarm) and `tests/test_dispatch.py`
+(the dispatcher end to end, with `tests/fake_agent.py` standing in for an agent).
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right
-project, the back end starting agent work by itself (section 20; section 23 proposes a separate
-dispatcher for the next release). (Refreshing a project's start file
+project, the back end starting agent work by itself (it never does: a separate, optional
+dispatcher starts it, section 27). (Refreshing a project's start file
 when the template changes was listed here; 0.5.3 does it with `--replace-start`, section 21.)
 
 ## Delivery (planned 2026-11-14; what happened)

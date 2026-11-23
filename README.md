@@ -185,8 +185,9 @@ Many projects are also worked on by AI coding agents, in a git repository. With 
 there, the same folder joins the two: each agent session opens with a brief of what is waiting (your
 questions, what is due, recent status), and the agent's own progress and questions go back onto your
 agenda, where your next conversation finds them. What it learns that should last goes into the
-knowledge structure. Today you start each agent session yourself. Any other system you run can do
-the same: whatever can run the kit's command can put an item on your agenda.
+knowledge structure. You can start each agent session yourself, or let a dispatcher on your own
+machine start one for work you send from a conversation (below, under "Where it stands"). Any other
+system you run can do the same: whatever can run the kit's command can put an item on your agenda.
 
 A brief looks like this. It is the start of a real one, from this project's own example:
 
@@ -222,6 +223,14 @@ page describes the main branch, and [CHANGELOG.md](CHANGELOG.md) says what is no
 - Hearing what finished, at the start of a talk and at each change of project.
 - A notification on your phone when something critical appears. If you want, also when an agent
   reports.
+- Sending work from a conversation: a return marked as work becomes an agenda item that carries all
+  of it and says truthfully where it stands. If nobody starts it within ten minutes, or it fails,
+  that is said first and can reach your phone.
+- A dispatcher, if you set one up on your own machine: it starts an agent's session for work you
+  sent, in a branch of its own, and a program checks what the session left (its commits, your
+  project's own tests, the agent's account) before anything is called finished. New on 2026-11-23:
+  tested with a stand-in for the agent, not yet run with a real one. Finished work stays on its
+  branch until you have judged it; merging it by voice is not built.
 - With agents: a brief at the start of every session. An agent that is stuck can send you its
   question as critical, and gets your spoken answer.
 - A new project getting a git repository of its own, private on GitHub, if you turn that on for your
@@ -233,7 +242,7 @@ page describes the main branch, and [CHANGELOG.md](CHANGELOG.md) says what is no
 
 - ChatGPT and Gemini (research in progress), and storage other than Google Drive.
 - Sharing a project with other people.
-- Starting an agent's session from your phone, for a task you marked (designed, not built).
+- Merging and pushing an agent's finished work by saying yes, and stopping agent work by voice.
 - A plot, a page, or a video from an agent reaching your phone.
 - Being told in the middle of a talk, unasked, that something just finished.
 - A back end on Linux or Windows: the schedules are written, and have not run on a real machine.
