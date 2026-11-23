@@ -10,7 +10,7 @@ that voice mode the one thing it lacks: your project.**
 
 With it you can have a long, fully informed working conversation about a complex project,
 hands-free: an hour on a hard problem, where every answer depends on what the project actually says.
-It is a way of collaborating with an AI on serious work, with your own thinking in the lead.
+It is a way of collaborating with an AI on serious work: you guide it, and you judge what comes of it.
 
 ## The problem it solves
 
@@ -96,8 +96,9 @@ What to notice:
   waiting comment are in the project's list of open questions and its record of recent work.
 - **It knew her material,** because it opened it: her comparison table and her notes on one case,
   two pieces out of three years of work, and nothing else.
-- **Every decision was hers, and so was the idea.** Claude kept track of where things stood and
-  handed back the pieces of her own work that she asked for. It did not supply the argument.
+- **She was the filter.** Claude kept track of where things stood and handed back the pieces of her
+  own work that she asked for. In this talk the idea was hers as well. In another, more of it might
+  come from Claude. Either way, nothing was settled until she had judged it.
 - **Nothing was lost.** By the time she was home, the decision, her reasoning and the new tasks were
   in the project, and the next conversation starts from them.
 
@@ -113,8 +114,12 @@ an AI that knows the work: a dissertation, the architecture of a system, a book,
 planning of something with many moving parts. Quick questions and passing notes work too, alongside,
 but they are not why this exists, and they need none of it.
 
-It is a way of collaborating, not an agent that goes off and does your work. The thinking happens in
-the conversation, and your thinking leads.
+It is a way of collaborating, and that covers a wide range. Sometimes the two of you reach something
+neither would have alone. Sometimes Claude is closer to a research assistant: it knows the whole project, so it can tell you what you already decided, what is covered
+and what is missing, read a passage back, or put it another way. Sometimes much of the substance
+comes from Claude, and your part is to steer. Across all of it you are the filter: you guide the
+work and you judge what comes back. What it is not is an agent that goes off and does your work with
+you out of the loop ([VISION.md](VISION.md)).
 
 ## What you need
 
@@ -157,7 +162,8 @@ setup, 2026-11-20). The whole loop, step by step: [docs/how-it-works.md](docs/ho
 Many projects are also worked on by AI coding agents, in a git repository. With the kit installed
 there, the same folder joins the two: each agent session opens with a brief of what is waiting (your
 questions, what is due, recent status), and the agent's own progress and questions go back onto your
-agenda, where your next conversation finds them. Today you start each agent session yourself.
+agenda, where your next conversation finds them. Today you start each agent session yourself. Any other
+system you run can do the same: whatever can run the kit's command can put an item on your agenda.
 
 A brief looks like this. It is the start of a real one, from this project's own example:
 

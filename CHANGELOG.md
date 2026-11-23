@@ -8,9 +8,12 @@ and scripts behind that conversation. The README now opens with that, then the r
 needs it (a voice session runs as a cloud service that can see nothing on the phone or computer),
 then context, explained plainly. The session it shows is a doctoral student working through a chapter
 of her dissertation, in place of a light exchange about a garden planner; the same example runs
-through `docs/how-it-works.md` and `docs/folder-structure.md`. VISION.md gains two clarifications to
-the same effect: the voice is the assistant's own, and in the conversation the person's thinking
-leads.
+through `docs/how-it-works.md` and `docs/folder-structure.md`. VISION.md is rewritten as a
+vision: an aim and its ideals, with what is built left to the README. It puts collaboration first
+and says what that covers, from the AI as an assistant to the work to the AI bringing most of the
+substance, with the person as the filter throughout; it says the voice is the assistant's own; and
+it brings work between conversations into scope, with one rule: what is not in the agenda or the
+knowledge does not exist for the next conversation.
 
 **The repository is on GitHub, and its CI runs green on every system.** `github.com/sirfifer/collab-kit`
 is public from 2026-11-23; until then it had never been pushed, so the CI matrix had never run. Its
