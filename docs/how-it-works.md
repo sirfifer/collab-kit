@@ -76,8 +76,8 @@ Three facts about voice mode shaped this [6, 17, DESIGN.md]:
 - **One spoken reply can make only about seven tool calls.** So the way in is short (about seven
   calls with a back end, one fewer without), and large saves are split across replies without asking.
 
-The index is an extra, for a project with many documents: the knowledge build splits the project's
-own documents into those sections and writes the index ([DESIGN.md](../DESIGN.md);
+The index is an extra, for a project with many documents: the knowledge build splits the documents
+listed for it into those sections and writes the index ([DESIGN.md](../DESIGN.md);
 sample: [examples/the-lighthouse](../examples/the-lighthouse/README.md)). It works for a project whose
 home is its repository, is installed there separately ([setup.md](setup.md) has the steps), and is run
 by a machine back end on every pass [8]. Every other project keeps its knowledge as a few plain files,

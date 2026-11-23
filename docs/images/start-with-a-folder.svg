@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 730" width="480" height="730" role="img" aria-labelledby="t d">
   <title id="t">Start with a folder, add one step at a time</title>
-  <desc id="d">Three steps, and one that is not built yet; you can stop after any of them. First, a folder in your Google Drive: plain files and one line in the Claude app, with the conversation filing what it wrote; everyone starts here. Second, add a back end: scripts on a machine that stays on, which file every return within minutes and can notify your phone. Third, add your projects' repositories: a project's documents can be indexed, and any AI agents working there start from a brief of what is waiting and send their questions to your agenda. Not built yet: starting an agent's session from your phone.</desc>
+  <desc id="d">Three steps, and one that is not built yet; you can stop after any of them. First, a folder in your Google Drive: plain files and one line in the Claude app, with the conversation filing what it wrote; everyone starts here. Second, add a back end: scripts on a machine that stays on, which file every return within minutes and can notify your phone. Third, add your projects' repositories: documents you choose are indexed for the knowledge structure, and any AI agents working there start from a brief of what is waiting and send their questions to your agenda. Not built yet: starting an agent's session from your phone.</desc>
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1F2430; }
@@ -50,9 +50,9 @@
   <circle cx="48" cy="522" r="16" fill="#4338CA"/>
   <text x="48" y="528" class="num">3</text>
   <text x="76" y="529" class="h">Your projects' repositories</text>
-  <text x="36" y="562" class="b">A project's documents can be indexed. Any</text>
-  <text x="36" y="583" class="b">AI agents working there start from what is</text>
-  <text x="36" y="604" class="b">waiting, and send you their questions.</text>
+  <text x="36" y="562" class="b">Documents you choose are indexed for the</text>
+  <text x="36" y="583" class="b">knowledge structure. Any AI agents there</text>
+  <text x="36" y="604" class="b">start from what is waiting, and ask you back.</text>
 
   <!-- next -->
   <rect x="16" y="642" width="448" height="64" rx="16" fill="none" stroke="#B8B2A4" stroke-width="1.5" stroke-dasharray="6 5"/>

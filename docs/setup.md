@@ -57,11 +57,12 @@ By default the project's agenda and knowledge stay in the Collab Kit folder, whi
 end. With `--home repo` they live in the repository instead, in a `collab-kit/` folder that is
 committed with the code; that needs a back end whose settings list the repository.
 
-### A project with a lot of written material: the document index
+### A knowledge structure built from a project's documents
 
-For a project with many documents (chapters, design documents, research notes), the kit can split
-each one into sections and write an index, so a conversation opens one section instead of a whole
-document. This is the oldest part of the kit (it was the whole of version 0.4), and its setup is
+What a conversation reads is the knowledge structure, not the project. For a project with a lot of
+written material (chapters, design documents, research notes), the kit can build part of that
+structure from documents you choose: it splits each one into sections and writes an index, so a
+conversation opens one section instead of a whole document. Documents you do not list stay out. This is the oldest part of the kit (it was the whole of version 0.4), and its setup is
 not yet one command. It works only for a project whose home is its repository, and the documents must be
 Markdown files: they are split at their headings. The steps below were run end to end on
 2026-11-23:
