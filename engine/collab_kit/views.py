@@ -30,6 +30,7 @@ NEWS_DAYS = 2                     # "lately": today and yesterday (UTC dates)
 NEWS_CAP = 6                      # lines of each kind
 STATUS_HEAD = re.compile(r"^##[ \t]+(\d{4}-\d{2}-\d{2})(?:[ \t]+(\d{2}:\d{2}))?(?:[ \t]*UTC)?[ \t]*[,:]?[ \t]*(.*)$", re.M)
 LOG_DATE = re.compile(r"^- (\d{4}-\d{2}-\d{2}):", re.M)
+WORK_ORDER = {"failed": 0, "blocked": 1, "finished": 2, "received": 3, "started": 4}   # what needs the person first
 CHECK_LINE = re.compile(r"Last check: (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC")
 
 
@@ -156,6 +157,8 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
                    key=lambda r: due(r[1]))
     critical = sorted((r for r in rows if r not in dated and r[1].importance <= 1), key=order)   # inactive too
     active = [r for r in rows if r[0] not in inactive and r not in dated and r not in critical]
+    agents = sorted((r for r in rows if r[1].work), key=lambda r: (WORK_ORDER.get(r[1].work, 9), r[0], r[1].num))
+    active = [r for r in active if not r[1].work]                  # work sent to an agent has its own heading
     busy = [r for r in active if r[1].status == "in-progress"]
     important = sorted((r for r in active if r not in busy and r[1].importance == 2), key=order)
 
@@ -169,6 +172,19 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
         if (name, it.id) in blocked:
             p += f"; waits on {', '.join(sorted(blocked[(name, it.id)]))}"
         return f"- **{one_line(it.title, 100)}** ({where} {it.id}; {d}{one_line(it.kind, 12)}, importance {it.importance}{p})"
+
+    def work_line(r):
+        name, it = r
+        where = "top level" if name == "top" else name
+        at = one_line(str(it.fields.get("work_at", "")), 25).replace("T", " ")[:16]
+        by = one_line(str(it.fields.get("work_by", "")), 40)
+        say = {"received": f"sent {at} UTC; no agent has started it",
+               "started": f"an agent{' on ' + by if by else ''} has been working on it since {at} UTC",
+               "blocked": "the agent stopped: it waits for an answer"
+                          + (f" ({', '.join(sorted(blocked[(name, it.id)]))})" if (name, it.id) in blocked else ""),
+               "finished": f"ended {at} UTC and what it left was checked (its log says what); it waits for {human}'s judgment",
+               "failed": f"failed {at} UTC: its log says why"}.get(it.work, one_line(it.work, 20))
+        return f"- **{one_line(it.title, 100)}** ({where} {it.id}): {say}"
 
     def capped(rs):
         return "\n".join(line(r) for r in rs[:CAP]) + (f"\n- ... and {len(rs) - CAP} more" if len(rs) > CAP else "")
@@ -201,6 +217,11 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
         parts.append("## Overdue and due in the next two weeks\n\n" + capped(dated) + "\n")
     if critical:
         parts.append("## Critical (importance 1)\n\n" + capped(critical) + "\n")
+    if agents:
+        parts.append("## Work sent to agents\n\nWhat each line says was checked by a program, not taken from an "
+                     "agent's word. Nothing here is settled until " + human + " has judged it.\n\n"
+                     + "\n".join(work_line(r) for r in agents[:CAP])
+                     + (f"\n- ... and {len(agents) - CAP} more" if len(agents) > CAP else "") + "\n")
     if busy:
         parts.append("## In progress\n\n" + capped(busy) + "\n")
     said, closed, waiting = news([u for u in units if u[0] in read], today, unreadable, read)
@@ -218,7 +239,7 @@ def front_page(units, *, today: dt.date, human: str, inactive: set[str], interva
     if inactive:
         counts = {n: sum(1 for r in rows if r[0] == n) for n in inactive}
         parts.append("## Inactive projects\n\n" + "\n".join(f"- {n}: {c} open item(s)" for n, c in sorted(counts.items())) + "\n")
-    if not (dated or critical or busy or important):
+    if not (dated or critical or busy or important or agents):
         parts.append("Nothing is due, critical, in progress, or important.\n")
     return "\n".join(parts)
 

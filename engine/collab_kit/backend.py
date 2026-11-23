@@ -98,7 +98,8 @@ LEASE = "_backend/lease.json"
 HEARTBEAT = "_backend/heartbeat.json"
 # Additions to Changes v1 this back end applies (said in the heartbeat): `blocks=` on an item (section 24),
 # and a `new-project` that carries the idea itself, with no from= (section 25).
-ACCEPTS = ["blocks", "new-project-idea"]
+ACCEPTS = ["blocks", "new-project-idea", "work"]
+WORK_DUE = "work-due"                                 # in the work folder: when work nobody started is next overdue
 MIRROR_STATE = "_backend/mirror"
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".html", ".toml", ".tsv", ".svg", ".yml", ".yaml"}
 GIT_ENV = {"GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
@@ -253,6 +254,8 @@ class Pass:
         notify = cfg.get("notify") if isinstance(cfg.get("notify"), dict) else {}
         self.notify_cmd = command_of(notify)             # None: off; a list: on; []: reported
         self.notify_status = notify.get("status") is True    # also each new status line: only when asked
+        self.unstarted_after = max(int(b.get("unstarted_minutes", 10)), 1)   # work sent, and no agent took it
+        self.unstarted: list[tuple[str, str, str]] = []  # (unit, item, title) said this pass
         self.minute = minute                             # the schedule's minute check keeps agenda/00-HEARTBEAT.md
         self.lost = False
         self.me = f"{socket.gethostname()}:{os.getpid()}"
@@ -635,6 +638,7 @@ class Pass:
         self.step("the top-level start file", self.start_file_setup)
         now = utcnow()
         units = self.all_units()
+        self.step("work nobody started", self.work_watch, units)
         if self.notify_cmd is not None and not self.dry:
             self.step("the push notification", self.notify, units)
         text = front_page(units, today=now.date(), human=self.human, inactive=inactive_projects(self.cloud),
@@ -642,6 +646,45 @@ class Pass:
                           now=now, heartbeat=self.minute)
         if not self.dry and write_front_page(self.cloud, text):
             self.note("the agenda's front page was rebuilt")
+
+    def work_watch(self, units) -> None:
+        """Work that was sent and that no agent has started within `unstarted_minutes` (10), and work
+        that failed, are said at the top of the front page on every pass until that changes, and
+        pushed once (DESIGN-0.5 section 27): silence never means it is being handled. The time the
+        next one falls due is left for the minute check, which then makes a full pass."""
+        now, due = utcnow(), None
+        for name, unit in units:
+            where = "top level" if name == "top" else name
+            for it in unit.items():
+                if not it.is_open or it.work not in ("received", "failed"):
+                    continue
+                title = one_line(it.title, 100)
+                if it.work == "failed":
+                    self.problem(f"{where} {it.id} (\"{title}\") was sent to an agent and failed; its log says why")
+                    continue
+                try:
+                    at = dt.datetime.fromisoformat(str(it.fields.get("work_at", "")))
+                    at = at if at.tzinfo else at.replace(tzinfo=dt.timezone.utc)
+                except ValueError:
+                    at = now - dt.timedelta(days=1)             # no readable time: overdue
+                late = at + dt.timedelta(minutes=self.unstarted_after)
+                if late <= now:
+                    mins = int((now - at).total_seconds() // 60)
+                    self.unstarted.append((name, it.id, title))
+                    self.problem(f"{where} {it.id} (\"{title}\") was sent as work {mins} minutes ago and no agent has "
+                                 f"started it: no dispatcher takes work for it, or the one that does is stopped")
+                else:
+                    due = late if due is None or late < due else due
+        if self.dry:
+            return
+        try:
+            self.work.mkdir(parents=True, exist_ok=True)
+            if due is None:
+                (self.work / WORK_DUE).unlink(missing_ok=True)
+            else:
+                (self.work / WORK_DUE).write_text(f"{due.timestamp()}\n", encoding="utf-8")
+        except OSError:
+            pass
 
     NOTIFY_PER_PASS, NOTIFY_PER_HOUR = 5, 20
 
@@ -673,6 +716,9 @@ class Pass:
                 if it.is_open and it.importance <= 1:
                     kind = "blocked" if it.blocks else "critical"
                     now[f"{name}:{it.id}"] = (f"Collab Kit: {kind} in {where}", it.title, f"{where} {it.id}", kind)
+                if it.is_open and it.work in ("started", "blocked", "finished", "failed"):   # each change, once
+                    now[f"work:{name}:{it.id}:{it.work}:{it.fields.get('work_at', '')}"] = (
+                        f"Collab Kit: work {it.work} in {where}", it.title, f"{where} {it.id}", it.work)
             if self.notify_status:                       # a day's worth: older lines are never news
                 since = (utcnow() - dt.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
                 try:
@@ -685,6 +731,10 @@ class Pass:
                     if len(at) > 10 and at >= since:
                         now[f"status:{name}:{at}:{sha(rest)[:8]}"] = (f"Collab Kit: status in {where}", rest,
                                                                      f"{where} status {at} UTC", "status")
+        for name, wid, title in self.unstarted:            # sent, and no agent took it in time
+            where = "top level" if name == "top" else name
+            now[f"work:{name}:{wid}:unstarted"] = (f"Collab Kit: nobody started work in {where}", title,
+                                                   f"{where} {wid}", "unstarted")
         clock = time.time()
         if seen is None:
             seen = {k: clock for k in now}
@@ -1022,7 +1072,11 @@ def run(path: str | None, once: bool = True, dry_run: bool = False, if_waiting: 
             last = json.loads(print_file.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             last = None
-        if fresh and before == last:
+        try:
+            overdue = time.time() >= float((work / WORK_DUE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            overdue = False                          # no work is waiting for an agent
+        if fresh and before == last and not overdue:
             if start_there:
                 beat(cfg, store, work, minute=True)
             return 0

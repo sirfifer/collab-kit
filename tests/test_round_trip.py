@@ -134,7 +134,7 @@ class Heartbeat(Folder):
         self.assertNotIn("00-HEARTBEAT", self.page())
         self.assertIn("more than 70 minutes ago", self.page())            # its interval, and ten minutes
         hb = json.loads(self.s.read("_backend/heartbeat.json"))
-        self.assertEqual((hb["minute_check"], hb["accepts"]), (False, ["blocks", "new-project-idea"]))
+        self.assertEqual((hb["minute_check"], hb["accepts"]), (False, ["blocks", "new-project-idea", "work"]))
 
     def test_a_pass_by_hand_beside_the_schedule_still_names_the_heartbeat(self):
         cfg = self.cfgfile()

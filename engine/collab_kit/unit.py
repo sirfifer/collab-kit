@@ -77,6 +77,13 @@ class Item:
         return f"W-{int(m.group(1)):03d}" if m else ""
 
 
+    @property
+    def work(self) -> str:
+        """Where work sent to an agent stands (received, started, blocked, finished, failed), or ""
+        for an item nobody sent as work (DESIGN-0.5 section 27)."""
+        return str(self.fields.get("work", "") or "").lower()
+
+
 class Unit:
     def __init__(self, store: Store, name: str, *, home: str = "cloud", top: bool = False):
         self.store = store
@@ -150,11 +157,13 @@ class Unit:
 # ------------------------------------------------------------------- editing item files --
 
 def render_item(wid: str, title: str, *, kind="task", importance=3, status="open", due="", project="",
-                body: str | None = None, log: list[str] | None = None, blocks: str = "") -> str:
+                body: str | None = None, log: list[str] | None = None, blocks: str = "",
+                extra: dict | None = None) -> str:
     fields = {"id": wid, "title": title, "kind": kind, "importance": int(importance),
               "status": status, "due": due or "", "project": project or ""}
     if blocks:                                    # only a question that blocks an item carries the field
         fields["blocks"] = blocks
+    fields.update(extra or {})                    # e.g. where work sent to an agent stands
     fm = set_front_matter("", fields)
     if body and re.search(r"^## ", body, re.M):
         text = body.strip() + "\n"
