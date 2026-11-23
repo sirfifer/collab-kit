@@ -28,6 +28,7 @@ By hand, for any unit (testing, repair):
     ck apply <folder-or-rclone:remote> --unit NAME [--top] [--home repo] [--now]
 
 For a back end (run from the kit's own checkout, engine/ck: a project's copy of the engine has none):
+    ck dispatch run [--config FILE]    start, watch and check work sent to agents (optional)
     ck backend run [--config FILE]     one pass: apply returns, mirror, health, the generated views
                    [--dry-run]         say what it would do; returns younger than 120 seconds wait
                    [--if-waiting]      only if a return waits or the last pass is older than the interval
@@ -532,6 +533,13 @@ def cmd_apply(a):
     return rc
 
 
+def cmd_dispatch(a):
+    from . import dispatch
+    if a.action == "session":
+        return dispatch.session(a.path)
+    return dispatch.run(a.config, dry_run=a.dry_run)
+
+
 def cmd_backend(a):
     from .backend import run
     return run(a.config, once=True, dry_run=a.dry_run, if_waiting=a.if_waiting)
@@ -618,6 +626,12 @@ def main(argv=None) -> int:
     s.add_argument("--if-waiting", action="store_true",
                    help="a full pass only if a return is waiting or the last pass is older than interval_minutes")
     s.set_defaults(fn=cmd_backend)
+    s = sub.add_parser("dispatch", help="start, watch and check work sent to agents (optional; its own config)")
+    s.add_argument("action", choices=["run", "session"])
+    s.add_argument("path", nargs="?", default=None, help="for 'session': the session's file (the dispatcher's own use)")
+    s.add_argument("--config")
+    s.add_argument("--dry-run", action="store_true")
+    s.set_defaults(fn=cmd_dispatch)
     a = ap.parse_args(argv)
     return a.fn(a) or 0
 
