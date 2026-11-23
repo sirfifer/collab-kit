@@ -12,7 +12,7 @@ section revised an earlier one, the earlier one says so; anything not built is m
 (planned)". Done: the Collab Kit folder has been in use since 2026-11-14 (section 17), the back end
 has run on the Studio since 2026-11-18, and rclone's dependency intake review concluded "accept with
 conditions" on 2026-11-15 ([docs/rclone-intake.md](docs/rclone-intake.md), section 6). Still open,
-without changing the architecture: which assistants beyond Claude can use it (research in progress).
+without changing the architecture: which assistants beyond Claude can use it (ChatGPT worked out, not verified; section 14).
 
 ## What 0.4 could not do
 
@@ -304,7 +304,13 @@ in each folder, which any assistant reads.
 - **Claude voice mode** uses connected tools (official since 2026-07-23; paid plans get all of them).
   Which Drive tools voice exposes is undocumented: the owner's spoken test settles it (it passed
   that evening, section 17).
-- **ChatGPT, Gemini:** research in progress.
+- **ChatGPT, Gemini, Mistral:** researched 2026-11-22 ([docs/other-assistants.md](docs/other-assistants.md)).
+  ChatGPT can hold the conversation and use Google Drive in voice, but by default a write asks for
+  approval on the screen, and voice cannot take it by speech. OpenAI's per-connected-account "Allow
+  all actions" (or "Always allow" on the first card), on a personal plan, should remove the prompt;
+  given to a Google account used only by ChatGPT and shared on the Collab Kit folder alone, the risk
+  stays inside that folder. **Unverified:** the page carries the test and asks contributors to run
+  it. Gemini Live cannot list a folder or create a plain file; Mistral's app has no spoken replies.
 
 ### 15. Moving from 0.4 (Decided)
 
@@ -1331,6 +1337,7 @@ when the template changes was listed here; 0.5.3 does it with `--replace-start`,
 
 ## Open
 
-- The ChatGPT and Gemini path (research in progress).
+- The ChatGPT path: worked out, not verified; its test is in [docs/other-assistants.md](docs/other-assistants.md)
+  (section 14). Gemini and Mistral: on watch.
 - Done 2026-11-15: rclone's intake review (license, maintenance, known vulnerabilities, its own
   security posture): accept with conditions ([docs/rclone-intake.md](docs/rclone-intake.md)).

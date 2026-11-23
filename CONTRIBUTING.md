@@ -25,6 +25,11 @@ say so here than to let you find out in a review.
 
 ## Ways to help
 
+- **Run the assistant test.** If you use ChatGPT, the most useful thing you can do takes about
+  fifteen minutes at a desk and one walk: the test in [docs/other-assistants.md](docs/other-assistants.md)
+  checks whether a ChatGPT voice conversation can work in the folder with no taps on the screen. Nobody
+  has run it yet. Report what happened with the issue template "I ran an assistant test"; a failure is
+  as useful as a pass.
 - **Say what was unclear.** If a page told you something that turned out to be wrong, or left you
   unable to do the next step, open an issue and quote the sentence. People and AI agents act on these
   pages, so a wrong sentence is a bug.

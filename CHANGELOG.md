@@ -2,6 +2,15 @@
 
 ## Not yet released
 
+**Other assistants: what ChatGPT, Gemini and Mistral can do, and a test anyone can run.**
+[docs/other-assistants.md](docs/other-assistants.md), from research on 2026-11-22. ChatGPT can hold a
+long voice conversation with the phone locked and use Google Drive, but a write asks for approval on
+the screen; OpenAI's per-account "Allow all actions" should remove that, safely if given to a Google
+account used only by ChatGPT and shared on the Collab Kit folder alone. Nobody has verified it: the
+page carries the test, step by step, and a new issue template, "I ran an assistant test", for the
+result. CONTRIBUTING.md names running it as one of the easiest ways to help. Gemini Live cannot yet
+list a folder or create a plain file; Mistral's app (Vibe, formerly Le Chat) does not yet speak back.
+
 **Where the project stands, for contributors and on security.** CONTRIBUTING.md says plainly that the
 project has one author who is also its main user: bugs and fixes are always welcome, additions that
 leave the core alone are welcome, changes to how it fundamentally works are unlikely for now, and
