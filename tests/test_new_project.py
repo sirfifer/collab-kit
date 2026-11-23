@@ -568,7 +568,7 @@ class Repositories(Folder):
         no_gh.mkdir()                                                             # even where /usr/bin has one
         for d in ("/usr/bin", "/bin"):
             for tool in Path(d).iterdir():
-                if tool.name != "gh" and not (no_gh / tool.name).exists():
+                if tool.name != "gh" and not os.path.lexists(no_gh / tool.name):   # /bin may be /usr/bin; links may dangle
                     (no_gh / tool.name).symlink_to(tool)
         os.environ["PATH"] = f"{self.bin}{os.pathsep}{no_gh}"
         self.drop("r1.md", IDEA)
