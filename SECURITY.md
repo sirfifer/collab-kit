@@ -51,8 +51,9 @@ The rest of this page is the detail: how to report, what is in scope, and exactl
 ## Reporting a vulnerability
 
 **Please report privately, not in a public issue.** Use GitHub's private vulnerability reporting:
-the **Security** tab of this repository, then **Report a vulnerability**. Only the maintainers see
-the report.
+the **Security** tab of this repository, then **Report a vulnerability**, or go straight to
+<https://github.com/sirfifer/collab-kit/security/advisories/new>. Only the maintainers see the
+report.
 
 If you cannot use GitHub, open a public issue that says only that you have something to report
 privately and how to reach you. Put no details in it; a maintainer will arrange a private channel.
@@ -227,7 +228,7 @@ the file system whether each attempt was refused; run it after upgrading Claude 
   needs a deliberate review first (license, maintenance, known vulnerabilities in OSV, its own
   security posture) and a note in the pull request; the default answer is no.
 - Every release attaches a CycloneDX and an SPDX SBOM, with build provenance and SBOM attestations
-  (`gh attestation verify <file> --repo <owner>/<repo>`).
+  (`gh attestation verify <file> --repo sirfifer/collab-kit`).
 - GitHub Actions are pinned to full commit hashes and kept current by Dependabot; OSV-Scanner runs
   weekly and on every pull request; OpenSSF Scorecard runs weekly.
 

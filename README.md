@@ -4,6 +4,10 @@
 
 <h1 align="center">Collab Kit</h1>
 
+<p align="center">
+  <a href="https://github.com/sirfifer/collab-kit/actions/workflows/ci.yml"><img src="https://github.com/sirfifer/collab-kit/actions/workflows/ci.yml/badge.svg?branch=main" alt="Tests on Linux, macOS and Windows"></a>
+</p>
+
 **Collab Kit is not an app. You talk to Claude in the Claude app on your phone, using the voice mode
 that is already built into it. Collab Kit is a folder of plain files, and a few scripts, that give
 that voice mode the one thing it lacks: a working knowledge of your project.**
@@ -11,6 +15,8 @@ that voice mode the one thing it lacks: a working knowledge of your project.**
 With it you can have a long, fully informed working conversation about a complex project,
 hands-free: an hour on a hard problem, where every answer depends on what the project actually says.
 It is a way of collaborating with an AI on serious work: you guide it, and you judge what comes of it.
+
+To see what it takes and set it up: [what you need](#what-you-need), then [try it](#try-it).
 
 ## The problem it solves
 

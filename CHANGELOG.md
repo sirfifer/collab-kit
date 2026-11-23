@@ -2,6 +2,14 @@
 
 ## Not yet released
 
+**Where the project stands, for contributors and on security.** CONTRIBUTING.md says plainly that the
+project has one author who is also its main user: bugs and fixes are always welcome, additions that
+leave the core alone are welcome, changes to how it fundamentally works are unlikely for now, and
+forks are welcome. SECURITY.md opens with the short version: the folder is a way in to the back end
+and to agents, so it is kept private to one person; and what the project commits to. The README
+carries one badge, the tests on Linux, macOS and Windows, after a look at current practice; a pull
+request template is added.
+
 **One command sets up a computer: `install.py setup`.** Found by walking three newcomers through the
 install in a sandbox (DESIGN-0.5 section 26). It finds the Google Drive folder that Drive for desktop
 shows, asks which account and your name, creates the Collab Kit folder (or keeps the one there), records
