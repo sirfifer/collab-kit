@@ -2,6 +2,18 @@
 
 ## Not yet released
 
+**One command sets up a computer: `install.py setup`.** Found by walking three newcomers through the
+install in a sandbox (DESIGN-0.5 section 26). It finds the Google Drive folder that Drive for desktop
+shows, asks which account and your name, creates the Collab Kit folder (or keeps the one there), records
+this computer's settings, puts the kit into each `--repo`, and ends with the exact line to paste into
+the Claude app. Every question has a flag, for agents. Alongside it: `install.py` on a Python older
+than 3.11 says so plainly instead of a traceback; a first `install.py project` on a computer that does
+not yet know the folder is refused before anything is written (no half-install); `top`, `machine` and
+`project` each end with what to do next; a new project's brief no longer reports an unfinished voice
+thread that is only `WIP/README.md` (the start files say the same; existing folders get the wording
+with `install.py top --replace-start`); and `ck` called by its full path from inside another project
+answers for its own project.
+
 **The home page says plainly what this is, and leads with the work it is for.** Collab Kit is not an
 app: a person talks to Claude in the Claude app, in its built-in voice mode, and the kit is the files
 and scripts behind that conversation. The README now opens with that, then the reason voice mode

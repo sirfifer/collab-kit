@@ -156,14 +156,21 @@ class Project:
     def find(cls, start: Path | str | None = None) -> "Project | None":
         """The project at or above `start` (default: the current folder); else the one named by
         $CLAUDE_PROJECT_DIR; else the project this engine is vendored in (so `ck` works from any
-        folder, e.g. a session started in ~/dev)."""
+        folder, e.g. a session started in ~/dev).
+        One exception: a vendored `ck` called by its full path from inside ANOTHER project answers for
+        its own project, not the folder's (an agent checking project A from project B's folder was told
+        about B). A worktree of the same project is the same project: the folder's checkout wins."""
+        vendored = VENDORED_ROOT if (VENDORED_ROOT / C.PROJECT_FILE).is_file() else None
         for cand in (start or os.getcwd(), os.environ.get("CLAUDE_PROJECT_DIR")):
             if cand:
                 root = C.find_project_root(Path(cand))
                 if root:
+                    if (start is None and vendored is not None and root.resolve() != vendored.resolve()
+                            and C.project(root)["project"]["name"] != C.project(vendored)["project"]["name"]):
+                        return cls(vendored)
                     return cls(root)
-        if (VENDORED_ROOT / C.PROJECT_FILE).is_file():
-            return cls(VENDORED_ROOT)
+        if vendored is not None:
+            return cls(vendored)
         return None
 
     def ck(self, cwd: str | Path | None = None) -> str:

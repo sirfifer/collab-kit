@@ -8,6 +8,24 @@ for you follows [for-agents.md](for-agents.md), which is stricter and checks eac
 
 You need Python 3.11 or newer and git. No other packages.
 
+## The short way: one command
+
+```bash
+python3 install.py setup
+```
+
+It finds your Google Drive folder (as Google Drive for desktop shows it), asks which Google account
+when you have more than one and what your name is, creates the Collab Kit folder there or keeps the
+one you have, and tells this computer where it is. Give it a repository to put the kit there too
+(`--repo <repo>`; it asks what the project is and what you call it). It ends with the line to paste
+into the Claude app. Add `--dry-run` to see what it would do first. Every question has a flag
+(`python3 install.py setup --help`), so an AI agent can run it for you.
+
+If `python3` says it is older than 3.11 (a Mac's own is 3.9), `install.py` says how to get a newer
+one.
+
+The rest of this page is the same work step by step, and what comes after.
+
 ## First: tell this computer where the folder is
 
 ```bash
@@ -16,7 +34,8 @@ python3 install.py machine --cloud-root "<the Collab Kit folder as this computer
 
 This writes one small file (`~/.config/collab-kit/config.toml`) that records where the Collab Kit
 folder is on this computer, whose it is, and where this copy of the kit is. Every command below
-reads it, so run this once on each computer before anything else on this page.
+reads it, so run this once on each computer before anything else on this page (`setup` does it for
+you); without it, `install.py project` stops before writing anything.
 
 ## The kit in a project's repository
 

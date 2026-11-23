@@ -139,7 +139,9 @@ class Unit:
         return out
 
     def wip_notes(self) -> list[Entry]:
-        return [e for e in self.store.files(WIP) if not e.name.startswith((".", "_"))]
+        """Checkpoint notes: every file in WIP/ but the folder's own README, which the installer writes."""
+        return [e for e in self.store.files(WIP)
+                if not e.name.startswith((".", "_")) and e.name.lower() != "readme.md"]
 
     def ledger_names(self) -> set[str]:
         return {e.name[: -len(".ledger.json")] for e in self.store.files(APPLIED) if e.name.endswith(".ledger.json")}

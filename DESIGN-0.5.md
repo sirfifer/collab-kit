@@ -1278,6 +1278,41 @@ Open, for a real account: everything `gh` and GitHub do here was tested against 
 to create by voice. What that will show for the first time: `gh repo create` and `gh repo view`
 against GitHub, the push over the configured protocol from a scheduled job, and how long it takes.
 
+### 26. A newcomer's install (the install walk-through, 2026-11-22)
+
+Three invented newcomers installed the kit in a sandbox, command by command: a person with only a phone
+and Google Drive, a developer with Claude Code in a few repositories, and someone setting up an
+always-on back end. The findings and the plan are in the project's knowledge
+(`install-experience-2026-11-22.md`). Built from it:
+
+- **`install.py setup`: the whole setup on one computer, guided.** It finds the `My Drive` folders that
+  Google Drive for desktop shows (macOS `~/Library/CloudStorage/GoogleDrive-<account>/`, the older
+  `~/Google Drive/`, a Windows drive letter), asks which account when there is more than one, asks the
+  person's name, then runs the existing steps in order: `top` (an existing Collab Kit folder is kept),
+  `machine`, and `project` for each `--repo`. It ends with what exists now, the account the Claude
+  app's Drive connector must use, and the exact preference line. Every question has a flag; with no
+  terminal (an agent) or `--yes`, a missing answer is an error naming its flag, and nothing is
+  written. It calls only the installer's own steps (`engine/collab_kit/guided.py`, not vendored into
+  projects), so it can do nothing they cannot. `top`, `machine` and `project` stay as they were.
+- **A plain message on an old Python.** `install.py` checks the version before importing anything:
+  a Mac's own `python3` is 3.9, and the first thing a newcomer saw was a traceback about `tomllib`.
+- **No half-install.** A first `install.py project` whose home is the Collab Kit folder, on a machine
+  that does not know where that folder is, is refused before anything is written (it used to write
+  the repository side, say "run install.py machine first", and exit 0).
+- **The WIP folder's own README is not an unfinished thread.** The installer writes `WIP/README.md`;
+  the brief counted it ("Unfinished voice threads in WIP/: 1" on a new project), and the start files
+  told a conversation that any file there means one. Both now leave `README.md` out.
+- **`ck` by its full path answers for its own project.** Run from inside another project's folder,
+  it used to report on that folder's project. A worktree of the same project still counts as the
+  folder's checkout (its returns are committed there).
+- **Each installer command ends with what to do next:** `top` with the Claude app's two steps and the
+  preference line, `machine` with the project step, `project` with the commit and the check.
+
+Planned, not built (each waits on a decision recorded on the agenda): a starter folder that needs no
+terminal at all, for a person with only a phone; the back end's setup line flipped only when its
+schedule is loaded, not by a pass run by hand; a guided rclone step; and a smoke test that files,
+applies and undoes one return.
+
 ## Out of scope for 0.5
 
 Several machines, teams and roles, the container runner, routing a stray return to the right

@@ -11,7 +11,8 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
 
 - `engine/collab_kit/`: the engine. Python 3.11+, standard library only. `engine/ck` (a POSIX launcher)
   and `engine/ck.py` run its command line (`cli.py`).
-- `install.py`: the installer. `top` (the Collab Kit folder's start file), `machine` (this machine's
+- `install.py`: the installer. `setup` (the whole setup on one computer, guided:
+  `engine/collab_kit/guided.py`), `top` (the Collab Kit folder's start file), `machine` (this machine's
   config and user hooks), `project` (the kit into a repository), `backend` (the scheduled back end),
   `migrate-04`. Each has `--dry-run`; `project --dry-run --check` exits 1 if anything would change.
 - `engine/collab_kit/templates/`: what is written into the Collab Kit folder (the start files, the inbox

@@ -13,7 +13,8 @@ Project: **collab-kit**. Richard calls it "collab kit", "the kit". This system i
   level's `agenda/00-PRESSING.md` again before this project's agenda, and say in a sentence what
   was not on it when you last read it. Then the heartbeat beside it, as the top-level start file
   says (step 3).
-- `WIP/`: checkpoint notes between saves. List it next: leftovers mean an unfinished thread.
+- `WIP/`: checkpoint notes between saves. List it next: leftovers (any file but `README.md`) mean an
+  unfinished thread.
 - `knowledge/`: what the project knows (read these to answer questions). If it has `01-INDEX.md`,
   start there: it lists every concept, answer, and document section by name. `knowledge/status.md`
   says what is running in the background. Knowledge may be older than the agenda.

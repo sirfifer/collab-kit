@@ -57,8 +57,27 @@ Ask the person, or read it from their setup. Never guess an account.
 
 ## Set up from nothing
 
-1. **The kit.** `git clone <the kit's repository> ~/dev/collab-kit` (or use the checkout you have).
-   `python3 --version` must say 3.11 or later; nothing else is needed for this step.
+1. **The kit.** `git clone https://github.com/sirfifer/collab-kit.git ~/dev/collab-kit` (or use the
+   checkout you have). `python3 --version` must say 3.11 or later; a Mac's own `python3` is 3.9, and
+   `install.py` then stops and says how to get a newer one. Nothing else is needed for this step.
+
+**The short way: steps 2, 3 and 5 in one command.** Ask the person their name, which Google account
+the Claude app's Drive connector uses, and which repositories should get the kit (with one sentence
+about each and what they call it aloud), then:
+
+```bash
+python3 <kit>/install.py setup --yes --human "Sam" --repo <repo> --about "what it is" --spoken "what Sam calls it" --dry-run
+python3 <kit>/install.py setup --yes --human "Sam" --repo <repo> --about "what it is" --spoken "what Sam calls it"
+```
+
+It finds the `My Drive` folder that Google Drive for desktop shows (pass `--folder "<folder>"` when it
+finds more than one account, or none), creates `Collab Kit` there or keeps one that is already there,
+writes this machine's config, installs the kit in each `--repo` (repeat `--repo`, `--about` and
+`--spoken` in the same order), and prints what the person does in the Claude app (step 4). `--yes`
+asks nothing: a missing answer stops it, names its flag, and writes nothing. Add `--user-hooks` only
+when the person starts sessions in a parent folder of many repositories: it edits their user-wide
+`~/.claude/settings.json`. Then do steps 4, 6 and 7. The steps one by one:
+
 2. **The folder's top level:**
 
    ```bash
@@ -72,10 +91,11 @@ Ask the person, or read it from their setup. Never guess an account.
 3. **This machine:**
 
    ```bash
-   python3 <kit>/install.py machine --cloud-root "<folder>" --human "Sam" --user-hooks
+   python3 <kit>/install.py machine --cloud-root "<folder>" --human "Sam"
    ```
 
-   `--user-hooks` is for sessions that start in a parent folder of many repositories. Through rclone
+   Add `--user-hooks` only when the person starts sessions in a parent folder of many repositories
+   (it edits their user-wide `~/.claude/settings.json`): ask first. Through rclone
    instead of a synced folder: `--cloud-root "rclone:<remote>:" --rclone <the pinned binary>
    --rclone-config <its config file>` (see "A back end").
 4. **The phone (the person does this).** In the Claude app, turn on the Google Drive connector and add
@@ -94,7 +114,9 @@ Ask the person, or read it from their setup. Never guess an account.
    (new files only), and files a return that marks the project live in the catalog (adding its row,
    from `--about` and `--spoken`, when it is not listed). The project's name is the repository's
    folder name (the main checkout's, also when you run it from a worktree); if the kit refuses that
-   name (capitals, double hyphens), nothing is installed and it suggests one: pass `--name`. Anything
+   name (capitals, double hyphens), nothing is installed and it suggests one: pass `--name`. On a
+   machine without step 3, a project whose home is the Collab Kit folder is refused and nothing is
+   written. Anything
    it could not do in the Collab Kit folder (offline, a sync error) it says, and running it again
    finishes the job. Commit the install on its own ("Install
    Collab Kit X.Y.Z"). For `--home repo`, the repository holds `collab-kit/` itself, and a back end
