@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 884" width="480" height="884" role="img" aria-labelledby="t d">
+  <title id="t">One day, round the loop</title>
+  <desc id="d">Six moments in one day. On a morning walk you ask what is pressing, and Claude tells you from the folder. Forty minutes later a decision is made out loud and Claude writes a return. About three minutes later the back end, scripts with no AI, has filed it. The agent's next session in the project starts from a brief of what is waiting, with your question in it. When the agent is stuck, its question is filed as critical and a push reaches your phone. Your next walk opens with that question, and your answer goes back the same way.</desc>
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1F2430; }
+      .title { font-size: 28px; font-weight: 700; }
+      .sub { font-size: 16px; fill: #5B6472; }
+      .who { font-size: 12.5px; font-weight: 700; letter-spacing: 0.8px; }
+      .h { font-size: 19px; font-weight: 700; }
+      .b { font-size: 16px; }
+      .say { font-style: italic; }
+      .you { fill: #1F2430; }
+      .be { fill: #0F766E; }
+      .ag { fill: #4338CA; }
+      .muted { fill: #5B6472; }
+      .foot { font-size: 15px; fill: #5B6472; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="480" height="884" rx="20" fill="#FBFAF7"/>
+
+  <text x="24" y="52" class="title">One day, round the loop</text>
+  <text x="24" y="80" class="sub">What you say on a walk reaches the agents doing</text>
+  <text x="24" y="101" class="sub">the work, and their questions come back to you.</text>
+
+  <!-- the line -->
+  <line x1="40" y1="146" x2="40" y2="776" stroke="#D8D3C8" stroke-width="3"/>
+
+  <!-- 1 -->
+  <circle cx="40" cy="146" r="10" class="you"/>
+  <text x="66" y="150" class="who you">YOU · A MORNING WALK</text>
+  <text x="66" y="176" class="h say">&#8220;What's pressing?&#8221;</text>
+  <text x="66" y="201" class="b">Claude opens the folder and tells you: a</text>
+  <text x="66" y="222" class="b">decision due Friday, and an agent that is</text>
+  <text x="66" y="243" class="b">blocked on a question.</text>
+
+  <!-- 2 -->
+  <circle cx="40" cy="282" r="10" class="you"/>
+  <text x="66" y="286" class="who you">YOU · FORTY MINUTES LATER</text>
+  <text x="66" y="312" class="h">The decision is made, out loud</text>
+  <text x="66" y="337" class="b">Claude writes a return: what you decided,</text>
+  <text x="66" y="358" class="b">and two new questions, one for the agent.</text>
+
+  <!-- 3 -->
+  <circle cx="40" cy="397" r="10" class="be"/>
+  <text x="66" y="401" class="who be">THE BACK END · ABOUT THREE MINUTES</text>
+  <text x="66" y="427" class="h">Filed, with no AI involved</text>
+  <text x="66" y="452" class="b">Scripts apply the return: the item is settled,</text>
+  <text x="66" y="473" class="b">the new ones get numbers, and the front</text>
+  <text x="66" y="494" class="b">page of the agenda is rebuilt.</text>
+
+  <!-- 4 -->
+  <circle cx="40" cy="533" r="10" class="ag"/>
+  <text x="66" y="537" class="who ag">AN AGENT · ITS NEXT SESSION</text>
+  <text x="66" y="563" class="h">It starts from the agenda</text>
+  <text x="66" y="588" class="b">A brief shows your question, and what is</text>
+  <text x="66" y="609" class="b">due, before it plans anything.</text>
+
+  <!-- 5 -->
+  <circle cx="40" cy="648" r="10" class="ag"/>
+  <text x="66" y="652" class="who ag">THE AGENT · WHEN IT IS STUCK</text>
+  <text x="66" y="678" class="h">Its question comes to you</text>
+  <text x="66" y="703" class="b">Filed as critical, naming the work that waits.</text>
+  <rect x="66" y="714" width="232" height="30" rx="8" fill="#FEF3C7"/>
+  <text x="78" y="734" style="font-size:14.5px;font-weight:700;fill:#92400E">One push reaches your phone.</text>
+
+  <!-- 6 -->
+  <circle cx="40" cy="776" r="10" class="you"/>
+  <text x="66" y="780" class="who you">YOU · THE NEXT WALK</text>
+  <text x="66" y="806" class="h">The talk opens with that question</text>
+  <text x="66" y="831" class="b">Your answer goes back the same way.</text>
+
+  <text x="24" y="864" class="foot">Today you start each agent session yourself.</text>
+</svg>

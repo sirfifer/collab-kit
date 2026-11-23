@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 730" width="480" height="730" role="img" aria-labelledby="t d">
+  <title id="t">Start with a folder, add one step at a time</title>
+  <desc id="d">Three steps, and one that is not built yet; you can stop after any of them. First, a folder in your Google Drive: plain files and one line in the Claude app, with the conversation filing what it wrote; everyone starts here. Second, add a back end: scripts on a machine that stays on, which file every return within minutes and can notify your phone. Third, add your projects' repositories: AI agents start each session from a brief of what is waiting and send their questions to your agenda. Not built yet: the back end starting agent work for you.</desc>
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1F2430; }
+      .title { font-size: 28px; font-weight: 700; }
+      .sub { font-size: 16px; fill: #5B6472; }
+      .h { font-size: 19px; font-weight: 700; }
+      .b { font-size: 16px; }
+      .s { font-size: 16px; }
+      .muted { fill: #5B6472; }
+      .num { font-size: 17px; font-weight: 700; fill: #FFFFFF; text-anchor: middle; }
+      .card { fill: #FFFFFF; stroke: #D8D3C8; stroke-width: 1.5; }
+      .plus { font-size: 26px; font-weight: 700; fill: #5B6472; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="480" height="730" rx="20" fill="#FBFAF7"/>
+
+  <text x="24" y="52" class="title">Start with a folder</text>
+  <text x="24" y="80" class="sub">Stop after any step. Each one is useful</text>
+  <text x="24" y="101" class="sub">without the next.</text>
+
+  <!-- 1 -->
+  <rect x="16" y="124" width="448" height="150" rx="16" fill="#1F2937"/>
+  <circle cx="48" cy="160" r="16" fill="#F5F3EE"/>
+  <text x="48" y="166" class="num" style="fill:#1F2937">1</text>
+  <text x="76" y="167" class="h" style="fill:#F5F3EE">A folder in your Google Drive</text>
+  <text x="36" y="200" class="b" style="fill:#C9CFDA">Plain files, and one line in the Claude app.</text>
+  <text x="36" y="221" class="b" style="fill:#C9CFDA">The conversation files what it wrote.</text>
+  <rect x="36" y="234" width="188" height="28" rx="14" fill="#2F3B4F"/>
+  <text x="130" y="253" class="s" text-anchor="middle" style="fill:#F5F3EE;font-weight:700">everyone starts here</text>
+
+  <text x="240" y="300" class="plus">+</text>
+
+  <!-- 2 -->
+  <rect x="16" y="310" width="448" height="140" rx="16" class="card"/>
+  <circle cx="48" cy="346" r="16" fill="#0F766E"/>
+  <text x="48" y="352" class="num">2</text>
+  <text x="76" y="353" class="h">A back end</text>
+  <text x="36" y="386" class="b">Scripts on a machine that stays on. Every</text>
+  <text x="36" y="407" class="b">return is filed within minutes, and it can</text>
+  <text x="36" y="428" class="b">notify your phone.</text>
+
+  <text x="240" y="476" class="plus">+</text>
+
+  <!-- 3 -->
+  <rect x="16" y="486" width="448" height="140" rx="16" class="card"/>
+  <circle cx="48" cy="522" r="16" fill="#4338CA"/>
+  <text x="48" y="528" class="num">3</text>
+  <text x="76" y="529" class="h">Your projects' repositories</text>
+  <text x="36" y="562" class="b">AI agents start each session from a brief of</text>
+  <text x="36" y="583" class="b">what is waiting, and send their questions</text>
+  <text x="36" y="604" class="b">to your agenda.</text>
+
+  <!-- next -->
+  <rect x="16" y="642" width="448" height="64" rx="16" fill="none" stroke="#B8B2A4" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="36" y="670" class="s muted" style="font-weight:700">Not built yet</text>
+  <text x="36" y="691" class="s muted">The back end starting agent work for you.</text>
+</svg>

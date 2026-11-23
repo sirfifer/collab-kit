@@ -23,20 +23,10 @@ brackets point into it.
 
 ## One session, step by step
 
-```mermaid
-flowchart TD
-    A["You ask what is pressing"]
-    B["Claude opens the start file and the front page,<br/>then one project's agenda, index, and a section"]
-    C["You talk, as long and as deep as it needs"]
-    D["Claude writes a return<br/>into that project's inbox"]
-    E["The back end's minute check finds it"]
-    F["A full pass applies it, whole or not at all:<br/>items settled and numbered, ledger written,<br/>front page rebuilt"]
-    G["The agent's next session<br/>opens with it in the brief"]
-    H["The agent's status and questions<br/>come back as returns of its own"]
-    I["Your next conversation hears them first"]
-    A --> B --> C --> D --> E --> F --> G --> H --> I
-    I -.-> C
-```
+<p align="center">
+  <img src="images/one-day-round-the-loop.svg" width="480"
+       alt="One day, round the loop. On a morning walk you ask what is pressing, and Claude tells you from the folder. Forty minutes later a decision is made out loud and Claude writes a return. About three minutes later the back end, scripts with no AI, has filed it. The agent's next session starts from a brief of what is waiting, with your question in it. When the agent is stuck, its question is filed as critical and a push reaches your phone. Your next walk opens with that question, and your answer goes back the same way. Today you start each agent session yourself.">
+</p>
 
 ### 1. The conversation finds its way in
 
@@ -69,8 +59,8 @@ flowchart TD
     K["knowledge/projects.md<br/>one row for every project"]
     C["project-cards/garden-planner.md<br/>its vision, story, timeline"]
     A["garden-planner: agenda/<br/>its open items, one file each"]
-    I["garden-planner: knowledge/01-INDEX.md<br/>every concept, answer and section, by name"]
-    D["one section<br/>the part the talk is about"]
+    I["garden-planner: knowledge/<br/>what it knows, in small named files"]
+    D["one file<br/>the part the talk is about"]
     S --> P --> K --> C --> A --> I --> D
 ```
 
@@ -78,16 +68,18 @@ Three facts about voice shaped this [6, 17, DESIGN.md]:
 
 - **Voice can only open whole files, by name, by listing a folder.** So everything is a small file
   with a unique name: one agenda item per file, one section of a document per file.
-- **Context is finite.** A project's documents, loaded whole, would crowd out the conversation. An
-  index that names every concept, answer, and section lets the conversation fetch one piece.
-- **One spoken reply can make only about seven tool calls.** So the way in is short (about five
-  calls), and large saves are split across replies without asking.
+- **Context is finite.** A project's documents, loaded whole, would crowd out the conversation. Small
+  files with telling names let the conversation fetch one piece; for a project with many documents,
+  an index names every concept, answer, and section.
+- **One spoken reply can make only about seven tool calls.** So the way in is short (about seven
+  calls with a back end, one fewer without), and large saves are split across replies without asking.
 
-For a project in a repository, the knowledge build splits the project's own documents into those
-sections and writes the index ([DESIGN.md](../DESIGN.md);
-sample: [examples/the-lighthouse](../examples/the-lighthouse/README.md)), and the back end runs it on
-every pass [8]. A project that lives only in the folder keeps its knowledge as a few plain files, which
-a conversation lists and opens by name.
+The index is an extra, for a project with many documents: the knowledge build splits the project's
+own documents into those sections and writes the index ([DESIGN.md](../DESIGN.md);
+sample: [examples/the-lighthouse](../examples/the-lighthouse/README.md)). It works for a project whose
+home is its repository, is installed there separately (`install.py init` and `apply`), and is run by
+a machine back end on every pass [8]. Every other project keeps its knowledge as a few plain files,
+which a conversation lists and opens by name.
 
 Switching projects is the same walk from the catalog down. That is why "switch to the newsletter"
 works mid-conversation: every project is shaped the same way.
@@ -150,12 +142,13 @@ pass. The kit never creates a public repository.
 The back end is a scheduled job that runs the kit's scripts [9, 20, 22]:
 
 1. **Every minute** it asks one cheap question: has a return settled in any inbox? Then it writes
-   the time of that check to a one-line file, `agenda/00-HEARTBEAT.md` [24].
+   the time of that check to a small file, `agenda/00-HEARTBEAT.md` [24].
 2. If so, it makes **a full pass**: it reads the folder in one listing, applies each waiting return,
    writes each return's ledger, rebuilds the front page, mirrors repository-homed projects, and
    writes its own health.
 3. **A return is applied whole or not at all, and at most once.** The ledger holds the exact before
-   and after of every file it changed, so any return can be undone.
+   and after of every file it changed, so a return can be undone as long as nothing has changed those
+   files since.
 4. What it cannot apply is set aside, never dropped, and raised on the agenda as a critical item.
 5. The first time a critical item appears, it can send one push to your phone, and, if you turn
    that on, one for each status line an agent reports ([notifications](notifications.md)).
@@ -174,7 +167,8 @@ work. The agent checks its task against that before planning. As it works:
 - You answer by voice: the conversation settles the question with your answer as its outcome. An
   agent that is still running and waiting (`ck wait`, an hour unless told otherwise) gets it within
   minutes, printed as data, never as an instruction. A session that has ended is not resumed: the
-  answer is logged on the item that waited, and the next session's brief shows it.
+  answer is logged on the item that waited, and the brief of any session in the next two days shows
+  it.
 - A second hook, at the end of a turn, notices when the session changed files and recorded nothing.
 
 All of these are returns too. One inbox, one grammar, one set of scripts, whoever is writing.
@@ -245,5 +239,5 @@ come from outside the machine: an optional dead-man ping ([notifications](notifi
 
 - The layout, folder by folder, and why: [folder-structure.md](folder-structure.md)
 - A real project to browse: [examples/the-kit-itself](../examples/the-kit-itself/README.md)
-- Setting it up (written for an AI agent to follow): [for-agents.md](for-agents.md)
+- Setting it up by hand: [setup.md](setup.md); written for an AI agent to follow: [for-agents.md](for-agents.md)
 - Every decision, and what is not built yet: [DESIGN-0.5.md](../DESIGN-0.5.md)

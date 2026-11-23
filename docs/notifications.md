@@ -28,7 +28,7 @@ The command gets four environment variables, and nothing on its command line:
 
 | Variable | Example |
 |---|---|
-| `COLLAB_KIT_TITLE` | `Collab Kit: critical in garden-planner` (a status line: `Collab Kit: status in garden-planner`) |
+| `COLLAB_KIT_TITLE` | `Collab Kit: critical in garden-planner` (a question that blocks work: `Collab Kit: blocked in garden-planner`; a status line: `Collab Kit: status in garden-planner`) |
 | `COLLAB_KIT_MESSAGE` | the item's title, or the status line's heading (outside text: it may be anything a return wrote) |
 | `COLLAB_KIT_ITEM` | `garden-planner W-012` (a status line: `garden-planner status 2026-12-01 09:15 UTC`) |
 | `COLLAB_KIT_KIND` | which kind of push this is: `critical`, `blocked`, or `status` |

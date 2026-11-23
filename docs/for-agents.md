@@ -21,8 +21,8 @@ installing first: [how it works](how-it-works.md) and [the folder and the method
    keys, macOS permission prompts, and pushes to GitHub. Do everything else first, then give them one
    script or one short list for their part, saying what it will ask and how to check the result.
 5. **Every install or upgrade in a repository is its own commit**, separate from other work.
-6. **Dry run first.** Every `install.py` command takes `--dry-run` (`backend`: leave out `--apply`)
-   and prints what it would write.
+6. **Dry run first.** `install.py top`, `machine`, `project` and `migrate-04` take `--dry-run`
+   (`backend`: leave out `--apply`) and print what they would write.
 
 ## The parts, and where each one lives
 
@@ -34,10 +34,10 @@ installing first: [how it works](how-it-works.md) and [the folder and the method
 | A project's install | in its repository: `tools/collab-kit/`, `.claude/settings.json` hooks, `.claude/skills/collab-kit*`, the Collab Kit section of `CLAUDE.md` and `AGENTS.md` | `install.py project` | `tools/collab-kit/ck version` |
 | A project's folder | `<folder>/projects/<name>/collab-kit/` (or `collab-kit/` in its repository, when that is its home) | `install.py project` | its start file's first line |
 | User-level hooks (sessions started in a parent folder such as `~/dev`) | an engine copy in `~/Library/Application Support/collab-kit/engine/` (Linux `~/.local/share/collab-kit/engine/`, Windows `%LOCALAPPDATA%\collab-kit\engine\`), and `~/.claude/settings.json` | `install.py machine --user-hooks` | `.../engine/collab_kit/VERSION` |
-| A back end (optional) | one machine: `~/.config/collab-kit/backend.toml` and a schedule (launchd `org.collab-kit.backend`, systemd `collab-kit-backend.timer`, or the Windows task "Collab Kit back end"), running the kit's checkout | `install.py backend` | the kit checkout's `VERSION`; its health is the first line of `<folder>/agenda/00-PRESSING.md` |
+| A back end (optional) | one machine: `~/.config/collab-kit/backend.toml` and a schedule (launchd `org.collab-kit.backend`, systemd `collab-kit-backend.timer`, or the Windows task "Collab Kit back end"), running the kit's checkout | `install.py backend` | the kit checkout's `VERSION`; its health is at the top of `<folder>/agenda/00-PRESSING.md` (the line "Up to date as of") |
 
 **Levels.** Level 1 is the folder alone: conversations (and `ck`) apply returns themselves. Level 2 adds
-a back end: it applies every return within a few minutes, keeps the agenda's front page, mirrors
+a back end: on a machine it applies every return within a few minutes, keeps the agenda's front page, mirrors
 repository-homed projects, and reports its health. Everything below works at level 1 unless it says
 otherwise.
 
@@ -47,6 +47,8 @@ Ask the person, or read it from their setup. Never guess an account.
 
 - **The Collab Kit folder:** its path as this machine sees it (a synced folder), or an rclone remote
   (`rclone:<remote>:`) on a machine without a synced copy. Which Google account owns it.
+  `install.py top` writes to a path only: run it on a machine that has the synced folder, never with
+  an `rclone:` remote (it refuses one).
 - **Their name**, as the agenda should say it ("what needs Sam").
 - **For each project:** a folder name (2 to 40 characters: lowercase letters, digits, single hyphens,
   starting with a letter), one sentence saying what it is, and what they call it aloud. Its home: the
@@ -77,7 +79,7 @@ Ask the person, or read it from their setup. Never guess an account.
    instead of a synced folder: `--cloud-root "rclone:<remote>:" --rclone <the pinned binary>
    --rclone-config <its config file>` (see "A back end").
 4. **The phone (the person does this).** In the Claude app, turn on the Google Drive connector and add
-   the preference line from the README's quick start. That is all a phone needs. The line names two
+   the preference line from the README ("Try it"). That is all a phone needs. The line names two
    phrases ("make this a project", "save this to Collab Kit") so that a talk which began without the
    folder opens it; a person whose line is older adds them.
 5. **Each project that has a repository:** in a branch or worktree of that repository,
@@ -137,8 +139,10 @@ From anywhere inside the repository, `tools/collab-kit/ck` (from another folder,
 - **No back end was ever set up (level 1), the home is the Collab Kit folder:** `ck` applies the return
   at once and rebuilds the agenda's front page. Returns a phone conversation filed are applied by the
   next conversation, or with `ck apply` in the project.
-- **The home is the repository:** the return goes to `collab-kit/_returns/` in this checkout; commit it
-  with your work. The back end applies it once it reaches the main branch.
+- **The home is the repository:** with a live back end and the Collab Kit folder in reach, the return
+  goes to the project's inbox in the folder and the back end applies it. Otherwise it goes to
+  `collab-kit/_returns/` in this checkout; commit it with your work, and the back end applies it
+  once it reaches the main branch. `ck` says which.
 - **The Collab Kit folder cannot be reached from here:** the return waits in `collab-kit/_returns/`
   (commit it); the next session that reaches the folder delivers it.
 - **By hand, for any unit** (testing, repair): `ck apply <unit folder> --unit <name> [--top]
@@ -147,7 +151,7 @@ From anywhere inside the repository, `tools/collab-kit/ck` (from another folder,
 
 ## A back end
 
-A back end is one machine that is always on (or a scheduled GitHub Actions run, see the README). It
+A back end is one machine that is always on (or a scheduled GitHub Actions run, see [setup.md](setup.md)). It
 runs from the kit's checkout, not from a project's copy.
 
 1. **How it reaches the folder.** Prefer rclone: it reads files the moment a phone writes them and
@@ -181,7 +185,7 @@ runs from the kit's checkout, not from a project's copy.
    | `local_roots` | folders whose subfolder names count as taken project names, e.g. `["~/dev", "~/projects"]` |
    | `deny` | regexes a pushed change may never contain |
    | `watch` | macOS, a synced copy of the folder: its inboxes start a pass the moment a file lands |
-   | `lease_settle_seconds` | wait before trusting the lease (default 20) |
+   | `lease_settle_seconds` | wait before trusting the lease (default 20 through rclone, 2 for a synced folder) |
    | `[notify] command` | optional push to a phone when a critical item appears ([notifications.md](notifications.md)); the person types their own keys |
    | `[notify] status` | `true`: also one push for each new status line (default `false`) |
    | `[heartbeat] command`, `every_minutes` | optional dead-man ping after a successful check, at most every 5 minutes, so a service outside the machine notices when the back end stops ([notifications.md](notifications.md)); the person creates the check and types its address |
@@ -189,9 +193,9 @@ runs from the kit's checkout, not from a project's copy.
    | `[new_projects] github_owner` | with `repositories`: also create `<owner>/<name>` on GitHub, **always private**, and push the first commit. Needs the `gh` command, signed in as an account that may create repositories there (`gh auth login`, the person's own step; [gh-intake.md](gh-intake.md)) |
    | `[new_projects] per_day` | at most this many repositories a day (default 3); the rest wait for the next day |
    | `[[project]]` `name`, `repo`, `branch` | one table per project whose home is a repository |
-   | `[[project]]` `push` | `false`: commit in the back end's clone only; nothing reaches GitHub |
+   | `[[project]]` `push` | `true`: push the project's `collab-kit/` commits to its remote (default `false`: commit in the back end's clone only; nothing reaches GitHub) |
    | `[[project]]` `allow_public` | push to a public repository only if `true` (needs the `gh` command to tell; without it every repository counts as public) |
-   | `[[project]]` `returns_in_git` | keep the text of returns from the folder out of git (default `false`) |
+   | `[[project]]` `returns_in_git` | `true`: also commit the text of returns that came from the folder (default `false`: only their ledgers reach git) |
 
 4. **One pass by hand, as a dry run, then for real:**
 
@@ -205,7 +209,7 @@ runs from the kit's checkout, not from a project's copy.
 5. **The schedule:** `python3 <kit>/install.py backend --apply`. On Windows, and for systemd's
    lingering on Linux, it prints the commands for the person to run (they may ask for a password).
    Re-run it after adding a project if you use `watch`.
-6. **Check it:** the first line of `<folder>/agenda/00-PRESSING.md` (its time must be the last full
+6. **Check it:** the line "Up to date as of" at the top of `<folder>/agenda/00-PRESSING.md` (its time must be the last full
    pass, at most an hour ago, and problems are listed under it); `<folder>/agenda/00-HEARTBEAT.md`
    (its time must be within the last few minutes: the schedule's minute check writes it); the log (macOS `~/Library/Logs/collab-kit/backend.log`; Linux
    `journalctl --user -u collab-kit-backend`), where every pass ends with one line: when, how long,
@@ -282,12 +286,12 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 | A return lands in `_returns/failed/`, with an agenda item | it could not be applied as written | read the item; file a corrected return; never edit applied files |
 | A return lands in `_returns/strays/` | it named another project, or was not a return (a Google Doc, another file) | file it again in the right inbox, as a plain `.md` return |
 | Files named `name (1).md` in a synced folder on a Mac | Drive for desktop's local alias after a phone saved a new version | nothing: the kit reads the real name; never rename them by hand |
-| The front page's time and `agenda/00-HEARTBEAT.md` are both more than ten minutes old, the brief says "THE BACK END IS NOT CHECKING THE INBOXES", or `ck doctor` says the heartbeat is stale or the back end is late | the back end stopped, or cannot reach the folder | on its machine: the log, the schedule, rclone's sign-in; one `ck backend run` by hand shows the error; tell the person. Returns filed meanwhile wait safely and get their item numbers when it runs again |
+| The front page's time and `agenda/00-HEARTBEAT.md` are both more than ten minutes old, the brief says "THE BACK END IS NOT CHECKING THE INBOXES", or `ck doctor` says the heartbeat is stale or the back end is late | the back end stopped, or cannot reach the folder | on its machine: the log, the schedule, rclone's sign-in; one `python3 <kit>/engine/ck.py backend run` by hand shows the error; tell the person. Returns filed meanwhile wait safely and get their item numbers when it runs again |
 | The front page says "the dead-man ping" failed | the `[heartbeat]` command in `backend.toml` exits non-zero or is not a list of strings | run the command by hand on the back end's machine; the person checks the address of their check |
 | `ck ask --blocks` says the link is "in the question's text only" | the back end runs a kit from before `blocks=` | update the back end's checkout (`git pull`); nothing was lost, the question is filed and critical |
 | The front page says rclone uses the shared Google client | the remote has no OAuth client of its own | the person creates one; see "A back end", step 1 |
 | The log says "refusing to run: ... is not a Collab Kit folder" | the remote (or path) points somewhere else, e.g. a reconnect answered Yes to the Shared Drive question | set the remote's `root_folder_id` to the Collab Kit folder and `team_drive` empty (`rclone config update`); `rclone lsf <remote>: --max-depth 1` must list `00-START-HERE.md` |
-| A pass's log line shows many `cat` calls, pass after pass, or the front page says the folder "could not be read in one listing" | the cache in `<work>/rclone-cache/` cannot be written, or the recursive listing fails | check the work folder's permissions and space; run `ck backend run --dry-run` by hand to see the listing's error |
+| A pass's log line shows many `cat` calls, pass after pass, or the front page says the folder "could not be read in one listing" | the cache in `<work>/rclone-cache/` cannot be written, or the recursive listing fails | check the work folder's permissions and space; run `python3 <kit>/engine/ck.py backend run --dry-run` by hand to see the listing's error |
 | Two agenda items with the same number | two conversations filed at once at level 1 | nothing: the later one is renumbered when returns are next applied |
 | A project from Collab Kit 0.4 (`tools/kb/`) | the old knowledge build | `install.py migrate-04 <repo>`, then `install.py project <repo> --home repo` |
 
@@ -295,7 +299,7 @@ Read `<kit>/CHANGELOG.md` from the installed version up first: a release may nam
 
 - `00-START-HERE.md`: the one file a conversation is pointed at; its rules apply to every conversation.
 - `agenda/W-NNN-*.md`: items; `agenda/00-PRESSING.md`: the front page, generated (never edit it);
-  `agenda/00-HEARTBEAT.md`: one line, the time the back end last checked the inboxes (generated).
+  `agenda/00-HEARTBEAT.md`: the time the back end last checked the inboxes (generated).
 - `knowledge/`: what is known; `knowledge/projects.md`: the catalog of every project;
   `knowledge/status.md`: what work outside conversations has done.
 - `_returns/`: the inbox; `applied/` (each with a `.ledger.json`), `failed/`, `strays/`.

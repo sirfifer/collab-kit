@@ -2,6 +2,25 @@
 
 ## Not yet released
 
+**The README is the project's home page.** About three quarters of its old length, in the order a
+newcomer needs: what it is, what a session is like, what you need, how it works, where it stands,
+how to try it. It says who it is for, what it needs (a Claude plan whose voice mode can use
+connectors, Google Drive, a computer once), and that the project is independent of Anthropic.
+Four pictures drawn to be read on a phone: the loop (`docs/images/the-loop.svg`), why a big project
+fits in a voice talk (`only-what-the-talk-needs.svg`), the steps from a folder upward
+(`start-with-a-folder.svg`), and one day round the loop (`one-day-round-the-loop.svg`, in
+`docs/how-it-works.md`). Setting up past the folder, what an agent in a project sees, platforms and
+the test commands moved to a page of their own, `docs/setup.md`. New: `CONTRIBUTING.md` and
+`CODE_OF_CONDUCT.md`.
+
+**The pages say what the code does.** A check of every claim on the public pages against the code:
+the document index is an extra for a project that lives in a repository with the knowledge build and
+a back end on a machine, and every project gets small named files; an agent's brief shows what is
+waiting, due and in progress, not what was decided; a return can be undone while nothing has changed
+its files since. `docs/for-agents.md` had `returns_in_git` the wrong way round and told agents they
+could give `install.py top` an rclone remote: it now refuses one instead of creating a local folder
+of that name.
+
 **An icon for the kit's pushes.** `docs/images/collab-kit-icon.svg`, with a 1024 by 1024 and a
 72 by 72 PNG: a first version, for a Pushover application of the kit's own, so its pushes are told
 from everything else on a phone at a glance. `docs/notifications.md` says how.
@@ -91,8 +110,9 @@ schedule did not change. The folder's start files change: `install.py top "<fold
 [docs/capability-walkthrough.md](docs/capability-walkthrough.md) defines it: one invented user (a
 researcher working hands-free from a phone for a whole day), her day in ten steps, twenty-one
 capabilities with what each needs (the folder, a back end, or a machine with agents), four
-verdicts, and the result of the first run (2026-11-22: about 40% hands-free, 25% only by typing,
-35% not possible). A skill in this repository, `capability-walkthrough`, runs it the same way each
+verdicts, and the results of its runs (2026-11-22, first run: about 40% hands-free, 25% only by
+typing, 35% not possible; second run, with the round-trip changes: 13 of 21 hands-free, 1 by typing,
+7 not possible). A skill in this repository, `capability-walkthrough`, runs it the same way each
 time and records regressions first. VISION.md gains a principle, "Simple first, and the base is
 for everyone": the folder and a conversation work for everyone with nothing configured, and
 everything heavier is turned on by the person who needs it. The agent guide (CLAUDE.md, AGENTS.md)

@@ -39,7 +39,7 @@ This file and `AGENTS.md` are the same guide for different agents; keep them ide
    record, the README, `docs/for-agents.md`, the start-file templates and the skills that describe it,
    and the CHANGELOG (under "Not yet released"). People, voice conversations and agents act on these
    texts; one that is out of date leads them into a wrong action.
-3. **Test before you commit.** `python3 -m unittest discover -s tests` (about 35 seconds; needs no
+3. **Test before you commit.** `python3 -m unittest discover -s tests` (about a minute; needs no
    network and touches nothing outside temporary folders). Every test module imports
    `tests/isolation.py` first, so no test can read this machine's real Collab Kit config or folder;
    a new test module must do the same. When `install.py` or the 0.4 build changes,

@@ -488,6 +488,11 @@ def cmd_machine(a):
 
 
 def cmd_top(a):
+    if a.folder.lower().startswith("rclone:"):
+        # This command writes files to a path. Given "rclone:remote:", it would create a local folder
+        # of that name and leave the real one untouched, without a word.
+        sys.exit("install.py top writes to a path, not to an rclone remote. Run it on a machine that has "
+                 "the Collab Kit folder as a synced folder, and give that path.")
     inst = _v05()
     plan = inst.install_top(Path(a.folder).expanduser(), human=a.human, dry=a.dry_run,
                             replace_start=a.replace_start, setup=a.setup)

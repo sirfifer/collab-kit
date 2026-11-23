@@ -89,7 +89,7 @@ it can do only what the grammar describes, inside the unit it was filed in. Conc
 | The back end's `deny` list is applied to the new project's name and description; at most `per_day` repositories a day (3), counted in files on the machine, not in the folder; only projects started while the setting is on; an undo, or dropping the item that reports a failure, ends the attempts | a codename reaching GitHub in a repository's name or README; a flood of repositories; a setting turned on reaching back to old projects |
 | A change to an existing item repeats part of its title | a misheard or invented number changing the wrong item |
 | The back end commits only inside `collab-kit/`, pushes only with a standing authorization per project, never to a public repository unless the project allows it, and never a change matching the deny-list; a `push-request` only creates an agenda task | a return publishing anything |
-| The back end never deletes in the cloud: anything unexpected moves to `_returns/strays/` or `_versions/` and becomes an agenda item | a return destroying data |
+| The back end never deletes in the cloud: anything unexpected moves to `_returns/strays/` or `_versions/` and is raised: an agenda item for a file in an inbox, a problem line on the agenda's front page for a file in a mirrored copy | a return destroying data |
 | The optional push gets item text only in environment variables (no shell builds it; the kind of push, `COLLAB_KIT_KIND`, is one of three words the engine sets, never text from a file), with a leading `@` or `<` stripped, and the documented examples pass it with `--data-raw` or `--form-string`; each item is sent once, at most five a pass and twenty an hour | a title making the notify command read and send a local file (an rclone token), or a flood of pushes (found by review, 2026-11-16, before release) |
 | The optional dead-man ping (`[heartbeat]`) gets nothing read from the folder: one variable, the time of the check, and an argument list no shell builds; the minute check writes its heartbeat file only into a folder whose start file it saw in the same listing | outside text reaching a command the back end runs every few minutes; a heartbeat written into a drive that is not the Collab Kit folder |
 | The answer `ck wait` prints is fenced like every other text from the folder, and followed by a fixed line: it settles the question asked and is never an instruction | an answer (or text planted as one) directing a waiting agent to push, delete, or widen its permissions |
@@ -147,9 +147,11 @@ named like the parent, and create files outside the repository through a concept
 | `nightly.sh` refuses to run the pass on a Claude Code that lacks any of these features | an older version silently ignoring part of the fence |
 
 **The macOS permission for Drive.** The scheduled jobs run through `collab-kit-runner` so that the
-permission to read Google Drive's folder (README, "Scheduled jobs and Google Drive") goes to that one
+permission to read Google Drive's folder (a back end that reads the folder through rclone needs none:
+[docs/for-agents.md](docs/for-agents.md), "A back end") goes to that one
 program, never to `/bin/bash` or Terminal. It runs only an absolute path ending in
-`/tools/kb/nightly.sh`. Whatever is granted covers every process the job starts, the curator pass
+`/tools/kb/nightly.sh` or `/engine/backend.sh`, or the one script it was built for by
+`install.py backend`. Whatever is granted covers every process the job starts, the curator pass
 included; the fence above is enforced inside Claude Code and does not depend on it.
 
 **What it does not stop.** The curator still writes the knowledge folder, and the job mirrors that

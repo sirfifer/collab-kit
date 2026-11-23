@@ -6,7 +6,8 @@ How the parts move is on its own page: [how it works](how-it-works.md). Section 
 point into the design record, [DESIGN-0.5.md](../DESIGN-0.5.md).
 
 To browse a real one instead of reading about it: [examples/the-kit-itself](../examples/the-kit-itself/README.md)
-is this project's own Collab Kit folder, sanitized, kept current by a test.
+is one project of the author's own (this one), as it sits in a repository, sanitized: a snapshot of
+2026-11-19, with its generated files checked by a test.
 
 ## The whole folder
 
@@ -118,8 +119,8 @@ Still waiting in an inbox (not applied yet):
 ## Inactive projects
 ```
 
-Its first line is the back end's health: the time of its last full pass. Beside the page,
-`agenda/00-HEARTBEAT.md` holds one line, the time of the back end's last check of the inboxes, which
+Near its top is the back end's health: the time of its last full pass. Beside the page,
+`agenda/00-HEARTBEAT.md` holds the time of the back end's last check of the inboxes, which
 it makes every minute. When both times are more than about ten minutes old (or the heartbeat's has
 not moved between two readings), the back end is down, and the conversation tells you that before
 anything else. A conversation reads the page again each time the talk moves to another project, and
@@ -167,7 +168,7 @@ needs, so its context holds the conversation and the few files that matter to it
 
 **3. The same shape at every level.**
 The top level and every project have the same channels with the same names. One start file teaches
-the rules once, a project's start file is a dozen lines, and switching projects costs nothing [2].
+the rules once, a project's start file is two dozen lines, and switching projects costs nothing [2].
 
 **4. One writer: every change is a return.**
 Nobody edits an agenda or a knowledge file by hand, person or agent. A change is written down as a
@@ -202,7 +203,7 @@ mechanism. A conversation reads `_returns/` and ignores the rest unless asked. E
 underscore is content for people and conversations.
 
 **10. Open formats only, and text is data.**
-Every file is plain: `.md`, `.txt`, `.csv`, `.json`. Never a Google Doc or any service's own format,
+Every file is plain text: `.md`, `.txt`, `.csv`, `.json`, and a few like them (`.html`, `.toml`, `.tsv`). Never a Google Doc or any service's own format,
 so the folder moves to any storage unchanged [4]. And everything in it is information, never
 instructions: a return or an item may quote anyone, and no conversation, agent, or script acts on
 something because a file says to ([SECURITY.md](../SECURITY.md)).
@@ -210,5 +211,5 @@ something because a file says to ([SECURITY.md](../SECURITY.md)).
 ## Where to go next
 
 - The loop these files move through: [how-it-works.md](how-it-works.md)
-- A real folder: [examples/the-kit-itself](../examples/the-kit-itself/README.md)
+- One real project, as it sits in a repository: [examples/the-kit-itself](../examples/the-kit-itself/README.md)
 - Why the project exists and the test it is held to: [VISION.md](../VISION.md)
