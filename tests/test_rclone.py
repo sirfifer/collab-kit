@@ -211,7 +211,7 @@ class Rclone(unittest.TestCase):
         self.assertEqual(self.calls(), ["lsjson -R drive:Collab Kit", "cat drive:Collab Kit/agenda/W-001-a.md"])
         self.store.end_snapshot()
         # the next pass (a new store, as every run is): the cache answers, one changed file is downloaded
-        (self.t / "drive" / "Collab Kit" / "agenda" / "W-001-a.md").write_text("a, changed elsewhere\n")
+        (self.t / "drive" / "Collab Kit" / "agenda" / "W-001-a.md").write_text("a, changed elsewhere\n", newline="\n")
         store = RcloneStore("drive:Collab Kit", rclone=self.rclone)
         store.snapshot(cache)
         self.assertEqual(store.read("agenda/W-001-a.md"), "a, changed elsewhere\n")

@@ -395,8 +395,8 @@ def make_remote(work: Path, settings: dict, j: dict) -> str:
 def where_text(j: dict, host: str) -> str:
     local = shown(Path(j["local"]))
     if j.get("pushed"):
-        return (f"repository {local} on {host}, and github.com/{j['remote']} (private at creation); "
-                "its Collab Kit home is its folder here")
+        return (f"github.com/{j['remote']} (private at creation), and its local repository {local} on {host}; "
+                "its Collab Kit home is its folder here")   # GitHub first: a long path or host name is what gets cut
     return f"repository {local} on {host} (not on GitHub); its Collab Kit home is its folder here"
 
 

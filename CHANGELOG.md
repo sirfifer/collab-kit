@@ -2,6 +2,15 @@
 
 ## Not yet released
 
+**The repository is on GitHub, and its CI runs green on every system.** `github.com/sirfifer/collab-kit`
+is public from 2026-11-23; until then it had never been pushed, so the CI matrix had never run. Its
+first run found what only other systems show: Windows checked text out with CRLF line endings (a new
+`.gitattributes` keeps every text file LF), the lease test asked Windows for a check it does not have
+(skipped there, as the engine already skips it), a test wrote CRLF where Drive holds LF, and the
+"gh is not installed" test could not hide a runner's own `gh`. One was a real fault: in the
+project list, a new project's place named its local path and machine before its GitHub address, so a
+long path or machine name cut the address off. It now comes first, as the status line already had it.
+
 **The README is the project's home page.** About three quarters of its old length, in the order a
 newcomer needs: what it is, what a session is like, what you need, how it works, where it stands,
 how to try it. It says who it is for, what it needs (a Claude plan whose voice mode can use

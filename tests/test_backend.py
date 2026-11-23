@@ -589,6 +589,7 @@ class BackEnd(unittest.TestCase):
         BE.run(cfg, if_waiting=True)                       # the next minute must pick it up
         self.assertFalse(self.s.exists("_returns/t8.md"))
 
+    @unittest.skipIf(os.name == "nt", "a dead process is told by os.kill(pid, 0), which Windows does not have; the engine skips it there")
     def test_a_dead_local_lease_frees_only_once_stale(self):
         import socket
         from collab_kit.backend import take_lease

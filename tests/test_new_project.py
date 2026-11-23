@@ -564,7 +564,13 @@ class Repositories(Folder):
     @unittest.skipIf(os.name == "nt", "the test builds a PATH with git and no gh the POSIX way")
     def test_gh_missing_is_said_with_the_fix(self):
         (self.bin / ("gh.cmd" if os.name == "nt" else "gh")).unlink()
-        os.environ["PATH"] = f"{self.bin}{os.pathsep}/usr/bin{os.pathsep}/bin"       # git, and no gh anywhere
+        no_gh = self.t / "no-gh"                                                  # git, and no gh anywhere,
+        no_gh.mkdir()                                                             # even where /usr/bin has one
+        for d in ("/usr/bin", "/bin"):
+            for tool in Path(d).iterdir():
+                if tool.name != "gh" and not (no_gh / tool.name).exists():
+                    (no_gh / tool.name).symlink_to(tool)
+        os.environ["PATH"] = f"{self.bin}{os.pathsep}{no_gh}"
         self.drop("r1.md", IDEA)
         p, rc = self.run_pass()
         self.assertEqual(rc, 1)
