@@ -237,9 +237,11 @@ page describes the main branch, and [CHANGELOG.md](CHANGELOG.md) says what is no
 ## Where your data goes
 
 - **Your Google Drive folder** holds everything Collab Kit writes: the knowledge structure and the
-  agenda, not your project's own files. Whoever can read the folder can read all of it. Whoever can
-  write to it can file returns; the scripts apply those as data and never follow them as
-  instructions ([SECURITY.md](SECURITY.md)).
+  agenda, not your project's own files. Whoever can read the folder can read all of it.
+- **The folder is also a way in,** to your back end and to any agents you run, so keep it private
+  to you. It is shared between your phone and your back end, not with other people. The scripts
+  apply what is written there as data and never follow it as instructions, and agents see it marked
+  as data. [SECURITY.md](SECURITY.md) says what that does and does not protect.
 - **Claude.** The conversation is with Claude, in Anthropic's app, on your account. What Claude
   reads from the folder goes to Anthropic, as in any use of Claude. Nothing goes to the author of
   Collab Kit.

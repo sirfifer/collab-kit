@@ -1,5 +1,53 @@
 # Security policy
 
+## The short version
+
+Collab Kit joins three things: a folder in your cloud drive, a few scripts on a machine of yours
+(the back end), and, if you use them, AI agents that work in your projects. **So the folder is a way
+in.** What is written into it is read by the back end, and may be read by an agent that can change
+your code.
+
+That is not a new kind of risk. An AI agent already reads things nobody vetted: the code in your
+repository, pages it looks up on the web, documents you hand it. But it is one more door, and this
+policy is about keeping it shut.
+
+- **Keep the folder private to you.** It is shared between your phone and your back end, two ends
+  of one person's setup. It is not meant to be shared with other people, and sharing it is not
+  supported. While only you can write to it, nothing new can reach your back end or your agents
+  through it.
+- **Text from outside can still arrive, through you.** A conversation may look something up and
+  write what it found into the folder. That is the same exposure as any research an agent does, and
+  the kit treats it the same way everywhere: as data, never as instructions.
+- **The back end has no AI in it.** It applies a small fixed grammar and does nothing else, so
+  nothing written in a file can talk it into anything.
+- **Agents see the folder's text marked as data.** That lowers the risk and does not remove it: a
+  model can still be persuaded by what it reads. What holds is the agent's own permissions, so keep
+  pushing, deploying, and deleting behind your confirmation.
+- **Your part.** Protect the account that owns the folder (two-step verification). Give the back end
+  its own access to the folder, not your everyday sign-in ([docs/rclone-intake.md](docs/rclone-intake.md)).
+  Keep the kit current.
+
+### What we commit to
+
+- **Nothing outside the kit is used unreviewed.** Two outside programs are involved today: rclone,
+  which reaches Google Drive for the back end, and GitHub's `gh`. Each has a written review in this
+  repository ([docs/rclone-intake.md](docs/rclone-intake.md), [docs/gh-intake.md](docs/gh-intake.md)).
+  rclone is pinned to one exact version by checksum, the kit refuses to run any other, and a new
+  version is taken up only after the review is repeated. Both projects' security advisories are
+  watched. A new dependency of any kind gets the same review first, and the default answer is no.
+- **The least possible reach into Google Drive.** The back end runs rclone through one wrapper that
+  allows six commands and no others, refuses to run against anything that is not a Collab Kit
+  folder, and never deletes there. When Google, Claude's connector, or rclone changes how access
+  works, the review is repeated.
+- **The kit itself has no package dependencies,** so there is little to go stale: Python's standard
+  library, git, and a shell.
+- **Every release says what is in it:** two SBOMs (CycloneDX and SPDX) with signed statements of how
+  it was built. Automated scans for known vulnerabilities run every week and on every change.
+- **Reports are answered,** within the times in the table below, and fixed vulnerabilities are
+  published, with credit.
+
+The rest of this page is the detail: how to report, what is in scope, and exactly what stops what.
+
 ## Reporting a vulnerability
 
 **Please report privately, not in a public issue.** Use GitHub's private vulnerability reporting:
@@ -71,8 +119,8 @@ can already write to the project's repository or its configuration.
 ## Text from outside (Collab Kit 0.5)
 
 Everything Collab Kit carries is text that someone wrote somewhere else: a dictated return, an agenda
-item, a status line, a knowledge file, possibly quoting a web page, in a folder other people may be
-able to write to. That text reaches two kinds of reader, and each is fenced.
+item, a status line, a knowledge file, possibly quoting a web page, in a folder that must be assumed, in
+the worst case, to be writable by someone else, even though it should be private. That text reaches two kinds of reader, and each is fenced.
 
 **The back end reads it with no AI at all.** A return is parsed by a fixed grammar (`Changes v1`);
 it can do only what the grammar describes, inside the unit it was filed in. Concretely:
