@@ -32,8 +32,9 @@ is going on, and anything new, is on the agenda.
    it has not moved when you read the file again a few minutes later (do that each time you read
    the page again). Then tell {{human}} first, in one sentence, and what it means: returns wait
    safely in the inboxes, but the items they add have no numbers yet, so follow-ups to them wait.
-4. **`WIP/`**: list it here, and in a project's folder once you work there. Leftover notes mean an
-   unfinished thread (often a dropped call): tell {{human}} and offer to finish the save.
+4. **`WIP/`**: list it here, and in a project's folder once you work there. Leftover notes (any file
+   but `README.md`) mean an unfinished thread (often a dropped call): tell {{human}} and offer to
+   finish the save.
 5. **`knowledge/projects.md`**, when the talk turns to a project or to {{human}}'s work in general:
    every one of {{human}}'s projects, in Collab Kit or not, with what it is, what {{human}} calls it,
    where it lives, its state, and whether Collab Kit is set up for it. A project's card,

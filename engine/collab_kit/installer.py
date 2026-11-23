@@ -91,7 +91,7 @@ def _engine_files() -> dict[str, bytes]:
         if p.is_dir() or "__pycache__" in p.parts or p.suffix in (".pyc",):
             continue
         rel = p.relative_to(ENGINE_DIR).as_posix()
-        if rel in ("installer.py", "backend.py", "repos.py", "migrate.py", "schedule.py"):
+        if rel in ("installer.py", "guided.py", "backend.py", "repos.py", "migrate.py", "schedule.py"):
             continue                       # the back end, the installer, and migration stay in the kit
         files[f"tools/collab-kit/collab_kit/{rel}"] = p.read_bytes()
     files["tools/collab-kit/collab_kit/VERSION"] = (kit_version() + "\n").encode()
@@ -169,6 +169,13 @@ def install_project(root: Path, *, name: str | None = None, unit: str | None = N
             return plan
         unit = unit or f"projects/{name}/collab-kit"
         home = home or "cloud"
+        if cloud_side and home == "cloud" and not C.machine().get("cloud", {}).get("root"):
+            # The project's home would be a folder this machine cannot name: installing the repository
+            # side alone leaves a half-install that every session reports as broken.
+            plan.refused = ("this machine does not know where the Collab Kit folder is yet: run "
+                            "`python3 install.py setup` (or `install.py machine --cloud-root \"<folder>\"`) first")
+            plan.tell("nothing installed", plan.refused)
+            return plan
         plan.write(C.PROJECT_FILE.as_posix(),
                    f"# Collab Kit settings for this repository (the project's own; never replaced on upgrade).\n"
                    f"[project]\nname = \"{name}\"\nunit = \"{unit}\"\nhome = \"{home}\"   # \"cloud\" or \"repo\"\n\n"

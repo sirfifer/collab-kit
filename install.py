@@ -3,7 +3,10 @@
 
 Standard library only (Python 3.11+).
 
-Collab Kit 0.5 (the steps, in order, for an agent: docs/for-agents.md):
+Collab Kit 0.5. The whole setup on one computer, guided (asks what it needs; every question has a flag):
+    python3 kit/install.py setup [--folder "<the Collab Kit folder>"] [--human "Sam"] [--repo <repo> ...]
+
+The steps it runs, one by one (for an agent: docs/for-agents.md):
     python3 kit/install.py top "<the Collab Kit folder>" --human "Sam"      a new top level (or bring one current)
     python3 kit/install.py machine --cloud-root "<the Collab Kit folder>" --human "Sam" [--user-hooks]
     python3 kit/install.py project <repo> --about "..." --spoken "..."      a project's repository
@@ -29,6 +32,18 @@ What apply writes (see DESIGN.md):
 """
 from __future__ import annotations
 
+import sys
+
+if sys.version_info < (3, 11):
+    # Said before anything else is imported: a Mac's own python3 is 3.9, and without this check the
+    # first thing a newcomer sees is a traceback about tomllib.
+    sys.exit(f"Collab Kit needs Python 3.11 or newer; this is Python {sys.version.split()[0]} ({sys.executable}).\n"
+             "  macOS: install it from https://www.python.org/downloads/ (or `brew install python`), then run\n"
+             "         this again with python3.13 (or whichever version it installed) instead of python3.\n"
+             "  Windows: install it from https://www.python.org/downloads/, then use `py -3` instead of python3.\n"
+             "  Linux: your package manager's python3.11 or newer.\n"
+             "After a new install, open a new terminal window so it is found.")
+
 import argparse
 import difflib
 import importlib.util
@@ -37,7 +52,6 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
 
@@ -474,6 +488,13 @@ def cmd_project(a):
         return 2
     if a.check:
         return 1 if plan.steps and any(not w.startswith("keep ") for w, _ in plan.steps) else 0
+    if not a.dry_run and plan.steps:
+        root = Path(a.project).resolve()
+        fresh = any(w == "create tools/collab-kit/project.toml" for w, _ in plan.steps)
+        msg = f"Install Collab Kit {VERSION}" if fresh else f"Upgrade Collab Kit to {VERSION}"
+        print(f"next: commit these files as their own commit (\"{msg}\"); check with "
+              f"{root / 'tools' / 'collab-kit' / 'ck'} doctor; the next Claude Code session there opens with "
+              "a brief of its agenda")
     return 0
 
 
@@ -484,6 +505,9 @@ def cmd_machine(a):
                                 rclone=a.rclone, rclone_config=a.rclone_config)
     print(f"machine{' (dry run)' if a.dry_run else ''}:")
     plan.show()
+    if not a.dry_run:
+        print("next: put the kit into a repository with install.py project <repo> --about \"...\" --spoken \"...\"; "
+              "a back end: docs/setup.md")
     return 0
 
 
@@ -498,7 +522,21 @@ def cmd_top(a):
                             replace_start=a.replace_start, setup=a.setup)
     print(f"top level {a.folder}{' (dry run)' if a.dry_run else ''}:")
     plan.show()
+    if not a.dry_run and any(w.startswith("create 00-START-HERE.md") for w, _ in plan.steps):
+        from collab_kit.guided import preference_line
+        print("next, in the Claude app (once): turn on the Google Drive connector, and add this to your personal "
+              f"preferences (in its settings):\n\n  {preference_line(Path(a.folder).name)}\n\n"
+              "Then, in a voice conversation: \"what's pressing?\". For repositories and a back end: "
+              "install.py setup, or docs/setup.md")
     return 0
+
+
+def cmd_setup(a):
+    _v05()
+    from collab_kit import guided
+    interactive = sys.stdin.isatty() and not a.yes
+    return guided.run(folder=a.folder, human=a.human, repos=a.repo or [], about=a.about or [],
+                      spoken=a.spoken or [], user_hooks=a.user_hooks, dry=a.dry_run, interactive=interactive)
 
 
 def cmd_migrate(a):
@@ -523,6 +561,19 @@ def cmd_backend(a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+    su = sub.add_parser("setup", help="0.5: the whole setup on this computer, guided: the folder, this computer, "
+                                      "and any repositories (start here)")
+    su.add_argument("--folder", help="the Collab Kit folder, inside your Google Drive as this computer shows it "
+                                     "(default: found, then asked)")
+    su.add_argument("--human", help="your first name, as the agenda says it")
+    su.add_argument("--repo", action="append", help="a repository to put the kit into (repeatable)")
+    su.add_argument("--about", action="append", help="what each --repo is, one sentence (in the same order)")
+    su.add_argument("--spoken", action="append", help="what you call each --repo aloud (in the same order)")
+    su.add_argument("--user-hooks", action="store_true",
+                    help="also brief sessions started in a parent folder of many repositories (edits ~/.claude/settings.json)")
+    su.add_argument("--yes", action="store_true", help="ask nothing: take what is found, fail on what is missing")
+    su.add_argument("--dry-run", action="store_true")
+    su.set_defaults(fn=cmd_setup)
     mg = sub.add_parser("migrate-04", help="0.5: move a 0.4 project's repository to the 0.5 layout")
     mg.add_argument("project")
     mg.add_argument("--dry-run", action="store_true")
