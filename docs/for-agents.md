@@ -218,8 +218,11 @@ runs from the kit's checkout, not from a project's copy.
    installed and signed in. `[new_projects]` has no setting for visibility, and any key it does not
    know is refused by name: the kit creates private repositories only, and never changes one's
    visibility. How far each new project's repository got is in `<work>/new-projects/<name>.json`
-   (`pending`, `local`, `done`, `refused`, `withdrawn`); a failure is retried on every full pass and
-   raised once as a critical item, and removing that file stops the attempts. Do not test this
+   (`pending`, `placing`, `local`, `done`, `refused`, `withdrawn`, `stopped`); a failure is retried
+   on every full pass and raised as one critical item, and the attempts stop when the person drops
+   that item or undoes the project. Never remove or edit a journal: a removed one is opened again
+   from the ledger, and the back end pushes only from the folder its journal and the setting agree
+   on. Do not test this
    against a real account with a throwaway name unless the person asks: it creates a real
    repository, and nothing in the kit deletes one.
 

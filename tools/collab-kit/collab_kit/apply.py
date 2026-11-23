@@ -570,10 +570,13 @@ def recent_new_projects(top: Unit, now) -> int:
     for e in top.store.files(APPLIED):
         if not e.name.endswith(".ledger.json"):
             continue
-        led = json.loads(top.store.read(f"{APPLIED}/{e.name}") or "{}")
-        if any(m.startswith("project:") for m in led.get("minted", [])):
-            at = led.get("applied_at", "")
-            if at[:10] == now.date().isoformat():
+        try:
+            led = json.loads(top.store.read(f"{APPLIED}/{e.name}") or "{}")
+        except ValueError:
+            continue                                   # not a ledger: it counts for nothing, and stops nothing
+        minted = led.get("minted") if isinstance(led, dict) else None
+        if any(isinstance(m, str) and m.startswith("project:") for m in (minted if isinstance(minted, list) else [])):
+            if str(led.get("applied_at", ""))[:10] == now.date().isoformat():
                 n += 1
     return n
 

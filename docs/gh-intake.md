@@ -63,8 +63,9 @@ version. That is not a reason to run an old one: see the conditions.
 - **Arguments.** Every `gh` command is an argument list with fixed words. The variable words are
   an owner and a repository name: from the machine's own `backend.toml`, or, for a new project,
   the configured owner and the project's name, both checked against a strict pattern before use.
-  No shell runs, and no text from a return (a title, a description, a body) is ever an argument.
-  That is why a new repository gets no description.
+  The back end starts no shell, and no text from a return (a title, a description, a body) is ever
+  an argument. That is why a new repository gets no description. `gh` is also told its host
+  (`GH_HOST=github.com`), so the repository whose visibility is checked is the one pushed to.
 - **Creating, and nothing else.** One command creates: `repo create <owner>/<name> --private`.
   Nothing in the kit runs `repo edit`, `repo delete`, `repo rename`, `repo archive`, or any command
   that changes visibility or settings. After creating, the back end asks for the visibility and
@@ -85,8 +86,9 @@ version. That is not a reason to run an old one: see the conditions.
    the user the back end runs as (`gh auth login`; `ck doctor` there checks it). A token limited to
    what is needed is better than a broad one, where the account allows it.
 4. **A change to the list of commands repeats this intake,** and a test keeps the list honest:
-   `tests/test_new_project.py` fails if any other word reaches `gh`, or if the engine's source
-   names a flag for any visibility but private.
+   `tests/test_new_project.py` fails if any other word reaches `gh` on the way to a new
+   repository, if a word of a return reaches `git` or `gh`, or if the back end's source names a
+   flag for any visibility but private.
 5. **Tests never reach GitHub.** `tests/fake_gh.py` stands in for `gh`, and git's addresses for
    github.com are rewritten to a temporary folder. What only a real account can show is listed in
    DESIGN-0.5.md, section 25.

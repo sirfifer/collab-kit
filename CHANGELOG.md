@@ -23,14 +23,17 @@ are additive: older returns and a back end with nothing set behave as before.
   `github_owner = "you"` as well, `<owner>/<name>` is created on GitHub, **always private**, and the
   first commit is pushed (needs the `gh` command, signed in; reviewed in
   [docs/gh-intake.md](docs/gh-intake.md)). The catalog then says where the project lives. A failure
-  leaves the folder project ready and nothing half-made: it is said on the front page, raised once
-  as a critical item, and tried again on every full pass. At most `per_day` (3) repositories a
+  leaves the folder project ready and nothing half-made: it is said on the front page, raised as
+  one critical item, and tried again on every full pass until it works, the project is undone, or
+  you drop that item. At most `per_day` (3) repositories a
   day; the back end's `deny` list covers the name and the description. Only a checked project name
   and the configured owner ever reach a command line. The kit never creates a public repository
   and never changes one's visibility. `ck doctor` on the back end's machine checks that it is
   ready. Tested against a stand-in for GitHub (`tests/fake_gh.py`), not yet against a real account.
 - **Fixed: undoing a `new-project` return.** Since 0.5.0 the undo failed while it ran and then
   stayed in the inbox, failing on every pass. It now takes the project's folder back.
+- **Fixed: a file in `_returns/applied/` that is not a ledger** stopped every later `new-project`
+  return from being applied. It is now skipped.
 - **Fixed: a return written indented.** A return whose every line was indented (copied out of a
   list) was read as a return with no changes and filed away as done. It is now read as the return
   it is.

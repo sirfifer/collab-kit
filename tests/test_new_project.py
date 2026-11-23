@@ -229,6 +229,7 @@ class Settings(unittest.TestCase):
                            ({"repositories": "~/dev", "github_owner": "sam/../x"}, "GitHub account's name"),
                            ({"repositories": "~/dev", "github_owner": "--public"}, "GitHub account's name"),
                            ({"repositories": "~/dev", "per_day": 500}, "per_day"),
+                           ({"repositories": "~/dev", "per_day": 0}, "per_day"),
                            ({"repositories": "~/dev", "per_day": True}, "per_day"),
                            ({"repositories": ["~/dev"]}, "are text")):
             with self.subTest(table=table):
@@ -400,13 +401,23 @@ class Repositories(Folder):
         self.drop("r1.md", "Project: top\nFrom: Sam; touch pwned\nTopic: $(touch pwned)\nChanges v1:\n"
                            f"new-project name=orchard \"$(touch pwned) --public\" about=\"{nasty.replace(chr(34), '')}\" "
                            "spoken=\"`touch pwned`, --public\"\n```\n$(touch pwned)\n--public\n```\nEnd.\n")
-        p, rc = self.run_pass()
+        ran, real = [], RP._run
+        RP._run = lambda args, **kw: (ran.append(list(args)), real(args, **kw))[1]
+        try:
+            p, rc = self.run_pass()
+        finally:
+            RP._run = real
         self.assertEqual(rc, 0, p.problems)
         allowed = {"repo", "list", "view", "create", "config", "get", "git_protocol", "auth", "git-credential", "get",
                    "--limit", "500", "--json", "name,visibility", "visibility,isEmpty", "--private", "--host", "github.com",
                    f"{self.OWNER}/orchard"}
         for call in self.calls():
             self.assertLessEqual(set(call), allowed, call)
+        self.assertGreater(len([a for a in ran if a[0] == "git"]), 8, "every git command of the step was seen")
+        for argv in ran:                                             # git and gh alike: no word of the return
+            for word in argv:
+                for bit in ("pwned", "touch", "--public", "$(", "`", "Sam;"):
+                    self.assertNotIn(bit, word, argv)
         self.assertEqual(self.creates(), [["repo", "create", f"{self.OWNER}/orchard", "--private"]])
         self.assertEqual([str(x) for x in self.t.rglob("pwned")], [], "nothing from the return was ever run")
         self.assertEqual([x.name for x in Path.cwd().glob("pwned")], [])
@@ -637,6 +648,7 @@ class Repositories(Folder):
         (self.dev / "orchard").write_text("in the way")              # holds the first attempt up
         self.drop("r1.md", IDEA)
         self.run_pass()
+        self.assertEqual(len(self.critical()), 1)
         self.drop("r2.md", "Project: top\nChanges v1:\nundo r1\nEnd.\n")
         (self.dev / "orchard").unlink()
         p, rc = self.run_pass()
@@ -644,6 +656,228 @@ class Repositories(Folder):
         self.assertEqual(list(self.dev.iterdir()), [])
         self.assertEqual(self.journal()["state"], "withdrawn")
         self.assertEqual(self.creates(), [])
+        self.assertEqual(self.critical(), [], "the back end settled the item it had raised")
+
+    def test_a_project_undone_while_it_waits_for_github_gets_no_remote(self):
+        (self.gh / "signed-out").parent.mkdir(exist_ok=True)
+        (self.gh / "signed-out").write_text("")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        self.assertEqual(self.journal()["state"], "local")
+        self.drop("r2.md", "Project: top\nChanges v1:\nundo r1\nEnd.\n")
+        (self.gh / "signed-out").unlink()
+        before = len(self.creates())
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(self.journal()["state"], "withdrawn")
+        self.assertEqual(len(self.creates()), before, "undone: nothing is created on GitHub")
+        self.assertFalse(self.bare().exists())
+        self.assertTrue((self.dev / "orchard" / ".git").is_dir(), "nothing deletes a repository")
+        self.assertIn("project orchard was undone; its repository stays", self.s.read("knowledge/status.md"))
+        self.assertFalse(self.s.exists("projects/orchard/collab-kit/00-START-HERE.md"), "nothing was written back into it")
+        self.assertEqual(self.critical(), [])
+        p, rc = self.run_pass()
+        self.assertEqual(len(self.creates()), before)
+
+    def test_one_item_for_a_project_whatever_the_reasons_and_it_is_settled(self):
+        (self.gh / "signed-out").parent.mkdir(exist_ok=True)
+        (self.gh / "signed-out").write_text("")
+        self.drop("r1.md", IDEA)
+        self.run_pass()                                              # reason one: gh is signed out
+        (self.gh / "signed-out").unlink()
+        os.environ["GIT_CONFIG_VALUE_0"] = "https://elsewhere.invalid/"
+        os.environ["GIT_CONFIG_KEY_1"] = "url.file:///nowhere/.insteadOf"
+        os.environ["GIT_CONFIG_VALUE_1"] = "https://github.com/"
+        self.run_pass()                                              # reason two: the push fails
+        self.run_pass()                                              # the same again: said on the page only
+        crit = self.critical()
+        self.assertEqual(len(crit), 1, [i.title for i in crit])
+        self.assertEqual(crit[0].body.count("Now: "), 1, "one line on its log for the one new kind of reason")
+        self.assertIn("the first push", crit[0].body)
+        repos = (self.gh / "repos").as_posix() + "/"
+        os.environ.update({"GIT_CONFIG_KEY_1": f"url.{repos}.insteadOf", "GIT_CONFIG_VALUE_0": "https://github.com/",
+                           "GIT_CONFIG_VALUE_1": "git@github.com:"})
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(self.critical(), [])
+        self.assertEqual(len([i for i in self.top.items() if "its repository could not" in i.title]), 1)
+
+    def test_dropping_the_item_stops_the_attempts(self):
+        (self.dev / "orchard").write_text("in the way")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        item = self.critical()[0]
+        self.assertIn("To stop the attempts, drop this item", item.body)
+        self.drop("r2.md", f"Project: top\nFrom: Sam\nChanges v1:\nwithdraw {item.id} \"Project orchard\" reason=\"a folder is enough\"\nEnd.\n")
+        (self.dev / "orchard").unlink()
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(self.journal()["state"], "stopped")
+        self.assertEqual(list(self.dev.iterdir()), [])
+        p, rc = self.run_pass()
+        self.assertEqual(list(self.dev.iterdir()), [], "and it stays stopped")
+        self.assertTrue(self.s.exists("projects/orchard/collab-kit/00-START-HERE.md"), "the folder project is untouched")
+
+    def test_a_removed_journal_is_opened_again_never_lost(self):
+        (self.dev / "orchard").write_text("in the way")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        (self.t / "work" / "new-projects" / "orchard.json").unlink()
+        (self.dev / "orchard").unlink()
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertTrue((self.dev / "orchard" / ".git").is_dir())
+
+    def test_ledgers_that_are_not_ledgers_stop_nothing(self):
+        self.run_pass()
+        time.sleep(1.1)
+        from collab_kit.text import utcnow
+        for n, text in enumerate(("[]", "5", "{", json.dumps({"id": "x", "state": "done", "minted": 5,
+                                                                "applied_at": utcnow().isoformat()}),
+                                  json.dumps({"id": "y y", "state": "done", "minted": ["project:pond"],
+                                              "applied_at": utcnow().isoformat()}),
+                                  json.dumps({"id": "z", "state": "done", "minted": [["project:pond"], None, "project:"],
+                                              "applied_at": utcnow().replace(tzinfo=None).isoformat()}))):
+            self.s.write(f"_returns/applied/odd-{n}.ledger.json", text)
+        self.drop("r1.md", IDEA)
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual([x.name for x in self.dev.iterdir()], ["orchard"], "the real one beside them is made")
+
+    def test_only_the_first_commit_is_pushed_whatever_the_branch_became(self):
+        (self.gh / "signed-out").parent.mkdir(exist_ok=True)
+        (self.gh / "signed-out").write_text("")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        repo = self.dev / "orchard"
+        first = git("rev-parse", "HEAD", cwd=repo)
+        (repo / "notes.txt").write_text("work done while the push was waiting\n")
+        git("add", "-A", cwd=repo)
+        git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "mine", cwd=repo)
+        (self.gh / "signed-out").unlink()
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(git("rev-parse", "main", cwd=self.bare()), first, "the first commit, and only that")
+        self.assertNotEqual(git("rev-parse", "HEAD", cwd=repo), first)
+
+    def test_an_origin_the_back_end_did_not_set_is_left_alone(self):
+        (self.gh / "signed-out").parent.mkdir(exist_ok=True)
+        (self.gh / "signed-out").write_text("")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        repo = self.dev / "orchard"
+        git("remote", "add", "origin", "https://example.invalid/mine.git", cwd=repo)
+        (self.gh / "signed-out").unlink()
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("already has an origin" in x for x in p.problems), p.problems)
+        self.assertEqual(git("config", "--get", "remote.origin.url", cwd=repo).strip(), "https://example.invalid/mine.git")
+        self.assertEqual(git("for-each-ref", cwd=self.bare()), "", "nothing was pushed")
+        self.assertEqual(self.journal()["state"], "refused")
+
+    def test_a_journal_that_names_another_folder_pushes_nothing(self):
+        (self.gh / "signed-out").parent.mkdir(exist_ok=True)
+        (self.gh / "signed-out").write_text("")
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        other = self.t / "other"
+        git("init", "-q", "-b", "main", str(other))
+        git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "theirs", cwd=other)
+        j = self.journal()
+        j["local"] = str(other)
+        (self.t / "work" / "new-projects" / "orchard.json").write_text(json.dumps(j))
+        (self.gh / "signed-out").unlink()
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 1)
+        self.assertEqual(git("remote", cwd=other), "", "the other repository was not touched")
+        self.assertFalse(self.bare().exists() and git("for-each-ref", cwd=self.bare()))
+        self.assertEqual(self.journal()["state"], "refused")
+
+    def test_a_pass_that_died_between_placing_and_saying_so_is_finished(self):
+        del self.cfg["new_projects"]["github_owner"]
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        j = self.journal()
+        self.assertEqual(j["state"], "done")
+        j["state"] = "placing"                                       # as the journal stood just before the move
+        (self.t / "work" / "new-projects" / "orchard.json").write_text(json.dumps(j))
+        head = git("rev-parse", "HEAD", cwd=self.dev / "orchard")
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(self.journal()["state"], "done", "taken up by its first commit, not refused as a stranger")
+        self.assertEqual(git("rev-parse", "HEAD", cwd=self.dev / "orchard"), head)
+        self.assertEqual(self.s.read("knowledge/status.md").count("has a repository"), 1, "and said once")
+
+    def test_a_push_that_arrived_unrecorded_is_not_pushed_or_refused(self):
+        self.drop("r1.md", IDEA)
+        self.run_pass()
+        j = self.journal()
+        j.update(state="local", pushed=False)                        # the pass died right after the push
+        (self.t / "work" / "new-projects" / "orchard.json").write_text(json.dumps(j))
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(len(self.creates()), 1)
+        self.assertEqual(self.journal()["state"], "done")
+        # but a main that is not this project's first commit is never pushed over
+        other = self.t / "other"
+        git("clone", "-q", str(self.bare()), str(other))
+        git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", "theirs", cwd=other)
+        git("push", "-q", "origin", "HEAD:main", cwd=other)
+        theirs = git("rev-parse", "main", cwd=self.bare())
+        j.update(state="local", pushed=False)
+        (self.t / "work" / "new-projects" / "orchard.json").write_text(json.dumps(j))
+        p, rc = self.run_pass()
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("is no longer empty" in x for x in p.problems), p.problems)
+        self.assertEqual(git("rev-parse", "main", cwd=self.bare()), theirs)
+
+    def test_across_file_systems_nothing_of_anyone_elses_is_removed(self):
+        import errno
+        from unittest import mock
+        del self.cfg["new_projects"]["github_owner"]
+        (self.dev / ".orchard.collab-kit-new").mkdir()
+        (self.dev / ".orchard.collab-kit-new" / "mine.txt").write_text("keep me")
+        real = os.rename
+
+        def rename(src, dst, *a, **k):
+            if "staging" in str(src):
+                raise OSError(errno.EXDEV, "Invalid cross-device link")
+            return real(src, dst, *a, **k)
+        self.drop("r1.md", IDEA)
+        with mock.patch.object(RP.os, "rename", rename):
+            p, rc = self.run_pass()
+        self.assertEqual(rc, 0, p.problems)
+        self.assertTrue((self.dev / "orchard" / "tools" / "collab-kit" / "ck").is_file())
+        self.assertEqual(git("status", "--porcelain", cwd=self.dev / "orchard"), "")
+        self.assertEqual((self.dev / ".orchard.collab-kit-new" / "mine.txt").read_text(), "keep me")
+        self.assertEqual(sorted(x.name for x in self.dev.iterdir()), [".orchard.collab-kit-new", "orchard"],
+                         "and its own scratch folder is gone")
+
+    @unittest.skipIf(os.name == "nt", "symbolic links need a privilege on Windows")
+    def test_a_link_at_the_destination_is_never_followed(self):
+        target = self.t / "elsewhere"
+        target.mkdir()
+        os.symlink(target, self.dev / "orchard")
+        os.symlink(self.t / "nowhere", self.dev / "pond")              # a link to nothing is still a path that exists
+        self.drop("r1.md", IDEA)
+        self.drop("r2.md", "Project: top\nChanges v1:\nnew-project name=pond \"Dig the pond\"\nEnd.\n")
+        p, rc = self.run_pass()
+        self.assertEqual(list(target.iterdir()), [])
+        self.assertTrue((self.dev / "orchard").is_symlink() and (self.dev / "pond").is_symlink())
+        self.assertFalse((self.t / "nowhere").exists())
+        self.assertEqual(self.creates(), [])
+
+    def test_off_then_on_again_reaches_back_to_nothing(self):
+        self.run_pass()                                              # on
+        settings = self.cfg.pop("new_projects")
+        time.sleep(1.1)
+        self.drop("r1.md", IDEA)
+        self.run_pass()                                              # off: a folder project
+        time.sleep(1.1)
+        self.cfg["new_projects"] = settings
+        p, rc = self.run_pass()                                      # on again
+        self.assertEqual(rc, 0, p.problems)
+        self.assertEqual(list(self.dev.iterdir()), [])
 
     def test_a_forged_ledger_cannot_name_a_path(self):
         self.run_pass()

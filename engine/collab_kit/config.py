@@ -146,8 +146,8 @@ def new_projects(cfg: dict) -> tuple[dict | None, str | None]:
         return None, None
     if owner.strip() and not GITHUB_OWNER_RE.fullmatch(owner.strip()):
         return None, "[new_projects] github_owner is a GitHub account's name (letters, digits, single hyphens)"
-    if isinstance(per_day, bool) or not isinstance(per_day, int) or not 0 <= per_day <= 20:
-        return None, "[new_projects] per_day is a whole number from 0 to 20"
+    if isinstance(per_day, bool) or not isinstance(per_day, int) or not 1 <= per_day <= 20:
+        return None, "[new_projects] per_day is a whole number from 1 to 20 (to make none, remove the table)"
     path = Path(expand(root.strip()))
     if not path.is_absolute():
         return None, "[new_projects] repositories is a full path (or starts with ~)"

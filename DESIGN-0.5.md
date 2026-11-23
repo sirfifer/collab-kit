@@ -1145,7 +1145,7 @@ The setting, in the back end's `backend.toml`, machine-local, off unless present
 [new_projects]
 repositories = "~/dev"      # a git repository at <repositories>/<name>
 github_owner = "sam"        # and <owner>/<name> on GitHub, private
-per_day = 3                 # at most this many repositories a day (default 3)
+per_day = 3                 # at most this many repositories a day (default 3; 1 to 20)
 ```
 
 - With nothing set: the folder-only project, unchanged. With `repositories`: a local repository.
@@ -1165,12 +1165,19 @@ per_day = 3                 # at most this many repositories a day (default 3)
      name, what the project is about, what the person calls it, where its Collab Kit folder is),
      a `.gitignore`, and one commit by "Collab Kit back end". It is built in the back end's work
      folder (`<work>/new-projects/staging/<name>`) and moved into place only when that commit
-     exists, in one rename (across file systems: copied beside the destination under a hidden
-     name, then renamed).
-  2. *Remote*, with `github_owner`: create it private, check it is private, set `origin`, push
-     `main`. The address follows the protocol `gh` is set to for github.com. Over https the push
-     asks `gh` for the credential (what `gh auth setup-git` would configure), given for that one
-     push and never written to any git config.
+     exists, in one rename (across file systems: copied into a new folder of its own making
+     beside the destination, then renamed; nothing it did not create is ever removed). The commit's
+     id goes into the journal before the move, and is how the back end knows its own repository
+     afterwards.
+  2. *Remote*, with `github_owner`: create it private, check it is private, set `origin`, and
+     push that first commit, by its id, to `main`: never whatever the local branch has become
+     since. It pushes only from `<repositories>/<name>`, only while that folder still holds the
+     recorded commit, and only when the repository has no origin or the one the back end set (an
+     origin someone else set is left alone, and the project is refused). `gh` is told the host,
+     github.com, so the repository that is checked is the one pushed to. The address follows the
+     protocol `gh` is set to. Over https git asks `gh` for the credential (what `gh auth
+     setup-git` would configure), a setting given for that one command and never written to any
+     git config.
 - **The project's home does not change.** Its Collab Kit home stays its folder in the cloud, as
   `new-project` makes it: `project.toml` says `home = "cloud"`, the back end needs no `[[project]]`
   entry for it, and the repository carries no `collab-kit/` of its own. A session opened in the
@@ -1179,31 +1186,43 @@ per_day = 3                 # at most this many repositories a day (default 3)
 - "An agent for the new project" means exactly this: the repository has the kit installed, so a
   session a person opens there, on a machine set up for Collab Kit (`install.py machine`), starts
   from the project's brief. Nothing here starts agent work (section 23 is still a proposal).
-- **Which projects.** Those a top-level return started after this back end first ran with the
-  setting on. The back end reads the top level's ledgers of the last two days in each full pass
+- **Which projects.** Those a top-level return started after this back end began running with the
+  setting on (turned off and on again, it begins again: a project started in between gets none). The back end reads the top level's ledgers of the last two days in each full pass
   (the listing it already has; through rclone, files it has cached) and opens a journal for each
   new project it has none for. The ledger is the record of what was applied, so a pass that died
-  right after applying is caught by the next one. Turning the setting on changes nothing about
+  right after applying is caught by the next one; a file there that is not a ledger is skipped
+  (one such file used to stop every later `new-project`, since 0.5.0: repaired). Turning the setting on changes nothing about
   projects that already exist, and adding `github_owner` later does not revisit a project whose
   journal is done.
 - **The journal, and how a failure is finished.** One file per project on the back end's machine,
   `<work>/new-projects/<name>.json`, says how far it got: `pending` (nothing at the destination),
-  `local` (the local repository is in place), `done`, `refused`, or `withdrawn`. Every full pass
-  takes each open journal one step further, so a failure is retried at least hourly, and at once
-  when any return arrives. What each failure leaves:
+  `placing` (built, its first commit recorded, about to be moved into place), `local` (the local
+  repository is in place), `done`, `refused` (not tried again), `withdrawn` (the project was
+  undone), or `stopped` (the person said so). Every full pass takes each open journal as far as
+  it goes, so a failure is retried at least hourly, and at once when any return arrives. What
+  each failure leaves:
   - before the move into place (the installer fails, git fails, the disk is full): nothing at
     the destination. The staging folder is the back end's own and is rebuilt from nothing;
-  - the destination path exists: refused, and nothing in it is read or changed. Once the path is
-    moved away, the next pass makes the repository;
+  - the destination path exists (a folder, a file, or a link, even one that leads nowhere):
+    nothing in it is read or changed. Once the path is moved away, the next pass makes the
+    repository;
+  - the pass died between moving the repository into place and saying so: the journal already
+    names the commit, so the next pass recognises the repository as its own and carries on;
   - `gh` is missing or signed out, or GitHub cannot be reached: the local repository is complete
     and usable, the journal is `local`, and a later pass creates the remote and pushes;
   - created but not pushed (the push failed, or the pass died): the journal records that the
     remote was made, so a later pass pushes and does not create again. If even that record was
-    lost, an empty private repository of that name under the owner is taken up; one that is not
-    empty, or not private, is never pushed to;
-  - the project was undone before a repository was made: `withdrawn`, and none is made.
-  A person can always finish by hand (correct the cause and wait, or remove the journal file to
-  stop the attempts and do it themselves). The project's folder is usable throughout.
+    lost, an empty private repository of that name under the owner is taken up. One that is not
+    private is never pushed to. One that is not empty is never pushed to either: if its `main`
+    already is this project's first commit, the push had arrived and the work is done; otherwise
+    the step stops and says so;
+  - the project was undone (the ledger says so) at any point before the work was done:
+    `withdrawn`. Nothing more is made, a local repository that exists stays, and nothing is
+    created on GitHub.
+  The person stops the attempts from the phone by dropping the critical item that reports them
+  ("drop that item"): the journal becomes `stopped` and the project stays as it is. Journals are
+  never removed: one that is removed is opened again from the ledger within two days. The
+  project's folder is usable throughout.
 - **The report, on the agenda.** When it is done: the project's row in `knowledge/projects.md`
   says where it lives (the path, the machine, and on GitHub `<owner>/<name>`, "private at
   creation"); one status line at the top level, from "the back end", names the place in its
@@ -1213,14 +1232,18 @@ per_day = 3                 # at most this many repositories a day (default 3)
   and a new project already takes two (it started; where it lives). The `repositories` folder
   counts as a root of taken names, so a folder already there makes `new-project` refuse the name
   before anything is made. When it cannot be done: a problem on the front page for every pass it
-  stands, and one critical item (importance 1) per kind of failure, which says what exists, why
-  the rest does not, that it is tried again, and how to stop it. When a later pass succeeds, the
-  back end settles its own item. A day's limit reached is a problem on the front page, never a
-  critical item.
+  stands, and one critical item (importance 1) for the project, which says what exists, why the
+  rest does not, that it is tried again, and how to stop it; when the reason becomes one of
+  another kind, the item gets a line on its log, never a second item. When a later pass
+  succeeds, or the project is undone, the back end settles its own item. Each report is a return
+  with an id fixed for the project, so none is made twice. A day's limit reached is a problem on
+  the front page, never a critical item.
 - **What may reach a command line.** The project's name, checked against the name rule again
   where it is read from the ledger, and the configured owner, checked against GitHub's rule for
-  account names when the config is read. Each is one argument in an argument list; no shell
-  runs. Everything else a return carried (the title, `about=`, `spoken=`, the body, the sender,
+  account names when the config is read. Each is one argument in an argument list, with the
+  addresses built from those two and a commit id git itself printed. The back end starts no
+  shell. (Over https, git runs the credential helper line through `sh` itself: `gh`'s own path
+  and three fixed words.) Everything else a return carried (the title, `about=`, `spoken=`, the body, the sender,
   the topic) is written as file content only: the README, the agenda item, the catalog row. The
   `gh` commands have fixed arguments: `repo list` (as before), `repo view <owner>/<name> --json
   visibility,isEmpty`, `repo create <owner>/<name> --private`, `config get git_protocol`, from
@@ -1237,9 +1260,13 @@ per_day = 3                 # at most this many repositories a day (default 3)
   set, the front page says so, with the fix, before anyone relies on it. `ck doctor` on the back
   end's machine reads `backend.toml` from the config folder and checks the folder, git, `gh`, and
   the sign-in.
-- **An undo does not remove a repository.** Undoing the `new-project` return takes the folder
-  project back; a repository already made stays, on the machine and on GitHub. Nothing in the kit
-  deletes a repository.
+- **Undo, and what it cannot do.** An undo of the `new-project` return that is applied before the
+  repository is reported takes the folder project back and ends the work (above). Once the
+  repository is reported, that return can no longer be undone: an undo is refused when a file the
+  return wrote has changed since, and the report changes the project's row in the catalog. (For
+  the same reason, an undo of a one-step `new-project` is refused once another line has been
+  added to the top level's status.) To retire such a project, mark it inactive (`project <name>
+  active=no`). Nothing in the kit deletes a repository, on the machine or on GitHub.
 
 Not built, and why: a public repository (W-038: never by the kit); GitHub hosts other than
 github.com; a description, topics, or settings on the new repository (they would put text from a
