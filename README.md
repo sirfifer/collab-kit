@@ -240,7 +240,11 @@ page describes the main branch, and [CHANGELOG.md](CHANGELOG.md) says what is no
 
 **Not yet**
 
-- ChatGPT and Gemini (research in progress), and storage other than Google Drive.
+- ChatGPT: a hands-free set-up is worked out from OpenAI's own settings and **not yet verified**.
+  Running its test is one of the easiest ways to help: [other assistants](docs/other-assistants.md).
+  Gemini cannot yet list a folder or write a plain file by voice; Mistral's app does not yet speak
+  back.
+- Storage other than Google Drive.
 - Sharing a project with other people.
 - Merging and pushing an agent's finished work by saying yes, and stopping agent work by voice.
 - A plot, a page, or a video from an agent reaching your phone.
@@ -346,6 +350,8 @@ misheard number cannot change the wrong item.
   out this way.
 - [Setting up by hand](docs/setup.md): a back end, a project's repository.
 - [For AI agents](docs/for-agents.md): install, upgrade, check, repair, step by step.
+- [Other assistants](docs/other-assistants.md): ChatGPT, Gemini and Mistral, what each can do now, and
+  the test that would prove ChatGPT works.
 - [DESIGN-0.5.md](DESIGN-0.5.md): every decision, and what is planned and not built.
 - [SECURITY.md](SECURITY.md): the threat model, and how to report a vulnerability.
 - [CHANGELOG.md](CHANGELOG.md): what changed in each release.
